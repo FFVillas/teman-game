@@ -2,7 +2,7 @@ import { stats } from "@/data/stats";
 
 export default function Stats() {
   return (
-    <section className="w-full px-6 py-20 sm:px-16 lg:px-[120px]">
+    <section className="flex min-h-[64vh] w-full items-center px-6 py-20 sm:px-16 lg:px-[120px]">
       <div className="mx-auto flex w-full max-w-[1200px] flex-col items-center justify-center gap-10 sm:flex-row sm:gap-16 lg:gap-[136px]">
         {stats.map((stat, i) => (
           <div key={stat.label} className="flex items-center gap-10 sm:gap-16 lg:gap-[136px]">

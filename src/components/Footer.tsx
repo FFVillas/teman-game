@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import Logo from "./Logo";
 import {
@@ -68,7 +67,8 @@ export default function Footer() {
                       aria-label={social.label}
                       className={`flex size-10 items-center justify-center rounded-full border border-border-default ${social.bg} transition-opacity hover:opacity-90`}
                     >
-                      <Image
+                      {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
+                      <img
                         src={social.icon}
                         alt=""
                         width={social.iconWidth}
