@@ -1,26 +1,60 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Brand */
+  --main-color: #2c7ff3;
+
+  /* Surfaces */
+  --color-bg-page: #0e1015;
+  --color-bg-nav: #0a0c12;
+  --color-bg-surface: #13151b;
+  --color-bg-card: #1a1e2e;
+  --color-bg-card-alt: #16181d;
+  --color-bg-icon-tile: #0e1015;
+
+  /* Text */
+  --color-text-primary: #ffffff;
+  --color-text-muted: #767f8c;
+  --color-text-subtle: #cbd5e1;
+
+  /* Borders */
+  --color-border-subtle: rgba(255, 255, 255, 0.05);
+  --color-border-default: rgba(255, 255, 255, 0.1);
+  --color-border-strong: rgba(255, 255, 255, 0.15);
+
+  /* Socials */
+  --color-discord: #5865f2;
+  --color-twitter: #1da1f2;
+  --color-twitch: #8956fb;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-brand: var(--main-color);
+  --color-bg-page: var(--color-bg-page);
+  --color-bg-nav: var(--color-bg-nav);
+  --color-bg-surface: var(--color-bg-surface);
+  --color-bg-card: var(--color-bg-card);
+  --color-bg-card-alt: var(--color-bg-card-alt);
+  --color-bg-icon-tile: var(--color-bg-icon-tile);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-text-primary: var(--color-text-primary);
+  --color-text-muted: var(--color-text-muted);
+  --color-text-subtle: var(--color-text-subtle);
+
+  --color-border-subtle: var(--color-border-subtle);
+  --color-border-default: var(--color-border-default);
+  --color-border-strong: var(--color-border-strong);
+
+  --color-discord: var(--color-discord);
+  --color-twitter: var(--color-twitter);
+  --color-twitch: var(--color-twitch);
+
+  --font-display: var(--font-inter);
+  --font-heading: var(--font-jakarta);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-bg-page);
+  color: var(--color-text-primary);
+  font-family: var(--font-display), Arial, Helvetica, sans-serif;
 }
