@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import type { Game } from "@/data/games";
 
 export default function GameCard({
@@ -30,8 +31,8 @@ export default function GameCard({
   }
 
   return (
-    <div className="flex w-full flex-col items-start">
-      <div className="flex h-[272px] w-full items-center justify-center overflow-clip rounded-2xl bg-bg-card">
+    <Link href={game.href ?? "#"} className="flex w-full flex-col items-start">
+      <div className="flex h-[272px] w-full items-center justify-center overflow-clip rounded-2xl bg-bg-card transition-opacity hover:opacity-90">
         <div className="relative h-full w-full">
           <Image
             src={game.image}
@@ -57,6 +58,6 @@ export default function GameCard({
           </p>
         </div>
       </div>
-    </div>
+    </Link>
   );
 }

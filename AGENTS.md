@@ -17,15 +17,29 @@ Frontend only, for now.
 
 ```
 src/app/                 routes, layout, globals.css (theme tokens live here)
+src/app/lfg/<game>/      LFG (find-a-team) page per game, e.g. lfg/valorant
 src/components/          reusable UI (Navbar, Footer, Logo, GameCard, FeatureCard)
-src/components/sections/ page sections (Hero, Features, Stats) — composed in app/page.tsx
+src/components/sections/ landing page sections (Hero, Features, Stats) — composed in app/page.tsx
+src/components/lfg/      LFG page UI (LfgHero, LfgToolbar, LfgTeamCard, SortDropdown, LfgPagination)
 src/data/                static content (nav links, games, features, stats, footer links)
-public/games/            game cover images
-public/icons/            SVG icons
+src/data/lfg-*.ts        LFG mock data (teams, ranks, roles)
+public/games/            game cover images (landing page)
+public/lfg/covers/       LFG team cover images
+public/lfg/avatars/      LFG member avatar images
+public/icons/            SVG/PNG icons
 ```
 
 Keep copy/links/content in `src/data/*.ts`, not inline in JSX — makes it
 editable without touching component code.
+
+## Mock data → real backend
+
+Data files under `src/data/` that represent things a database will
+eventually own (e.g. `lfg-teams.ts`) are typed and shaped like the API
+response they're standing in for — components consume the typed interface,
+not the mock array directly. When the backend exists, swap the data source
+(fetch/DB call) behind that same interface; components shouldn't need to
+change.
 
 ## Scripts
 
