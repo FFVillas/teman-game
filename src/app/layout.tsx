@@ -16,7 +16,7 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "TemanGame — Find Your Team",
+  title: "TemanGame — Find Your Team Shibal",
   description:
     "Connect with thousands of players worldwide. Filter by rank, role, and playstyle to dominate the leaderboard in your favorite competitive games.",
 };
