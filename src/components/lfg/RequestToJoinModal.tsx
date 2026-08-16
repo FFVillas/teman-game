@@ -8,12 +8,6 @@ import { modeStyles } from "./LfgTeamCard";
 
 const allRoles: LfgRole[] = Object.values(lfgRoles);
 
-const modeBadgeStyles: Record<LfgTeam["mode"], string> = {
-  ranked: "bg-brand",
-  casual: "bg-text-muted",
-  tournament: "bg-[#ebc15d] text-black",
-};
-
 interface RequestToJoinModalProps {
   team: LfgTeam;
   onClose: () => void;
@@ -60,7 +54,7 @@ export default function RequestToJoinModal({
         role="dialog"
         aria-modal="true"
         aria-label={`Request to join ${team.name}`}
-        className="max-h-[95vh] w-full max-w-[880px] overflow-y-auto"
+        className="max-h-[95vh] w-full max-w-[750px] overflow-y-auto"
         onClick={(event) => event.stopPropagation()}
       >
         <button
@@ -74,13 +68,13 @@ export default function RequestToJoinModal({
         </button>
 
         <div className="rounded-2xl border-2 border-white/15 bg-bg-card-alt p-5 sm:p-6 lg:p-8">
-          <div className="flex flex-col gap-6 lg:flex-row">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-stretch">
             <div className="flex flex-1 flex-col gap-4">
               <div className="flex flex-col gap-1.5">
-                <h1 className="text-xl font-extrabold text-white sm:text-2xl">
-                  REQUEST TO JOIN
+                <h1 className="text-lg font-extrabold text-white sm:text-xl">
+                  Request To Join
                 </h1>
-                <p className="text-xs text-text-muted sm:text-sm">
+                <p className="text-[11px] text-text-muted sm:text-xs">
                   Introduce yourself to the team leader and select your
                   preferred role for this session.
                 </p>
@@ -91,7 +85,7 @@ export default function RequestToJoinModal({
                   <h2 className="text-[11px] font-bold uppercase tracking-widest text-text-muted">
                     Objectives &amp; Vibes
                   </h2>
-                  <p className="text-sm text-white">
+                  <p className="text-xs text-white">
                     {team.bio ??
                       `${team.name} is looking for dedicated teammates to climb the ranks together. Come ready to communicate and have fun.`}
                   </p>
@@ -147,7 +141,7 @@ export default function RequestToJoinModal({
 
                 <button
                   type="submit"
-                  className="flex h-11 items-center justify-center gap-2 rounded-xl bg-brand text-sm font-bold text-white shadow-[0_12px_16px_rgba(44,127,243,0.3)] transition-opacity hover:opacity-90"
+                  className="flex h-11 items-center justify-center gap-2 rounded-xl bg-brand text-[13px] font-bold text-white transition-opacity hover:opacity-90"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
                   <img
@@ -161,8 +155,8 @@ export default function RequestToJoinModal({
             </div>
 
             <aside className="flex w-full flex-col gap-3 lg:w-[260px]">
-              <div className="overflow-hidden rounded-2xl border border-white/10 bg-bg-card-alt">
-                <div className="relative h-[178px] w-full">
+              <div className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-white/10 bg-bg-card-alt">
+                <div className="relative min-h-[140px] w-full flex-1">
                   <Image
                     src={team.cover}
                     alt={team.name}
@@ -172,7 +166,7 @@ export default function RequestToJoinModal({
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-bg-card-alt to-transparent" />
                   <span
-                    className={`absolute left-3 top-3 rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white ${modeBadgeStyles[team.mode]}`}
+                    className={`absolute left-3 top-3 inline-flex w-fit items-center rounded-full border px-3 py-1 text-[9px] font-semibold uppercase tracking-wide ${mode.className}`}
                   >
                     {mode.label}
                   </span>
@@ -245,19 +239,19 @@ export default function RequestToJoinModal({
                           key={member.id}
                           src={member.avatar}
                           alt=""
-                          className="-ml-2 size-6 rounded-full border-2 border-bg-card-alt object-cover first:ml-0"
+                          className="-ml-2 size-7 rounded-full border-2 border-bg-card-alt object-cover first:ml-0"
                         />
                       ))}
                       {Array.from({ length: emptySlots }).map((_, index) => (
                         <div
                           key={index}
-                          className="-ml-2 flex size-6 items-center justify-center rounded-full border-2 border-bg-card-alt bg-[#272c33]"
+                          className="-ml-2 flex size-7 items-center justify-center rounded-full border-2 border-bg-card-alt bg-[#272c33]"
                         >
                           {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
                           <img
                             src="/icons/lfg-avatar-more.svg"
                             alt=""
-                            className="size-2"
+                            className="size-2.5"
                           />
                         </div>
                       ))}
