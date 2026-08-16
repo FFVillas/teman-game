@@ -1,8 +1,7 @@
 import Image from "next/image";
-import Link from "next/link";
 import type { LfgTeam } from "@/data/lfg-teams";
 
-const modeStyles: Record<LfgTeam["mode"], { label: string; className: string }> = {
+export const modeStyles: Record<LfgTeam["mode"], { label: string; className: string }> = {
   ranked: {
     label: "Ranked",
     className: "border-brand text-brand bg-[rgba(15,23,42,0.8)]",
@@ -17,12 +16,20 @@ const modeStyles: Record<LfgTeam["mode"], { label: string; className: string }> 
   },
 };
 
-export default function LfgTeamCard({ team }: { team: LfgTeam }) {
+interface LfgTeamCardProps {
+  team: LfgTeam;
+  onOpenDetails?: () => void;
+}
+
+export default function LfgTeamCard({ team, onOpenDetails }: LfgTeamCardProps) {
   const mode = modeStyles[team.mode];
   const hasOpenSlots = team.slotsFilled < team.slotsTotal;
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-xl border border-white/15 bg-bg-card-alt sm:h-[231px] sm:flex-row">
+    <div
+      onClick={onOpenDetails}
+      className="flex cursor-pointer flex-col overflow-hidden rounded-xl border border-white/15 bg-bg-card-alt transition-colors hover:border-white/25 sm:h-[231px] sm:flex-row"
+    >
       <div className="relative h-[130px] w-full shrink-0 overflow-hidden sm:h-auto sm:w-[128px]">
         <Image
           src={team.cover}
@@ -141,12 +148,13 @@ export default function LfgTeamCard({ team }: { team: LfgTeam }) {
               ))}
             </div>
           </div>
-          <Link
-            href="#"
+          <button
+            type="button"
+            onClick={onOpenDetails}
             className="flex h-6 w-[64px] items-center justify-center rounded-md bg-[#272c33] text-xs font-bold text-white transition-opacity hover:opacity-90"
           >
             Join
-          </Link>
+          </button>
         </div>
       </div>
     </div>

@@ -3,7 +3,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import LfgHero from "@/components/lfg/LfgHero";
 import LfgToolbar from "@/components/lfg/LfgToolbar";
-import LfgTeamCard from "@/components/lfg/LfgTeamCard";
+import LfgTeamGrid from "@/components/lfg/LfgTeamGrid";
 import LfgPagination from "@/components/lfg/LfgPagination";
 import { lfgTeams } from "@/data/lfg-teams";
 
@@ -27,11 +27,7 @@ export default function LfgValorantPage() {
 
           <LfgToolbar resultCount={128} />
 
-          <div className="grid grid-cols-1 gap-6 pt-2 lg:grid-cols-2">
-            {lfgTeams.map((team) => (
-              <LfgTeamCard key={team.id} team={team} />
-            ))}
-          </div>
+          <LfgTeamGrid teams={lfgTeams} />
 
           <LfgPagination currentPage={1} totalPages={12} />
         </div>

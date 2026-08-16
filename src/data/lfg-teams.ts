@@ -21,6 +21,7 @@ export interface LfgTeam {
   region: string;
   languages?: string;
   micRequired?: boolean;
+  bio?: string;
   members: LfgMember[];
   slotsFilled: number;
   slotsTotal: number;
@@ -40,6 +41,7 @@ export const lfgTeams: LfgTeam[] = [
     region: "SG2",
     languages: "ENG / IND",
     micRequired: true,
+    bio: "Climbing to Radiant this act. We play clean, communicate a lot, and don't tilt after a bad round. Come ready to grind ranked together.",
     members: [
       { id: "m1", avatar: "/lfg/avatars/avatar-1.jpg" },
       { id: "m2", avatar: "/lfg/avatars/avatar-2.jpg" },
@@ -60,6 +62,7 @@ export const lfgTeams: LfgTeam[] = [
     status: { label: "Active Now", isLive: true },
     region: "SG2",
     micRequired: true,
+    bio: "Chill casual squad, no pressure. We just want good vibes, some laughs, and the occasional clutch. All ranks welcome.",
     members: [
       { id: "m1", avatar: "/lfg/avatars/avatar-4.jpg" },
       { id: "m2", avatar: "/lfg/avatars/avatar-5.jpg" },
@@ -78,6 +81,7 @@ export const lfgTeams: LfgTeam[] = [
     mode: "ranked",
     status: { label: "Active Now", isLive: true },
     region: "SG2",
+    bio: "Learning-focused team working our way up from Silver. Looking for a Controller main who's patient with callouts and open to VOD review.",
     members: [
       { id: "m1", avatar: "/lfg/avatars/avatar-6.jpg" },
       { id: "m2", avatar: "/lfg/avatars/avatar-7.jpg" },
@@ -99,6 +103,7 @@ export const lfgTeams: LfgTeam[] = [
     status: { label: "21 May, 12:00 AM", isLive: false },
     region: "SG2",
     micRequired: true,
+    bio: "Prepping for an upcoming community tournament. Need a full roster with flexible role players — scrims start this week.",
     members: [{ id: "m1", avatar: "/lfg/avatars/avatar-3.jpg" }],
     slotsFilled: 4,
     slotsTotal: 5,
@@ -120,6 +125,7 @@ export const lfgTeams: LfgTeam[] = [
     status: { label: "Active Now", isLive: true },
     region: "SG2",
     micRequired: true,
+    bio: "Chill casual squad, no pressure. We just want good vibes, some laughs, and the occasional clutch. All ranks welcome.",
     members: [
       { id: "m1", avatar: "/lfg/avatars/avatar-4.jpg" },
       { id: "m2", avatar: "/lfg/avatars/avatar-5.jpg" },
@@ -139,6 +145,7 @@ export const lfgTeams: LfgTeam[] = [
     status: { label: "Active Now", isLive: true },
     region: "SG2",
     micRequired: true,
+    bio: "Competitive-minded and consistent — we queue most nights after 8PM SGT. Looking for teammates who take fights seriously but keep comms positive.",
     members: [
       { id: "m1", avatar: "/lfg/avatars/avatar-1.jpg" },
       { id: "m2", avatar: "/lfg/avatars/avatar-6.jpg" },
