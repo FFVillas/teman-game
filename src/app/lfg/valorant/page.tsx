@@ -5,6 +5,7 @@ import LfgHero from "@/components/lfg/LfgHero";
 import LfgToolbar from "@/components/lfg/LfgToolbar";
 import LfgTeamGrid from "@/components/lfg/LfgTeamGrid";
 import LfgPagination from "@/components/lfg/LfgPagination";
+import LfgNews from "@/components/lfg/LfgNews";
 import { lfgTeams } from "@/data/lfg-teams";
 
 export const metadata: Metadata = {
@@ -18,7 +19,7 @@ export default function LfgValorantPage() {
     <>
       <Navbar />
       <main className="flex flex-1 flex-col">
-        <div className="mx-auto flex w-full max-w-[1000px] flex-col gap-4 px-6 py-12 sm:px-8">
+        <div className="mx-auto flex w-full max-w-[1000px] flex-col gap-4 px-6 py-12">
           <LfgHero
             gameIcon="/icons/lfg-page-valorant.svg"
             gameName="Valorant"
@@ -30,6 +31,8 @@ export default function LfgValorantPage() {
           <LfgTeamGrid teams={lfgTeams} />
 
           <LfgPagination currentPage={1} totalPages={12} />
+
+          <LfgNews />
         </div>
       </main>
       <Footer />

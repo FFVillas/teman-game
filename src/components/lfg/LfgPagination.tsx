@@ -15,7 +15,7 @@ export default function LfgPagination({
         type="button"
         aria-label="Previous page"
         disabled={currentPage === 1}
-        className="flex size-10 items-center justify-center rounded-lg border border-white/10 text-white/70 transition-colors hover:border-white/20 disabled:opacity-40"
+        className="flex size-8 items-center justify-center rounded-lg border border-white/10 text-white/70 transition-colors hover:border-white/20 disabled:opacity-40"
       >
         {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
         <img src="/icons/lfg-pagination-prev.svg" alt="" className="h-4 w-2.5" />
@@ -25,7 +25,7 @@ export default function LfgPagination({
         <button
           key={page}
           type="button"
-          className={`flex size-10 items-center justify-center rounded-lg text-base font-bold transition-colors ${
+          className={`flex size-8 items-center justify-center rounded-lg text-sm font-bold transition-colors ${
             page === currentPage
               ? "bg-brand text-white"
               : "border border-white/10 text-[#94a3b8] hover:border-white/20"
@@ -36,7 +36,7 @@ export default function LfgPagination({
       ))}
 
       {totalPages > pages.length + 1 && (
-        <span className="flex size-10 items-center justify-center text-base text-[#64748b]">
+        <span className="flex size-8 items-center justify-center text-sm text-[#64748b]">
           …
         </span>
       )}
@@ -44,7 +44,7 @@ export default function LfgPagination({
       {totalPages > pages.length && (
         <button
           type="button"
-          className="flex size-10 items-center justify-center rounded-lg border border-white/10 text-[#94a3b8] transition-colors hover:border-white/20"
+          className="flex size-8 items-center justify-center rounded-lg border border-white/10 text-[#94a3b8] transition-colors hover:border-white/20"
         >
           {totalPages}
         </button>
@@ -54,7 +54,7 @@ export default function LfgPagination({
         type="button"
         aria-label="Next page"
         disabled={currentPage === totalPages}
-        className="flex size-10 items-center justify-center rounded-lg border border-white/10 text-white/70 transition-colors hover:border-white/20 disabled:opacity-40"
+        className="flex size-8 items-center justify-center rounded-lg border border-white/10 text-white/70 transition-colors hover:border-white/20 disabled:opacity-40"
       >
         {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
         <img src="/icons/lfg-pagination-next.svg" alt="" className="h-4 w-2.5" />
