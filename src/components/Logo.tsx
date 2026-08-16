@@ -1,6 +1,8 @@
+import Link from "next/link";
+
 export default function Logo({ compact = false }: { compact?: boolean }) {
   return (
-    <div className="flex items-center gap-2">
+    <Link href="/" className="flex items-center gap-2">
       <div
         className={`flex shrink-0 items-center justify-center rounded-lg bg-brand ${
           compact ? "size-6" : "size-8"
@@ -21,6 +23,6 @@ export default function Logo({ compact = false }: { compact?: boolean }) {
       >
         TemanGame
       </span>
-    </div>
+    </Link>
   );
 }

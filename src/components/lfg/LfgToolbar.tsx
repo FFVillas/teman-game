@@ -9,7 +9,7 @@ export default function LfgToolbar({ resultCount }: LfgToolbarProps) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 pt-3">
       <Link
-        href="#"
+        href="/lfg/valorant/create"
         className="flex h-[34px] shrink-0 items-center justify-center rounded-lg bg-brand px-[14px] text-[12px] font-bold text-white transition-opacity hover:opacity-90"
       >
         + Create Team
