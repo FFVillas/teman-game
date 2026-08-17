@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Logo from "./Logo";
 import { navLinks } from "@/data/nav-links";
+import { activeLobby } from "@/data/lfg-lobby";
 
 export default function Navbar() {
   return (
@@ -42,6 +43,28 @@ export default function Navbar() {
         </button>
 
         <div className="flex flex-1 items-center justify-end gap-3">
+          {/*
+            Persistent way back into the lobby you're in, from any page. A
+            user can only be in one live lobby at a time, so this is either
+            present or absent — never a list.
+          */}
+          <Link
+            href={`/lfg/${activeLobby.game}/lobby/${activeLobby.id}`}
+            title={`Your lobby: ${activeLobby.name}`}
+            className="flex h-8 items-center gap-2 rounded-lg border border-brand/40 bg-brand/10 px-2.5 transition-colors hover:border-brand/70 sm:px-3"
+          >
+            <span className="relative flex size-2 shrink-0">
+              <span className="absolute inline-flex size-full animate-ping rounded-full bg-success opacity-60" />
+              <span className="relative inline-flex size-2 rounded-full bg-success" />
+            </span>
+            <span className="hidden max-w-[130px] truncate text-xs font-bold text-white lg:block">
+              {activeLobby.name}
+            </span>
+            <span className="text-xs font-bold text-white lg:hidden">
+              Lobby
+            </span>
+          </Link>
+
           {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
           <img
             src="/icons/people.svg"
