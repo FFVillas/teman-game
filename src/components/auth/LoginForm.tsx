@@ -5,9 +5,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AuthField from "./AuthField";
 import OAuthButtons from "./OAuthButtons";
+import { useAuth } from "@/contexts/AuthContext";
+import { playerProfiles } from "@/data/player-profiles";
 
 export default function LoginForm() {
   const router = useRouter();
+  const { login } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -27,6 +30,12 @@ export default function LoginForm() {
     if (Object.keys(nextErrors).length > 0) return;
 
     // TODO: wire up to Supabase Auth signInWithPassword once the backend exists.
+    const me = playerProfiles.fayaz_ilovelittle;
+    login({
+      name: me.username,
+      avatar: me.avatar,
+      profileHref: "/profile/me",
+    });
     router.push("/lfg/valorant");
   }
 

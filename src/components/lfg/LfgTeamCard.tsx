@@ -1,5 +1,7 @@
 import Image from "next/image";
+import Link from "next/link";
 import type { LfgTeam } from "@/data/lfg-teams";
+import { findProfileByUsername } from "@/data/player-profiles";
 
 export const modeStyles: Record<LfgTeam["mode"], { label: string; className: string }> = {
   ranked: {
@@ -24,6 +26,7 @@ interface LfgTeamCardProps {
 export default function LfgTeamCard({ team, onOpenDetails }: LfgTeamCardProps) {
   const mode = modeStyles[team.mode];
   const hasOpenSlots = team.slotsFilled < team.slotsTotal;
+  const leaderProfile = findProfileByUsername(team.leaderName);
 
   return (
     <div
@@ -118,7 +121,18 @@ export default function LfgTeamCard({ team, onOpenDetails }: LfgTeamCardProps) {
           </div>
           <div className="flex flex-col gap-0.5">
             <p className="text-[11px] text-white/50">
-              Led by <span className="text-white">{team.leaderName}</span>
+              Led by{" "}
+              {leaderProfile ? (
+                <Link
+                  href={`/profile/${leaderProfile.slug}`}
+                  onClick={(event) => event.stopPropagation()}
+                  className="text-white hover:text-brand hover:underline"
+                >
+                  {team.leaderName}
+                </Link>
+              ) : (
+                <span className="text-white">{team.leaderName}</span>
+              )}
             </p>
             <div className="flex items-center gap-1">
               {/* eslint-disable-next-line @next/next/no-img-element -- static badge icon, no benefit from next/image optimization */}

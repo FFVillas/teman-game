@@ -8,11 +8,14 @@ import AuthSelect from "./AuthSelect";
 import OAuthButtons from "./OAuthButtons";
 import { authLegal } from "@/data/auth";
 import { regions, defaultRegion } from "@/data/regions";
+import { useAuth } from "@/contexts/AuthContext";
+import { playerProfiles } from "@/data/player-profiles";
 
 const MIN_PASSWORD_LENGTH = 8;
 
 export default function SignupForm() {
   const router = useRouter();
+  const { login } = useAuth();
 
   const [username, setUsername] = useState("");
   const [region, setRegion] = useState<string>(defaultRegion);
@@ -42,7 +45,15 @@ export default function SignupForm() {
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
-    // TODO: wire up to Supabase Auth signUp once the backend exists.
+    // TODO: wire up to Supabase Auth signUp once the backend exists. Until
+    // then, new accounts land on the same mock "own profile" record — the
+    // chip shows the name just entered, but the linked profile page is Fayaz's.
+    const me = playerProfiles.fayaz_ilovelittle;
+    login({
+      name: username.trim() || me.username,
+      avatar: me.avatar,
+      profileHref: "/profile/me",
+    });
     router.push("/lfg/valorant");
   }
 
