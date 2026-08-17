@@ -28,7 +28,7 @@ export default function NewsCard({ article }: { article: NewsArticle }) {
         <h3 className="text-sm font-bold text-white sm:text-base">
           {article.title}
         </h3>
-        <p className="text-xs text-text-muted sm:text-sm">{article.excerpt}</p>
+        <p className="text-xs text-text-subtle sm:text-sm">{article.excerpt}</p>
       </div>
     </Link>
   );
