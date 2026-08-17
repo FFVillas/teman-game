@@ -39,7 +39,7 @@ export default async function PlayerProfilePage({
     <>
       <Navbar />
       <main className="flex flex-1 flex-col">
-        <div className="mx-auto flex w-full max-w-[1152px] flex-col gap-4 px-6 py-12 sm:px-8">
+        <div className="mx-auto flex w-full max-w-[1000px] flex-col gap-4 px-6 py-10">
           <PlayerProfileView profile={profile} />
         </div>
       </main>

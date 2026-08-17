@@ -5,15 +5,20 @@ import {
   reportReasons,
   EVIDENCE_MAX_BYTES,
   EVIDENCE_ACCEPT,
-  type LobbyMember,
+  type ReportTarget,
   type ReportSubmission,
 } from "@/data/lfg-lobby";
 
 const MIN_DETAIL_LENGTH = 20;
 
 interface ReportFormProps {
-  player: LobbyMember;
+  player: ReportTarget;
   game: string;
+  /** Attaches lobby context to the ticket when the report has one. */
+  lobbyId?: string;
+  /** Shown above the reported-user card, e.g. which match this came from. */
+  context?: string;
+  cancelLabel?: string;
   onCancel: () => void;
   onSubmit: (report: ReportSubmission) => void;
 }
@@ -26,6 +31,9 @@ interface ReportFormProps {
 export default function ReportForm({
   player,
   game,
+  lobbyId,
+  context,
+  cancelLabel = "Cancel",
   onCancel,
   onSubmit,
 }: ReportFormProps) {
@@ -71,6 +79,7 @@ export default function ReportForm({
       details: details.trim(),
       evidenceFileName: file?.name,
       evidenceUrl: evidenceUrl.trim() || undefined,
+      lobbyId,
     });
   }
 
@@ -90,6 +99,12 @@ export default function ReportForm({
         </p>
       </div>
 
+      {context && (
+        <p className="rounded-lg border border-border-default bg-bg-page px-3 py-2 text-[11px] text-text-muted">
+          {context}
+        </p>
+      )}
+
       <div className="flex items-center gap-3 rounded-xl border border-border-default bg-bg-page p-3">
         {/* eslint-disable-next-line @next/next/no-img-element -- avatar thumbnail, no benefit from next/image optimization */}
         <img
@@ -103,10 +118,14 @@ export default function ReportForm({
           </span>
           <div className="flex items-center gap-2 text-[11px] text-text-muted">
             <span className="capitalize">{game}</span>
-            <span>•</span>
-            <span className={`font-bold ${player.rank.colorClass}`}>
-              {player.rank.name}
-            </span>
+            {player.rank && (
+              <>
+                <span>•</span>
+                <span className={`font-bold ${player.rank.colorClass}`}>
+                  {player.rank.name}
+                </span>
+              </>
+            )}
           </div>
         </div>
         <span className="shrink-0 rounded-md bg-danger/15 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-danger">
@@ -227,7 +246,7 @@ export default function ReportForm({
           onClick={onCancel}
           className="flex h-10 flex-1 items-center justify-center rounded-lg border border-border-strong text-xs font-semibold text-text-muted transition-colors hover:text-white"
         >
-          Cancel
+          {cancelLabel}
         </button>
         <button
           type="button"

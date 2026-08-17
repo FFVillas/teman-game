@@ -44,6 +44,8 @@ src/components/sections/ landing page sections (Hero, Features, Stats) — compo
 src/components/lfg/      LFG page UI (LfgHero, LfgToolbar, LfgTeamCard, SortDropdown, LfgPagination)
 src/components/lobby/    lobby detail UI (header, members, applications, chat, rating)
 src/components/auth/     auth UI (AuthShell, AuthField, OAuthButtons, AuthPanelCards)
+src/app/profile/         me, me/edit, [username], [username]/matches, .../report
+src/components/profile/  profile UI (view, edit form, match history, report panel)
 src/data/                static content (nav links, games, features, stats, footer links)
 src/data/lfg-*.ts        LFG mock data (teams, ranks, roles, lobby)
 public/games/            game cover images (landing page)
@@ -66,6 +68,29 @@ hold several scheduled ones — hence `activeLobby` plus `scheduledLobbies`.
 `RoleSwitcher` is a **demo-only** control. Leader vs. member is really
 decided by `lobby.leaderId === session.user.id`; delete the switcher once
 Supabase Auth lands.
+
+## Shared type scale
+
+Screens share one scale, so a new page shouldn't invent its own: page
+container `max-w-[1000px]`, cards `rounded-2xl border-border-strong
+bg-bg-card-alt p-5`, section headings `text-[11px] font-bold uppercase
+tracking-widest text-text-muted`, header actions `h-10 text-xs`. If a
+page starts feeling like a different product, check it against these
+first.
+
+## Reporting and reviewing
+
+`ReportForm` is shared. It takes a loose `ReportTarget` ({ id, name,
+avatar, rank? }) rather than a lobby member, so the same form backs the
+end-of-lobby flow, `/profile/<user>/report`, and a past match. Pass
+`lobbyId` when the report has lobby context (`reports.lobby_id`).
+
+`RatingModal` is likewise a queue over `ReportTarget[]`, so it works for
+live lobby members *and* for teammates pulled out of match history.
+Rating at the end of a lobby is skippable, so `MatchTeammate.reviewed`
+tracks who still needs rating — `/profile/<user>/matches/<id>` is where
+that gets picked back up. Reviews and reports return separately from the
+modal because they're separate tables.
 
 ## Mock data → real backend
 

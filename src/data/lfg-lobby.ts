@@ -289,6 +289,18 @@ export const reportReasons = [
   "Other",
 ];
 
+/**
+ * Minimum a report form needs to identify who's being reported. Kept looser
+ * than LobbyMember so reports can also be filed from a profile or a finished
+ * match, not just from inside a live lobby.
+ */
+export interface ReportTarget {
+  id: string;
+  name: string;
+  avatar: string;
+  rank?: LfgRank;
+}
+
 /** Everything a moderator needs to action a ticket. Mirrors `reports`. */
 export interface ReportSubmission {
   targetId: string;
@@ -297,6 +309,8 @@ export interface ReportSubmission {
   /** Screenshot or clip. Not uploaded yet — no storage bucket exists. */
   evidenceFileName?: string;
   evidenceUrl?: string;
+  /** Set when the report comes from a known lobby, per `reports.lobby_id`. */
+  lobbyId?: string;
 }
 
 export const EVIDENCE_MAX_BYTES = 5 * 1024 * 1024;
