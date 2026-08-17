@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Plus_Jakarta_Sans } from "next/font/google";
+import { AuthProvider } from "@/contexts/AuthContext";
 import "./globals.css";
 
 const inter = Inter({
@@ -32,7 +33,7 @@ export default function RootLayout({
       className={`${inter.variable} ${jakarta.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-bg-page text-text-primary">
-        {children}
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );

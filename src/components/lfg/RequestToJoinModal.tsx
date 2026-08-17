@@ -2,8 +2,10 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import type { LfgTeam } from "@/data/lfg-teams";
 import { lfgRoles, type LfgRole } from "@/data/lfg-roles";
+import { findProfileByUsername } from "@/data/player-profiles";
 import { modeStyles } from "./LfgTeamCard";
 
 const allRoles: LfgRole[] = Object.values(lfgRoles);
@@ -38,6 +40,7 @@ export default function RequestToJoinModal({
   const mode = modeStyles[team.mode];
   const leaderAvatar = team.members[0]?.avatar;
   const emptySlots = Math.max(team.slotsTotal - team.members.length, 0);
+  const leaderProfile = findProfileByUsername(team.leaderName);
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -194,18 +197,37 @@ export default function RequestToJoinModal({
                       Lobby Leader
                     </h4>
                     <div className="flex items-center gap-2">
-                      {leaderAvatar && (
-                        // eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization
-                        <img
-                          src={leaderAvatar}
-                          alt=""
-                          className="size-8 rounded-full border border-brand object-cover"
-                        />
-                      )}
+                      {leaderAvatar &&
+                        (leaderProfile ? (
+                          <Link href={`/profile/${leaderProfile.slug}`}>
+                            {/* eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization */}
+                            <img
+                              src={leaderAvatar}
+                              alt=""
+                              className="size-8 rounded-full border border-brand object-cover transition-opacity hover:opacity-80"
+                            />
+                          </Link>
+                        ) : (
+                          // eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization
+                          <img
+                            src={leaderAvatar}
+                            alt=""
+                            className="size-8 rounded-full border border-brand object-cover"
+                          />
+                        ))}
                       <div className="flex flex-col">
-                        <span className="text-xs font-bold text-white">
-                          {team.leaderName}
-                        </span>
+                        {leaderProfile ? (
+                          <Link
+                            href={`/profile/${leaderProfile.slug}`}
+                            className="text-xs font-bold text-white hover:text-brand hover:underline"
+                          >
+                            {team.leaderName}
+                          </Link>
+                        ) : (
+                          <span className="text-xs font-bold text-white">
+                            {team.leaderName}
+                          </span>
+                        )}
                         <div className="flex items-center gap-1">
                           {/* eslint-disable-next-line @next/next/no-img-element -- static badge icon, no benefit from next/image optimization */}
                           <img
