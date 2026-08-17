@@ -37,11 +37,15 @@ of the six games in scope.
 ```
 src/app/                 routes, layout, globals.css (theme tokens live here)
 src/app/lfg/<game>/      LFG (find-a-team) page per game, e.g. lfg/valorant
+src/app/lfg/<game>/lobby/<id>/  lobby detail — the lobby you're already in
+src/app/login, /signup   auth screens
 src/components/          reusable UI (Navbar, Footer, Logo, GameCard, FeatureCard)
 src/components/sections/ landing page sections (Hero, Features, Stats) — composed in app/page.tsx
 src/components/lfg/      LFG page UI (LfgHero, LfgToolbar, LfgTeamCard, SortDropdown, LfgPagination)
+src/components/lobby/    lobby detail UI (header, members, applications, chat, rating)
+src/components/auth/     auth UI (AuthShell, AuthField, OAuthButtons, AuthPanelCards)
 src/data/                static content (nav links, games, features, stats, footer links)
-src/data/lfg-*.ts        LFG mock data (teams, ranks, roles)
+src/data/lfg-*.ts        LFG mock data (teams, ranks, roles, lobby)
 public/games/            game cover images (landing page)
 public/lfg/covers/       LFG team cover images
 public/lfg/avatars/      LFG member avatar images
@@ -50,6 +54,18 @@ public/icons/            SVG/PNG icons
 
 Keep copy/links/content in `src/data/*.ts`, not inline in JSX — makes it
 editable without touching component code.
+
+## Lobby vs. team
+
+`LfgTeam` (`lfg-teams.ts`) is a lobby as it appears in the **discovery
+list**; `Lobby` (`lfg-lobby.ts`) is the same entity as seen from
+**inside**, with members, applications and messages. The proposal calls
+both a "lobby". A user can only be in one live lobby at a time, but may
+hold several scheduled ones — hence `activeLobby` plus `scheduledLobbies`.
+
+`RoleSwitcher` is a **demo-only** control. Leader vs. member is really
+decided by `lobby.leaderId === session.user.id`; delete the switcher once
+Supabase Auth lands.
 
 ## Mock data → real backend
 
