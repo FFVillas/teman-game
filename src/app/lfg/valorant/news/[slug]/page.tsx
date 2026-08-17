@@ -90,7 +90,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
                 {section.paragraphs.map((paragraph, pIndex) => (
                   <p
                     key={pIndex}
-                    className="text-sm leading-relaxed text-text-muted sm:text-[15px]"
+                    className="text-sm leading-relaxed text-text-subtle sm:text-[15px]"
                   >
                     {paragraph}
                   </p>

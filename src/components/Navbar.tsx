@@ -1,8 +1,15 @@
 import Link from "next/link";
 import Logo from "./Logo";
 import { navLinks } from "@/data/nav-links";
+import type { SocialUser } from "@/data/social-friends";
 
-export default function Navbar() {
+interface NavbarProps {
+  /** When provided, shows the logged-in profile chip instead of Log in / Sign up.
+   *  No real auth wiring yet — callers pass a user explicitly for now. */
+  user?: SocialUser;
+}
+
+export default function Navbar({ user }: NavbarProps) {
   return (
     <header className="sticky top-0 z-50 flex h-[60px] w-full items-center justify-center border-b border-border-subtle bg-bg-nav px-6">
       <div className="flex w-full max-w-[1440px] flex-1 items-center gap-6">
@@ -50,18 +57,37 @@ export default function Navbar() {
             height={12}
             className="hidden sm:block"
           />
-          <Link
-            href="#"
-            className="flex h-8 items-center justify-center rounded-lg border border-border-default px-3 text-xs font-semibold tracking-[0.2px] text-text-subtle transition-colors hover:border-border-strong hover:text-white"
-          >
-            Log in
-          </Link>
-          <Link
-            href="#"
-            className="flex h-8 items-center justify-center rounded-lg bg-brand px-4 text-xs font-bold tracking-[0.1px] text-white transition-opacity hover:opacity-90"
-          >
-            Sign up
-          </Link>
+          {user ? (
+            <Link
+              href="/social"
+              className="flex h-9 items-center gap-2 rounded-lg border border-border-default bg-white/5 py-1 pl-1 pr-3 transition-colors hover:border-border-strong"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization */}
+              <img
+                src={user.avatar}
+                alt=""
+                className="size-7 rounded-full object-cover"
+              />
+              <span className="text-xs font-semibold text-text-subtle">
+                {user.name}
+              </span>
+            </Link>
+          ) : (
+            <>
+              <Link
+                href="#"
+                className="flex h-8 items-center justify-center rounded-lg border border-border-default px-3 text-xs font-semibold tracking-[0.2px] text-text-subtle transition-colors hover:border-border-strong hover:text-white"
+              >
+                Log in
+              </Link>
+              <Link
+                href="#"
+                className="flex h-8 items-center justify-center rounded-lg bg-brand px-4 text-xs font-bold tracking-[0.1px] text-white transition-opacity hover:opacity-90"
+              >
+                Sign up
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </header>
