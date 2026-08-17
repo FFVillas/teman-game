@@ -5,9 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { lfgRoles, type LfgRole } from "@/data/lfg-roles";
 import { lfgRanks } from "@/data/lfg-ranks";
+import { regions, defaultRegion } from "@/data/regions";
 
 const gamemodeOptions = ["Competitive", "Casual", "Deathmatch", "Spike Rush"];
-const regionOptions = ["SG2", "NA East", "EU West"];
+const regionOptions = [...regions];
 const languageOptions = ["English", "Indonesian", "English / Indonesian"];
 const vibeTagOptions = ["Competitive", "Chill", "Tactical", "Grinding", "Voice Comms"];
 const seekingRoleOrder: LfgRole[] = [
@@ -88,7 +89,7 @@ export default function CreateTeamForm() {
   const [description, setDescription] = useState("");
   const [vibeTags, setVibeTags] = useState<string[]>(["Competitive"]);
 
-  const [region, setRegion] = useState(regionOptions[0]);
+  const [region, setRegion] = useState<string>(defaultRegion);
   const [groupSize, setGroupSize] = useState(3);
   const [language, setLanguage] = useState(languageOptions[0]);
   const [playtimeMode, setPlaytimeMode] = useState<"now" | "schedule">("now");
