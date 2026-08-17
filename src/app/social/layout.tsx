@@ -1,7 +1,6 @@
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import SocialSidebar from "@/components/social/SocialSidebar";
-import { currentUser } from "@/data/social-friends";
 
 export default function SocialLayout({
   children,
@@ -10,7 +9,7 @@ export default function SocialLayout({
 }) {
   return (
     <>
-      <Navbar user={currentUser} />
+      <Navbar />
       <main className="flex min-h-screen flex-1 flex-col items-center px-6 py-12">
         <div className="flex w-full max-w-[1000px] flex-1 overflow-hidden rounded-2xl border border-border-default bg-bg-card-alt">
           <SocialSidebar />

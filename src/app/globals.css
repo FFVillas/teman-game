@@ -22,6 +22,17 @@
   --color-border-default: rgba(255, 255, 255, 0.1);
   --color-border-strong: rgba(255, 255, 255, 0.15);
 
+  /* Feedback */
+  --color-danger: #f2555a;
+  --color-success: #10b981;
+  --color-star: #f5b544;
+
+  /* Auth panel gradient */
+  --color-auth-base: #061224;
+  --color-auth-from: #0a2244;
+  --color-auth-via: #1560a8;
+  --color-auth-to: #2c7ff3;
+
   /* Socials */
   --color-discord: #5865f2;
   --color-twitter: #1da1f2;
@@ -45,6 +56,10 @@
   --color-border-default: var(--color-border-default);
   --color-border-strong: var(--color-border-strong);
 
+  --color-danger: var(--color-danger);
+  --color-success: var(--color-success);
+  --color-star: var(--color-star);
+
   --color-discord: var(--color-discord);
   --color-twitter: var(--color-twitter);
   --color-twitch: var(--color-twitch);
@@ -57,4 +72,28 @@ body {
   background: var(--color-bg-page);
   color: var(--color-text-primary);
   font-family: var(--font-display), Arial, Helvetica, sans-serif;
+}
+
+/*
+ * Auth split-screen panel. Layered radial gradients rather than a flat
+ * linear ramp — the off-centre hotspots are what stop it reading as a
+ * default gradient. Colours come from the tokens above.
+ */
+.auth-panel-gradient {
+  background:
+    radial-gradient(
+      115% 90% at 8% 105%,
+      var(--color-auth-to) 0%,
+      transparent 58%
+    ),
+    radial-gradient(
+      85% 75% at 88% 0%,
+      var(--color-auth-via) 0%,
+      transparent 62%
+    ),
+    linear-gradient(
+      158deg,
+      var(--color-auth-from) 0%,
+      var(--color-auth-base) 100%
+    );
 }

@@ -6,7 +6,9 @@ import LfgToolbar from "@/components/lfg/LfgToolbar";
 import LfgTeamGrid from "@/components/lfg/LfgTeamGrid";
 import LfgPagination from "@/components/lfg/LfgPagination";
 import LfgNews from "@/components/lfg/LfgNews";
+import ActiveLobbyBanner from "@/components/lfg/ActiveLobbyBanner";
 import { lfgTeams } from "@/data/lfg-teams";
+import { activeLobby, scheduledLobbies } from "@/data/lfg-lobby";
 
 export const metadata: Metadata = {
   title: "Find Your Next Valorant Team — TemanGame",
@@ -24,6 +26,12 @@ export default function LfgValorantPage() {
             gameIcon="/icons/lfg-page-valorant.svg"
             gameName="Valorant"
             description="Browse available lobbies and professional teams looking for players. Filter by rank, role, and region to find your perfect match."
+          />
+
+          <ActiveLobbyBanner
+            lobby={activeLobby}
+            scheduled={scheduledLobbies}
+            isLeader
           />
 
           <LfgToolbar resultCount={128} />
