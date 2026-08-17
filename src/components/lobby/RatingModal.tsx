@@ -5,7 +5,7 @@ import StarRating from "./StarRating";
 import ReportForm from "./ReportForm";
 import {
   reviewTags,
-  type LobbyMember,
+  type ReportTarget,
   type ReportSubmission,
 } from "@/data/lfg-lobby";
 
@@ -16,10 +16,15 @@ export interface LobbyReview {
 }
 
 interface RatingModalProps {
-  /** Everyone except the reviewer — you don't rate yourself. */
-  teammates: LobbyMember[];
+  /**
+   * Everyone except the reviewer — you don't rate yourself. Typed loosely so
+   * the same queue works for a live lobby's members and for teammates pulled
+   * from a finished match in history.
+   */
+  teammates: ReportTarget[];
   lobbyName: string;
   game: string;
+  lobbyId?: string;
   onClose: () => void;
   onComplete: (reviews: LobbyReview[], reports: ReportSubmission[]) => void;
 }
@@ -33,6 +38,7 @@ export default function RatingModal({
   teammates,
   lobbyName,
   game,
+  lobbyId,
   onClose,
   onComplete,
 }: RatingModalProps) {
@@ -114,14 +120,20 @@ export default function RatingModal({
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-lg font-bold text-white">{player.name}</h2>
-              <span className="text-text-muted">•</span>
-              <span className="flex items-center gap-1">
-                {/* eslint-disable-next-line @next/next/no-img-element -- static badge icon, no benefit from next/image optimization */}
-                <img src={player.rank.icon} alt="" className="size-3.5" />
-                <span className={`text-xs font-bold ${player.rank.colorClass}`}>
-                  {player.rank.name}
-                </span>
-              </span>
+              {player.rank && (
+                <>
+                  <span className="text-text-muted">•</span>
+                  <span className="flex items-center gap-1">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- static badge icon, no benefit from next/image optimization */}
+                    <img src={player.rank.icon} alt="" className="size-3.5" />
+                    <span
+                      className={`text-xs font-bold ${player.rank.colorClass}`}
+                    >
+                      {player.rank.name}
+                    </span>
+                  </span>
+                </>
+              )}
             </div>
             <p className="truncate text-sm text-text-muted">{lobbyName}</p>
           </div>
@@ -139,6 +151,7 @@ export default function RatingModal({
           <ReportForm
             player={player}
             game={game}
+            lobbyId={lobbyId}
             onCancel={() => setReporting(false)}
             onSubmit={submitReport}
           />
