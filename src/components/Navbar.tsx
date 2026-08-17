@@ -51,13 +51,13 @@ export default function Navbar() {
             className="hidden sm:block"
           />
           <Link
-            href="#"
+            href="/login"
             className="flex h-8 items-center justify-center rounded-lg border border-border-default px-3 text-xs font-semibold tracking-[0.2px] text-text-subtle transition-colors hover:border-border-strong hover:text-white"
           >
             Log in
           </Link>
           <Link
-            href="#"
+            href="/signup"
             className="flex h-8 items-center justify-center rounded-lg bg-brand px-4 text-xs font-bold tracking-[0.1px] text-white transition-opacity hover:opacity-90"
           >
             Sign up
