@@ -16,7 +16,7 @@ export default function SocialSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden w-[260px] shrink-0 flex-col border-r border-border-default sm:flex">
+    <aside className="hidden min-h-0 w-[260px] shrink-0 flex-col border-r border-border-default sm:flex">
       <div className="p-6">
         <h1 className="text-2xl font-extrabold text-white">Social</h1>
       </div>

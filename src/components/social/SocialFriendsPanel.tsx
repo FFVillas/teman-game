@@ -18,7 +18,7 @@ export default function SocialFriendsPanel() {
   const showFriends = activeTab === "online" || activeTab === "all";
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border-default px-6 py-4">
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2">
@@ -70,7 +70,7 @@ export default function SocialFriendsPanel() {
         <GameFilterDropdown />
       </div>
 
-      <div className="flex flex-1 flex-col gap-8 p-6">
+      <div className="flex min-h-0 flex-1 flex-col gap-8 overflow-y-auto p-6">
         {showFriends && (
           <>
             <section className="flex flex-col gap-3">

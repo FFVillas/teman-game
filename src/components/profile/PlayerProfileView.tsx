@@ -141,12 +141,12 @@ export default function PlayerProfileView({
                   />
                   Add friend
                 </button>
-                <button
-                  type="button"
+                <Link
+                  href={`/messages?user=${encodeURIComponent(profile.slug)}&name=${encodeURIComponent(profile.username)}&avatar=${encodeURIComponent(profile.avatar)}`}
                   className="flex h-10 items-center justify-center rounded-lg bg-brand px-5 text-xs font-bold text-white transition-opacity hover:opacity-90"
                 >
                   Message
-                </button>
+                </Link>
               </>
             )}
           </div>
