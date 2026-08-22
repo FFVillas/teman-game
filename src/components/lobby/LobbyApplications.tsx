@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import type { LobbyApplication } from "@/data/lfg-lobby";
+import { findProfileByUsername } from "@/data/player-profiles";
 
 /**
  * The match score is `S_total` from the recommendation engine. Showing the
@@ -63,24 +65,47 @@ export default function LobbyApplications({
         </p>
       ) : (
         <ul className="flex flex-col gap-2">
-          {pending.map((app) => (
+          {pending.map((app) => {
+            const profile = findProfileByUsername(app.applicantName);
+
+            return (
             <li
               key={app.id}
               className="flex flex-col gap-3 rounded-xl border border-border-default bg-bg-page p-3"
             >
               <div className="flex items-start gap-3">
-                {/* eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization */}
-                <img
-                  src={app.avatar}
-                  alt=""
-                  className="size-10 shrink-0 rounded-full object-cover"
-                />
+                {profile ? (
+                  <Link href={`/profile/${profile.slug}`} className="shrink-0">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization */}
+                    <img
+                      src={app.avatar}
+                      alt=""
+                      className="size-10 rounded-full object-cover transition-opacity hover:opacity-80"
+                    />
+                  </Link>
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization
+                  <img
+                    src={app.avatar}
+                    alt=""
+                    className="size-10 shrink-0 rounded-full object-cover"
+                  />
+                )}
 
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="truncate text-sm font-bold text-white">
-                      {app.applicantName}
-                    </span>
+                    {profile ? (
+                      <Link
+                        href={`/profile/${profile.slug}`}
+                        className="truncate text-sm font-bold text-white hover:text-brand hover:underline"
+                      >
+                        {app.applicantName}
+                      </Link>
+                    ) : (
+                      <span className="truncate text-sm font-bold text-white">
+                        {app.applicantName}
+                      </span>
+                    )}
                     <span className="text-[10px] text-text-muted">
                       {app.appliedAgo}
                     </span>
@@ -132,7 +157,8 @@ export default function LobbyApplications({
                 </button>
               </div>
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
     </section>

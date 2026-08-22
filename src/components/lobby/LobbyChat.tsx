@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import Link from "next/link";
 import type { LobbyMessage } from "@/data/lfg-lobby";
+import { findProfileByUsername } from "@/data/player-profiles";
 
 interface LobbyChatProps {
   messages: LobbyMessage[];
@@ -57,25 +59,50 @@ export default function LobbyChat({
           }
 
           const isMine = message.authorId === currentUserId;
+          const profileHref = isMine
+            ? "/profile/me"
+            : findProfileByUsername(message.authorName)
+              ? `/profile/${findProfileByUsername(message.authorName)!.slug}`
+              : undefined;
 
           return (
             <div
               key={message.id}
               className={`flex items-end gap-2 ${isMine ? "flex-row-reverse" : ""}`}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization */}
-              <img
-                src={message.avatar}
-                alt=""
-                className="size-7 shrink-0 rounded-full object-cover"
-              />
+              {profileHref ? (
+                <Link href={profileHref} className="shrink-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization */}
+                  <img
+                    src={message.avatar}
+                    alt=""
+                    className="size-7 rounded-full object-cover transition-opacity hover:opacity-80"
+                  />
+                </Link>
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization
+                <img
+                  src={message.avatar}
+                  alt=""
+                  className="size-7 shrink-0 rounded-full object-cover"
+                />
+              )}
               <div
                 className={`flex max-w-[78%] flex-col gap-1 ${isMine ? "items-end" : ""}`}
               >
                 <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-bold text-white">
-                    {isMine ? "You" : message.authorName}
-                  </span>
+                  {profileHref && !isMine ? (
+                    <Link
+                      href={profileHref}
+                      className="text-[11px] font-bold text-white hover:text-brand hover:underline"
+                    >
+                      {message.authorName}
+                    </Link>
+                  ) : (
+                    <span className="text-[11px] font-bold text-white">
+                      {isMine ? "You" : message.authorName}
+                    </span>
+                  )}
                   <span className="text-[10px] text-text-muted">
                     {message.sentAt}
                   </span>

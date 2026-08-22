@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import type { LobbyMember } from "@/data/lfg-lobby";
+import { findProfileByUsername } from "@/data/player-profiles";
 
 interface LobbyMembersProps {
   members: LobbyMember[];
@@ -32,25 +34,54 @@ export default function LobbyMembers({
       </div>
 
       <ul className="flex flex-col gap-2">
-        {members.map((member) => (
+        {members.map((member) => {
+          const isMe = member.id === currentUserId;
+          const profileHref = isMe
+            ? "/profile/me"
+            : `/profile/${findProfileByUsername(member.name)?.slug ?? ""}`;
+          const canLink = isMe || Boolean(findProfileByUsername(member.name));
+
+          return (
           <li
             key={member.id}
             className="flex items-center gap-3 rounded-xl border border-border-default bg-bg-page p-3"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization */}
-            <img
-              src={member.avatar}
-              alt=""
-              className={`size-10 shrink-0 rounded-full object-cover ${
-                member.isLeader ? "border-2 border-brand" : ""
-              }`}
-            />
+            {canLink ? (
+              <Link href={profileHref} className="shrink-0">
+                {/* eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization */}
+                <img
+                  src={member.avatar}
+                  alt=""
+                  className={`size-10 rounded-full object-cover transition-opacity hover:opacity-80 ${
+                    member.isLeader ? "border-2 border-brand" : ""
+                  }`}
+                />
+              </Link>
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization
+              <img
+                src={member.avatar}
+                alt=""
+                className={`size-10 shrink-0 rounded-full object-cover ${
+                  member.isLeader ? "border-2 border-brand" : ""
+                }`}
+              />
+            )}
 
             <div className="flex min-w-0 flex-1 flex-col gap-0.5">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="truncate text-sm font-bold text-white">
-                  {member.name}
-                </span>
+                {canLink ? (
+                  <Link
+                    href={profileHref}
+                    className="truncate text-sm font-bold text-white hover:text-brand hover:underline"
+                  >
+                    {member.name}
+                  </Link>
+                ) : (
+                  <span className="truncate text-sm font-bold text-white">
+                    {member.name}
+                  </span>
+                )}
                 {member.id === currentUserId && (
                   <span className="rounded bg-white/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white/70">
                     You
@@ -98,7 +129,8 @@ export default function LobbyMembers({
               </button>
             )}
           </li>
-        ))}
+          );
+        })}
 
         {Array.from({ length: emptySlots }).map((_, index) => (
           <li

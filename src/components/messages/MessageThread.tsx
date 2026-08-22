@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { currentUser } from "@/data/social-friends";
+import { useAuth } from "@/contexts/AuthContext";
+import { currentUser as mockCurrentUser } from "@/data/social-friends";
 import { CURRENT_USER_ID, type Conversation } from "@/data/lfg-messages";
 
 interface MessageThreadProps {
@@ -15,6 +16,8 @@ export default function MessageThread({
 }: MessageThreadProps) {
   const [draft, setDraft] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
+  const { user } = useAuth();
+  const currentUser = user ?? mockCurrentUser;
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: "end" });
