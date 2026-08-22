@@ -45,7 +45,7 @@ export default function MatchHistoryList({
                     alt=""
                     fill
                     sizes="48px"
-                    className="object-cover"
+                    className="object-cover object-top"
                   />
                 </div>
               )}

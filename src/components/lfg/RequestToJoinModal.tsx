@@ -165,7 +165,7 @@ export default function RequestToJoinModal({
                     alt={team.name}
                     fill
                     sizes="260px"
-                    className="object-cover opacity-60"
+                    className="object-cover object-top opacity-60"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-bg-card-alt to-transparent" />
                   <span

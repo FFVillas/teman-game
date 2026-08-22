@@ -85,7 +85,7 @@ export default async function ArticlePage({
               fill
               sizes="1000px"
               priority
-              className="object-cover"
+              className="object-cover object-top"
             />
           </div>
 

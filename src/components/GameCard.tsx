@@ -42,7 +42,7 @@ export default function GameCard({
             alt={game.name}
             fill
             sizes="(min-width: 1024px) 184px, 45vw"
-            className="object-cover"
+            className="object-cover object-top"
             priority={priority}
           />
         </div>

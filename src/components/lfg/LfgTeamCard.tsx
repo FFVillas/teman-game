@@ -39,7 +39,7 @@ export default function LfgTeamCard({ team, onOpenDetails }: LfgTeamCardProps) {
           alt={team.name}
           fill
           sizes="128px"
-          className="object-cover"
+          className="object-cover object-top"
         />
         <div className="absolute inset-0 bg-gradient-to-r from-transparent from-45% to-bg-card-alt to-85%" />
         <div className="absolute inset-0 flex flex-col justify-between gap-1 p-3">

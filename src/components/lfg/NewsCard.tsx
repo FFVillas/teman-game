@@ -25,7 +25,7 @@ export default function NewsCard({ article, from = "news" }: NewsCardProps) {
           alt={article.title}
           fill
           sizes="(min-width: 640px) 33vw, 100vw"
-          className="object-cover transition-transform duration-300 group-hover:scale-105"
+          className="object-cover object-top transition-transform duration-300 group-hover:scale-105"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
       </div>
