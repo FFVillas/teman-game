@@ -38,19 +38,27 @@ of the six games in scope.
 src/app/                 routes, layout, globals.css (theme tokens live here)
 src/app/lfg/<game>/      LFG (find-a-team) page per game, e.g. lfg/valorant
 src/app/lfg/<game>/lobby/<id>/  lobby detail — the lobby you're already in
-src/app/login, /signup   auth screens
+src/app/lfg/<game>/news/, .../news/[slug]/  platform news list + article
+src/app/login, /signup   auth screens (wired to AuthContext, see below)
+src/app/social/          friends list — layout.tsx holds the shared sidebar
+src/app/social/pending, /discover, /recent  the other 3 social sub-pages
 src/components/          reusable UI (Navbar, Footer, Logo, GameCard, FeatureCard)
 src/components/sections/ landing page sections (Hero, Features, Stats) — composed in app/page.tsx
-src/components/lfg/      LFG page UI (LfgHero, LfgToolbar, LfgTeamCard, SortDropdown, LfgPagination)
-src/components/lobby/    lobby detail UI (header, members, applications, chat, rating)
+src/components/lfg/      LFG page UI (LfgHero, LfgToolbar, LfgTeamCard, SortDropdown, LfgPagination, NewsCard)
+src/components/lobby/    lobby detail UI (header, members, applications, chat, rating, LobbyActionsMenu)
+src/components/social/   friends/pending/discover/recent UI (FriendCard, PlayerCard, dropdowns)
 src/components/auth/     auth UI (AuthShell, AuthField, OAuthButtons, AuthPanelCards)
+src/contexts/AuthContext.tsx  session mock — see "Auth" below
 src/app/profile/         me, me/edit, [username], [username]/matches, .../report
 src/components/profile/  profile UI (view, edit form, match history, report panel)
 src/data/                static content (nav links, games, features, stats, footer links)
 src/data/lfg-*.ts        LFG mock data (teams, ranks, roles, lobby)
+src/data/social-*.ts     Social page mock data (friends, pending, discover, recent)
+src/data/player-profiles.ts, regions.ts  profile + signup-flow mock data
 public/games/            game cover images (landing page)
 public/lfg/covers/       LFG team cover images
-public/lfg/avatars/      LFG member avatar images
+public/lfg/avatars/      LFG member avatar images — shared identity across the app
+                         (e.g. avatar-1.jpg = "Yonziii" everywhere: LFG teams, Social, Navbar)
 public/icons/            SVG/PNG icons
 ```
 
@@ -65,9 +73,18 @@ list**; `Lobby` (`lfg-lobby.ts`) is the same entity as seen from
 both a "lobby". A user can only be in one live lobby at a time, but may
 hold several scheduled ones — hence `activeLobby` plus `scheduledLobbies`.
 
-`RoleSwitcher` is a **demo-only** control. Leader vs. member is really
-decided by `lobby.leaderId === session.user.id`; delete the switcher once
-Supabase Auth lands.
+`RoleSwitcher` is a **demo-only** control, separate from the auth system
+below — it's per-lobby (leader vs. member of *this* lobby), not identity.
+Leader vs. member is really decided by `lobby.leaderId === session.user.id`;
+delete the switcher once real per-lobby membership exists.
+
+## Auth (still a frontend mock — not Supabase yet)
+
+`AuthContext`/`useAuth()` gives a real session shape (`login`/`logout`,
+`user: AuthUser | null`) but persists to `localStorage`, not a backend —
+see the TODO in `AuthContext.tsx`. `Navbar` reads `useAuth().user` to swap
+Log in/Sign up for `UserMenu`. Treat this as the seam to replace with a
+real Supabase session check, not as auth already being "done."
 
 ## Shared type scale
 
@@ -91,6 +108,14 @@ Rating at the end of a lobby is skippable, so `MatchTeammate.reviewed`
 tracks who still needs rating — `/profile/<user>/matches/<id>` is where
 that gets picked back up. Reviews and reports return separately from the
 modal because they're separate tables.
+
+## Reusable anchored-dropdown pattern
+
+`SortDropdown`, `GameFilterDropdown`, `PlayerActionsPopup`, and
+`LobbyActionsMenu` all share one shape: `relative` wrapper + `useState` for
+open/closed + a `useRef` + `mousedown` listener to close on outside click +
+an `absolute`-positioned panel. Copy one of these rather than inventing a
+new dropdown/popover approach.
 
 ## Mock data → real backend
 
