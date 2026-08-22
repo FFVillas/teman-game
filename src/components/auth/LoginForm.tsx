@@ -2,15 +2,19 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import AuthField from "./AuthField";
 import OAuthButtons from "./OAuthButtons";
 import { useAuth } from "@/contexts/AuthContext";
 import { playerProfiles } from "@/data/player-profiles";
+import { sanitizeNextPath, withNext } from "@/lib/auth-redirect";
 
 export default function LoginForm() {
   const router = useRouter();
   const { login } = useAuth();
+  const searchParams = useSearchParams();
+  // Where the user was before they hit the auth screens.
+  const next = sanitizeNextPath(searchParams.get("next"));
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -36,7 +40,7 @@ export default function LoginForm() {
       avatar: me.avatar,
       profileHref: "/profile/me",
     });
-    router.push("/lfg/valorant");
+    router.push(next);
   }
 
   return (
@@ -89,6 +93,16 @@ export default function LoginForm() {
           Log in
         </button>
       </form>
+
+      <p className="text-center text-[13px] text-text-muted">
+        Don&apos;t have an account?{" "}
+        <Link
+          href={withNext("/signup", next)}
+          className="font-semibold text-brand transition-opacity hover:opacity-80"
+        >
+          Sign up
+        </Link>
+      </p>
     </div>
   );
 }

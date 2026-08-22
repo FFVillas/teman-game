@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { Suspense } from "react";
 import AuthShell from "@/components/auth/AuthShell";
 import LoginForm from "@/components/auth/LoginForm";
 import { loginPanel } from "@/data/auth";
@@ -16,19 +16,12 @@ export default function LoginPage() {
       panel={loginPanel}
       title="Log in account"
       subtitle="Enter your details to get back to your teams."
-      footer={
-        <>
-          Don&apos;t have an account?{" "}
-          <Link
-            href="/signup"
-            className="font-semibold text-brand transition-opacity hover:opacity-80"
-          >
-            Sign up
-          </Link>
-        </>
-      }
     >
-      <LoginForm />
+      {/* LoginForm reads ?next= via useSearchParams, which needs a boundary
+          for the page to stay statically prerendered. */}
+      <Suspense fallback={<div className="h-[320px]" />}>
+        <LoginForm />
+      </Suspense>
     </AuthShell>
   );
 }

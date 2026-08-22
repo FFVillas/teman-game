@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import AuthField from "./AuthField";
 import AuthSelect from "./AuthSelect";
 import OAuthButtons from "./OAuthButtons";
@@ -10,12 +10,16 @@ import { authLegal } from "@/data/auth";
 import { regions, defaultRegion } from "@/data/regions";
 import { useAuth } from "@/contexts/AuthContext";
 import { playerProfiles } from "@/data/player-profiles";
+import { sanitizeNextPath, withNext } from "@/lib/auth-redirect";
 
 const MIN_PASSWORD_LENGTH = 8;
 
 export default function SignupForm() {
   const router = useRouter();
   const { login } = useAuth();
+  const searchParams = useSearchParams();
+  // Where the user was before they hit the auth screens.
+  const next = sanitizeNextPath(searchParams.get("next"));
 
   const [username, setUsername] = useState("");
   const [region, setRegion] = useState<string>(defaultRegion);
@@ -54,7 +58,7 @@ export default function SignupForm() {
       avatar: me.avatar,
       profileHref: "/profile/me",
     });
-    router.push("/lfg/valorant");
+    router.push(next);
   }
 
   return (
@@ -138,6 +142,16 @@ export default function SignupForm() {
           Create account
         </button>
       </form>
+
+      <p className="text-center text-[13px] text-text-muted">
+        Already have an account?{" "}
+        <Link
+          href={withNext("/login", next)}
+          className="font-semibold text-brand transition-opacity hover:opacity-80"
+        >
+          Log in
+        </Link>
+      </p>
     </div>
   );
 }

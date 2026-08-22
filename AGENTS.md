@@ -43,15 +43,16 @@ src/app/login, /signup   auth screens (wired to AuthContext, see below)
 src/app/social/          friends list — layout.tsx holds the shared sidebar
 src/app/social/pending, /discover, /recent  the other 3 social sub-pages
 src/components/          reusable UI (Navbar, Footer, Logo, GameCard, FeatureCard)
-src/components/sections/ landing page sections (Hero, Features, Stats) — composed in app/page.tsx
+src/components/sections/ landing page sections — composed in app/page.tsx
 src/components/lfg/      LFG page UI (LfgHero, LfgToolbar, LfgTeamCard, SortDropdown, LfgPagination, NewsCard)
 src/components/lobby/    lobby detail UI (header, members, applications, chat, rating, LobbyActionsMenu)
 src/components/social/   friends/pending/discover/recent UI (FriendCard, PlayerCard, dropdowns)
 src/components/auth/     auth UI (AuthShell, AuthField, OAuthButtons, AuthPanelCards)
 src/contexts/AuthContext.tsx  session mock — see "Auth" below
+src/lib/                 small shared helpers (auth redirect)
 src/app/profile/         me, me/edit, [username], [username]/matches, .../report
 src/components/profile/  profile UI (view, edit form, match history, report panel)
-src/data/                static content (nav links, games, features, stats, footer links)
+src/data/                static content (nav links, games, landing copy, footer links)
 src/data/lfg-*.ts        LFG mock data (teams, ranks, roles, lobby)
 src/data/social-*.ts     Social page mock data (friends, pending, discover, recent)
 src/data/player-profiles.ts, regions.ts  profile + signup-flow mock data
@@ -116,6 +117,30 @@ modal because they're separate tables.
 open/closed + a `useRef` + `mousedown` listener to close on outside click +
 an `absolute`-positioned panel. Copy one of these rather than inventing a
 new dropdown/popover approach.
+## Landing page content
+
+The landing page is for players deciding whether to sign up, not for the
+thesis. Keep it to four beats: what this is, pick your game, how it works,
+why bother. Survey percentages, the comparison against Discord/Lita, and
+the scoring formula were tried here and cut — that's examiner material,
+not visitor material, and it buried the actual call to action.
+
+The game grid lives **in the hero**, above the fold: each card routes into
+that game's LFG page, so it's the primary way in, not decoration.
+
+Copy lives in `src/data/landing.ts`. No invented metrics ("10M+ gamers",
+"4.2k active LFG") — there are no users yet, and fake numbers undercut a
+product whose pitch is trust.
+
+## Auth redirect
+
+Login and signup return the user to wherever they came from, carried as
+`?next=<path>` and resolved by `src/lib/auth-redirect.ts`. `NavAuthButtons`
+attaches it, both forms read it, and the login↔signup cross-links preserve
+it. `sanitizeNextPath` rejects absolute URLs, protocol-relative paths and
+auth routes, so `?next=` can't become an open redirect. Because the forms
+call `useSearchParams`, each page wraps its form in `<Suspense>` — that's
+what keeps `/login` and `/signup` statically prerendered.
 
 ## Mock data → real backend
 
