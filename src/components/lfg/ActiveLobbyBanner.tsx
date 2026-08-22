@@ -80,8 +80,17 @@ export default function ActiveLobbyBanner({
 
         <div className="flex flex-1 flex-wrap items-center gap-4 p-4">
           <div className="flex min-w-[180px] flex-1 flex-col gap-1.5">
-            <h3 className="text-base font-bold tracking-tight text-white">
+            <h3 className="flex items-center gap-1.5 text-base font-bold tracking-tight text-white">
               {lobby.name}
+              {isLeader && (
+                // eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization
+                <img
+                  src="/icons/lfg-crown.svg"
+                  alt="You lead this lobby"
+                  title="You lead this lobby"
+                  className="size-3.5 shrink-0"
+                />
+              )}
             </h3>
             <div className="flex flex-wrap items-center gap-3 text-[11px] text-text-muted">
               <span className="flex items-center gap-1.5">
@@ -91,9 +100,6 @@ export default function ActiveLobbyBanner({
               </span>
               <span>
                 {lobby.members.length}/{lobby.slotsTotal} players
-              </span>
-              <span className="font-semibold text-white/70">
-                {isLeader ? "You lead this lobby" : "You're a member"}
               </span>
             </div>
           </div>
