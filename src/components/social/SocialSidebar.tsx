@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { currentUser } from "@/data/social-friends";
+import { useAuth } from "@/contexts/AuthContext";
+import { currentUser as mockCurrentUser } from "@/data/social-friends";
 import { pendingRequests } from "@/data/social-pending";
 
 const navItems = [
@@ -14,6 +15,8 @@ const navItems = [
 
 export default function SocialSidebar() {
   const pathname = usePathname();
+  const { user } = useAuth();
+  const displayUser = user ?? mockCurrentUser;
 
   return (
     <aside className="hidden min-h-0 w-[260px] shrink-0 flex-col border-r border-border-default sm:flex">
@@ -66,12 +69,12 @@ export default function SocialSidebar() {
       <div className="mt-auto flex items-center gap-3 border-t border-border-subtle p-4">
         {/* eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization */}
         <img
-          src={currentUser.avatar}
+          src={displayUser.avatar}
           alt=""
           className="size-10 rounded-full object-cover"
         />
         <div className="flex flex-1 flex-col">
-          <span className="text-sm font-bold text-white">{currentUser.name}</span>
+          <span className="text-sm font-bold text-white">{displayUser.name}</span>
         </div>
         <button
           type="button"
