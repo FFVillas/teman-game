@@ -6,6 +6,7 @@ import UserMenu from "./UserMenu";
 import { navLinks } from "@/data/nav-links";
 import { useAuth } from "@/contexts/AuthContext";
 import { activeLobby } from "@/data/lfg-lobby";
+import NavAuthButtons from "./NavAuthButtons";
 
 export default function Navbar() {
   const { user } = useAuth();
@@ -79,24 +80,8 @@ export default function Navbar() {
             height={12}
             className="hidden sm:block"
           />
-          {user ? (
-            <UserMenu user={user} />
-          ) : (
-            <>
-              <Link
-                href="/login"
-                className="flex h-8 items-center justify-center rounded-lg border border-border-default px-3 text-xs font-semibold tracking-[0.2px] text-text-subtle transition-colors hover:border-border-strong hover:text-white"
-              >
-                Log in
-              </Link>
-              <Link
-                href="/signup"
-                className="flex h-8 items-center justify-center rounded-lg bg-brand px-4 text-xs font-bold tracking-[0.1px] text-white transition-opacity hover:opacity-90"
-              >
-                Sign up
-              </Link>
-            </>
-          )}
+          {/* Signed out, the auth buttons carry the current page as ?next=. */}
+          {user ? <UserMenu user={user} /> : <NavAuthButtons />}
         </div>
       </div>
     </header>
