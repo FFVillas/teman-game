@@ -87,6 +87,17 @@ see the TODO in `AuthContext.tsx`. `Navbar` reads `useAuth().user` to swap
 Log in/Sign up for `UserMenu`. Treat this as the seam to replace with a
 real Supabase session check, not as auth already being "done."
 
+## Image cropping
+
+Game key art is portrait; most frames it lands in are not (lobby banners are
+~3:1, list thumbs are square). With plain `object-cover` the centre crop cuts
+straight through the middle of the artwork, so use **`object-cover object-top`**
+on cover/key-art images — the top of game art carries the characters and logo.
+
+Round avatars are the exception: they stay centred (`object-cover` alone),
+because they're already face-centred crops and anchoring them to the top
+clips chins.
+
 ## Shared type scale
 
 Screens share one scale, so a new page shouldn't invent its own: page

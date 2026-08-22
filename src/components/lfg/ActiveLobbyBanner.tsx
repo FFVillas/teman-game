@@ -68,7 +68,7 @@ export default function ActiveLobbyBanner({
             alt=""
             fill
             sizes="150px"
-            className="object-cover"
+            className="object-cover object-top"
           />
           <div className="absolute inset-0 bg-gradient-to-r from-transparent from-40% to-bg-card-alt to-90%" />
           <span

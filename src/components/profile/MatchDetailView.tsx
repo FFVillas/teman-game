@@ -65,16 +65,21 @@ export default function MatchDetailView({
       </Link>
 
       <header className="relative overflow-hidden rounded-2xl border border-border-strong bg-bg-card-alt">
-        <div className="absolute inset-0">
+        {/*
+          Cover art is boxed on the right rather than stretched full-bleed.
+          The art is portrait; spanning it across the whole ~950px header
+          upscales it several times over and reads as a blurry zoom.
+        */}
+        <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[42%] max-w-[400px] sm:block">
           <Image
             src={match.cover}
             alt=""
             fill
-            sizes="1000px"
+            sizes="400px"
             priority
-            className="object-cover opacity-25"
+            className="object-cover object-top"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-bg-card-alt via-bg-card-alt/85 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-bg-card-alt via-bg-card-alt/55 to-transparent" />
         </div>
 
         <div className="relative flex flex-col gap-4 p-5 sm:p-6">
