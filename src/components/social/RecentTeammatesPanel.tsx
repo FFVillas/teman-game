@@ -3,7 +3,7 @@ import { recentTeammates } from "@/data/social-recent";
 
 export default function RecentTeammatesPanel() {
   return (
-    <div className="flex min-w-0 flex-1 flex-col">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="flex items-center gap-2 border-b border-border-default px-6 py-4">
         {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
         <img
@@ -21,10 +21,11 @@ export default function RecentTeammatesPanel() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-1 p-6 pt-2 sm:grid-cols-3">
+      <div className="grid min-h-0 flex-1 auto-rows-min grid-cols-1 gap-1 overflow-y-auto p-6 pt-2 sm:grid-cols-3">
         {recentTeammates.map((teammate) => (
           <PlayerCard
             key={teammate.id}
+            id={teammate.id}
             avatar={teammate.avatar}
             name={teammate.name}
             context={`${teammate.teamName} · ${teammate.playedAgo}`}

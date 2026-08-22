@@ -72,7 +72,13 @@ export default function FriendCard({ friend }: { friend: Friend }) {
         </div>
       </button>
 
-      {open && <PlayerActionsPopup isFriend onClose={() => setOpen(false)} />}
+      {open && (
+        <PlayerActionsPopup
+          isFriend
+          target={friend}
+          onClose={() => setOpen(false)}
+        />
+      )}
     </div>
   );
 }
