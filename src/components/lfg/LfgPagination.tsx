@@ -1,11 +1,13 @@
 interface LfgPaginationProps {
   currentPage: number;
   totalPages: number;
+  onPageChange: (page: number) => void;
 }
 
 export default function LfgPagination({
   currentPage,
   totalPages,
+  onPageChange,
 }: LfgPaginationProps) {
   const pages = [1, 2, 3].filter((page) => page <= totalPages);
 
@@ -15,6 +17,7 @@ export default function LfgPagination({
         type="button"
         aria-label="Previous page"
         disabled={currentPage === 1}
+        onClick={() => onPageChange(currentPage - 1)}
         className="flex size-8 items-center justify-center rounded-lg border border-white/10 text-white/70 transition-colors hover:border-white/20 disabled:opacity-40"
       >
         {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
@@ -25,6 +28,8 @@ export default function LfgPagination({
         <button
           key={page}
           type="button"
+          onClick={() => onPageChange(page)}
+          aria-current={page === currentPage ? "page" : undefined}
           className={`flex size-8 items-center justify-center rounded-lg text-sm font-bold transition-colors ${
             page === currentPage
               ? "bg-brand text-white"
@@ -44,7 +49,13 @@ export default function LfgPagination({
       {totalPages > pages.length && (
         <button
           type="button"
-          className="flex size-8 items-center justify-center rounded-lg border border-white/10 text-[#94a3b8] transition-colors hover:border-white/20"
+          onClick={() => onPageChange(totalPages)}
+          aria-current={totalPages === currentPage ? "page" : undefined}
+          className={`flex size-8 items-center justify-center rounded-lg text-sm font-bold transition-colors ${
+            totalPages === currentPage
+              ? "bg-brand text-white"
+              : "border border-white/10 text-[#94a3b8] hover:border-white/20"
+          }`}
         >
           {totalPages}
         </button>
@@ -54,6 +65,7 @@ export default function LfgPagination({
         type="button"
         aria-label="Next page"
         disabled={currentPage === totalPages}
+        onClick={() => onPageChange(currentPage + 1)}
         className="flex size-8 items-center justify-center rounded-lg border border-white/10 text-white/70 transition-colors hover:border-white/20 disabled:opacity-40"
       >
         {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
