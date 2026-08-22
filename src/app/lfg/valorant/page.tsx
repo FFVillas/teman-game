@@ -4,7 +4,6 @@ import Footer from "@/components/Footer";
 import LfgHero from "@/components/lfg/LfgHero";
 import LfgToolbar from "@/components/lfg/LfgToolbar";
 import LfgTeamGrid from "@/components/lfg/LfgTeamGrid";
-import LfgPagination from "@/components/lfg/LfgPagination";
 import LfgNews from "@/components/lfg/LfgNews";
 import ActiveLobbyBanner from "@/components/lfg/ActiveLobbyBanner";
 import { lfgTeams } from "@/data/lfg-teams";
@@ -37,8 +36,6 @@ export default function LfgValorantPage() {
           <LfgToolbar resultCount={128} />
 
           <LfgTeamGrid teams={lfgTeams} />
-
-          <LfgPagination currentPage={1} totalPages={12} />
 
           <LfgNews />
         </div>
