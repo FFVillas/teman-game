@@ -23,7 +23,7 @@ export default function LfgNews() {
 
       <div className="grid grid-cols-1 gap-8 sm:grid-cols-3">
         {featured.map((article) => (
-          <NewsCard key={article.id} article={article} />
+          <NewsCard key={article.id} article={article} from="lfg" />
         ))}
       </div>
     </div>

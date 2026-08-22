@@ -7,9 +7,11 @@ import { navLinks } from "@/data/nav-links";
 import { useAuth } from "@/contexts/AuthContext";
 import { activeLobby } from "@/data/lfg-lobby";
 import NavAuthButtons from "./NavAuthButtons";
+import { totalUnreadCount } from "@/data/lfg-messages";
 
 export default function Navbar() {
   const { user } = useAuth();
+  const unreadMessages = totalUnreadCount();
 
   return (
     <header className="sticky top-0 z-50 flex h-[60px] w-full items-center justify-center border-b border-border-subtle bg-bg-nav px-6">
@@ -72,14 +74,39 @@ export default function Navbar() {
             </span>
           </Link>
 
-          {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
-          <img
-            src="/icons/people.svg"
-            alt=""
-            width={16}
-            height={12}
-            className="hidden sm:block"
-          />
+          <Link
+            href="/social"
+            aria-label="Social"
+            className="hidden shrink-0 opacity-80 transition-opacity hover:opacity-100 sm:block"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
+            <img src="/icons/people.svg" alt="" width={16} height={12} />
+          </Link>
+
+          {user && (
+            <Link
+              href="/messages"
+              aria-label={
+                unreadMessages > 0
+                  ? `Messages, ${unreadMessages} unread`
+                  : "Messages"
+              }
+              className="relative flex size-8 items-center justify-center rounded-lg opacity-70 transition-opacity hover:opacity-100"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
+              <img
+                src="/icons/feature-chat.svg"
+                alt=""
+                className="h-3.5 w-auto brightness-0 invert"
+              />
+              {unreadMessages > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-brand px-1 text-[9px] font-bold text-white">
+                  {unreadMessages}
+                </span>
+              )}
+            </Link>
+          )}
+
           {/* Signed out, the auth buttons carry the current page as ?next=. */}
           {user ? <UserMenu user={user} /> : <NavAuthButtons />}
         </div>

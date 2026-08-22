@@ -2,10 +2,21 @@ import Image from "next/image";
 import Link from "next/link";
 import type { NewsArticle } from "@/data/lfg-news";
 
-export default function NewsCard({ article }: { article: NewsArticle }) {
+interface NewsCardProps {
+  article: NewsArticle;
+  /**
+   * Where this card is being rendered from — carried through as a query
+   * param so the article page's back link can return the reader to
+   * wherever they actually started (the LFG page itself vs. the News
+   * index), instead of always assuming one or the other.
+   */
+  from?: "lfg" | "news";
+}
+
+export default function NewsCard({ article, from = "news" }: NewsCardProps) {
   return (
     <Link
-      href={`/lfg/valorant/news/${article.slug}`}
+      href={`/lfg/valorant/news/${article.slug}?from=${from}`}
       className="group flex flex-col gap-5"
     >
       <div className="relative min-h-[140px] w-full flex-1 overflow-hidden rounded-2xl shadow-lg">

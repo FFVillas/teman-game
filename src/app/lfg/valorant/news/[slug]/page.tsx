@@ -9,6 +9,7 @@ import { lfgNews } from "@/data/lfg-news";
 
 interface ArticlePageProps {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ from?: string }>;
 }
 
 function getArticle(slug: string) {
@@ -31,8 +32,12 @@ export async function generateMetadata({
   };
 }
 
-export default async function ArticlePage({ params }: ArticlePageProps) {
+export default async function ArticlePage({
+  params,
+  searchParams,
+}: ArticlePageProps) {
   const { slug } = await params;
+  const { from } = await searchParams;
   const article = getArticle(slug);
   if (!article) notFound();
 
@@ -40,18 +45,23 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
     .filter((item) => item.slug !== article.slug)
     .slice(0, 3);
 
+  // Reader came straight from the LFG page's featured news row, rather than
+  // browsing the full News index — send them back to where they started.
+  const backHref = from === "lfg" ? "/lfg/valorant" : "/lfg/valorant/news";
+  const backLabel = from === "lfg" ? "Back to lobbies" : "Back to News";
+
   return (
     <>
       <Navbar />
       <main className="flex flex-1 flex-col">
         <div className="mx-auto flex w-full max-w-[1000px] flex-col px-6 py-12">
           <Link
-            href="/lfg/valorant/news"
+            href={backHref}
             className="mb-5 flex w-fit items-center gap-1.5 text-xs font-medium text-text-muted transition-colors hover:text-white"
           >
             {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
             <img src="/icons/lfg-back-arrow.svg" alt="" className="size-3.5" />
-            Back to News
+            {backLabel}
           </Link>
 
           <div className="flex flex-col gap-4">

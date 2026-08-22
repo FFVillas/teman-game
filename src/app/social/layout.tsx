@@ -10,8 +10,8 @@ export default function SocialLayout({
   return (
     <>
       <Navbar />
-      <main className="flex min-h-screen flex-1 flex-col items-center px-6 py-12">
-        <div className="flex w-full max-w-[1000px] flex-1 overflow-hidden rounded-2xl border border-border-default bg-bg-card-alt">
+      <main className="flex h-[calc(100vh-60px)] flex-col items-center px-6 py-12">
+        <div className="flex min-h-0 w-full max-w-[1000px] flex-1 overflow-hidden rounded-2xl border border-border-default bg-bg-card-alt">
           <SocialSidebar />
           {children}
         </div>

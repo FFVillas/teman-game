@@ -4,12 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import PlayerActionsPopup from "./PlayerActionsPopup";
 
 interface PlayerCardProps {
+  id: string;
   avatar: string;
   name: string;
   context: string;
 }
 
-export default function PlayerCard({ avatar, name, context }: PlayerCardProps) {
+export default function PlayerCard({ id, avatar, name, context }: PlayerCardProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -44,7 +45,12 @@ export default function PlayerCard({ avatar, name, context }: PlayerCardProps) {
         </div>
       </button>
 
-      {open && <PlayerActionsPopup onClose={() => setOpen(false)} />}
+      {open && (
+        <PlayerActionsPopup
+          target={{ id, name, avatar }}
+          onClose={() => setOpen(false)}
+        />
+      )}
     </div>
   );
 }
