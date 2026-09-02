@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import LfgHero from "@/components/lfg/LfgHero";
+import LfgSearchBar from "@/components/lfg/LfgSearchBar";
 import LfgToolbar from "@/components/lfg/LfgToolbar";
 import LfgTeamGrid from "@/components/lfg/LfgTeamGrid";
 import LfgNews from "@/components/lfg/LfgNews";
@@ -32,6 +33,8 @@ export default function LfgValorantPage() {
             scheduled={scheduledLobbies}
             isLeader
           />
+
+          <LfgSearchBar />
 
           <LfgToolbar resultCount={128} />
 

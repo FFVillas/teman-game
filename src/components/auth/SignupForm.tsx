@@ -58,7 +58,10 @@ export default function SignupForm() {
       avatar: me.avatar,
       profileHref: "/profile/me",
     });
-    router.push(next);
+    // New accounts go through onboarding first (games/rank/playstyle) —
+    // it carries the original ?next= along so it can hand off there once
+    // the user finishes or skips.
+    router.push(withNext("/onboarding", next));
   }
 
   return (

@@ -16,6 +16,7 @@ export default function LoginPage() {
       panel={loginPanel}
       title="Log in account"
       subtitle="Enter your details to get back to your teams."
+      panelVariant="glass-left"
     >
       {/* LoginForm reads ?next= via useSearchParams, which needs a boundary
           for the page to stay statically prerendered. */}
