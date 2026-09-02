@@ -97,3 +97,59 @@ body {
       var(--color-auth-base) 100%
     );
 }
+
+/*
+ * Dark wash over a photo background so the logo/heading/cards stay legible
+ * — heavier top and bottom (where the logo and step cards sit) than the
+ * middle, so some of the art still shows through. Paired with
+ * .auth-panel-text-shadow below as a second line of defence, since a scrim
+ * alone can't guarantee contrast against every region of every photo.
+ */
+.auth-panel-scrim {
+  background: linear-gradient(
+    180deg,
+    rgba(6, 18, 36, 0.72) 0%,
+    rgba(6, 18, 36, 0.5) 35%,
+    rgba(6, 18, 36, 0.55) 65%,
+    rgba(6, 18, 36, 0.92) 100%
+  );
+}
+
+/* Belt-and-braces contrast for text sitting directly on photo art — a
+ * scrim can still leave a bright patch of image behind a word. */
+.auth-panel-text-shadow {
+  text-shadow: 0 2px 20px rgba(0, 0, 0, 0.7);
+}
+
+/* Duotone treatment for the "tint" variant — desaturated art recoloured
+ * with the brand gradient via mix-blend-mode, so it reads as TemanGame's
+ * own look rather than a dropped-in screenshot. */
+.auth-panel-tint-overlay {
+  background: linear-gradient(
+    158deg,
+    var(--color-auth-from) 0%,
+    var(--color-auth-to) 100%
+  );
+  mix-blend-mode: color;
+}
+
+/* Full-page backdrop scrim (backdrop/glass variants) — much lighter than
+ * the panel scrim, since no text sits directly on it; just keeps the photo
+ * from looking too raw around the dark card. */
+.auth-page-scrim {
+  background: linear-gradient(
+    180deg,
+    rgba(6, 18, 36, 0.5) 0%,
+    rgba(6, 18, 36, 0.72) 100%
+  );
+}
+
+/* Frosted-glass card fill for the "glass" variant — lets the page backdrop
+ * bleed through both halves of the card. Paired with Tailwind's
+ * `backdrop-blur-xl` utility in AuthShell for the actual blur, since a
+ * hand-written backdrop-filter here was silently getting stripped by the
+ * build's CSS minifier — Tailwind's own utility goes through a path that
+ * survives it. */
+.auth-card-glass {
+  background: rgba(22, 24, 29, 0.55);
+}

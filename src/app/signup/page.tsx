@@ -16,6 +16,7 @@ export default function SignupPage() {
       panel={signupPanel}
       title="Sign up account"
       subtitle="Enter your details to create your account."
+      panelVariant="glass-left"
     >
       {/* SignupForm reads ?next= via useSearchParams, which needs a boundary
           for the page to stay statically prerendered. */}
