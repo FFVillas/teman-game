@@ -8,6 +8,7 @@ import {
   type PlayerProfile,
 } from "@/data/player-profiles";
 import { regions } from "@/data/regions";
+import { useNotifications } from "@/contexts/NotificationContext";
 
 const MAX_TAGS = 3;
 
@@ -42,6 +43,7 @@ export default function EditProfileForm({
   profile: PlayerProfile;
 }) {
   const router = useRouter();
+  const { toast } = useNotifications();
 
   const [username, setUsername] = useState(profile.username);
   const [age, setAge] = useState(String(profile.dossier.age));
@@ -84,6 +86,11 @@ export default function EditProfileForm({
 
     // TODO: PATCH the profile, then revalidate. Personality tags feed `T` in
     // the compatibility score, so changing them changes recommendations.
+    toast({
+      tone: "success",
+      title: "Profile updated",
+      body: "Your playstyle and tags feed straight into lobby recommendations.",
+    });
     router.push("/profile/me");
   }
 

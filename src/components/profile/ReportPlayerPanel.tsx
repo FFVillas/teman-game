@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import ReportForm from "@/components/lobby/ReportForm";
 import type { ReportSubmission, ReportTarget } from "@/data/lfg-lobby";
+import { useNotifications } from "@/contexts/NotificationContext";
 
 interface ReportPlayerPanelProps {
   target: ReportTarget;
@@ -26,10 +27,16 @@ export default function ReportPlayerPanel({
 }: ReportPlayerPanelProps) {
   const router = useRouter();
   const [submitted, setSubmitted] = useState(false);
+  const { toast } = useNotifications();
 
   function handleSubmit(report: ReportSubmission) {
     // TODO: POST to `reports`, opening a moderation ticket for an admin.
     void report;
+    toast({
+      tone: "danger",
+      title: "Report sent",
+      body: `A moderator will review your report on ${target.name}.`,
+    });
     setSubmitted(true);
   }
 

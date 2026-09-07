@@ -107,6 +107,27 @@ tracking-widest text-text-muted`, header actions `h-10 text-xs`. If a
 page starts feeling like a different product, check it against these
 first.
 
+## Notifications vs. toasts
+
+Two different things, deliberately:
+
+- **Toast** (`toast()`) confirms something *you just did* and disappears
+  after ~4.5s. Used only where the result isn't visible on screen —
+  because the action redirects (create lobby, save profile, finish
+  onboarding, leave lobby) or closes a modal (apply to lobby, submit a
+  report). Accepting an applicant, sending a chat message and saving a
+  rating deliberately have no toast: the UI already updates in place.
+- **Notification** (`notify()`) is an incoming event you may need to come
+  back to. It shows a toast *and* files an entry on `/notifications`,
+  where it stays until read.
+
+`NotificationContext` seeds from `src/data/notifications.ts` and persists
+read state to `localStorage`, the same frontend-only pattern as
+`AuthContext`. Replace with FCM + a `notifications` table later; the
+provider is the seam.
+
+`ToastHost` is mounted once in the root layout — don't add another.
+
 ## Reporting and reviewing
 
 `ReportForm` is shared. It takes a loose `ReportTarget` ({ id, name,
