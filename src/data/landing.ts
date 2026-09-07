@@ -80,6 +80,10 @@ export const finalCta = {
   title: "Ready to find your squad?",
   description:
     "Make an account, set your games and roles, and join your first lobby.",
+  /** Shown instead once the visitor is signed in — no point pitching signup. */
+  signedInTitle: "Ready for your next match?",
+  signedInDescription:
+    "Jump into an open lobby, or start your own and pick who joins.",
   primaryCta: { label: "Create an account", href: "/signup" },
   secondaryCta: { label: "Browse lobbies", href: "/lfg/valorant" },
 };

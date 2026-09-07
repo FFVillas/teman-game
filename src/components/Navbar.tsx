@@ -7,6 +7,7 @@ import { navLinks } from "@/data/nav-links";
 import { useAuth } from "@/contexts/AuthContext";
 import { activeLobby } from "@/data/lfg-lobby";
 import NavAuthButtons from "./NavAuthButtons";
+import NotificationBell from "./NotificationBell";
 import { totalUnreadCount } from "@/data/lfg-messages";
 
 export default function Navbar() {
@@ -42,15 +43,6 @@ export default function Navbar() {
           </nav>
         </div>
 
-        <button
-          type="button"
-          aria-label="More games"
-          className="hidden shrink-0 lg:block"
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
-          <img src="/icons/dots.svg" alt="" width={16} height={4} />
-        </button>
-
         <div className="flex flex-1 items-center justify-end gap-3">
           {/*
             Persistent way back into the lobby you're in, from any page. A
@@ -82,6 +74,8 @@ export default function Navbar() {
             {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
             <img src="/icons/people.svg" alt="" width={16} height={12} />
           </Link>
+
+          {user && <NotificationBell />}
 
           {user && (
             <Link

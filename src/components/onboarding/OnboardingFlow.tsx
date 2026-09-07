@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Logo from "@/components/Logo";
 import { sanitizeNextPath } from "@/lib/auth-redirect";
+import { useNotifications } from "@/contexts/NotificationContext";
 import GamesStep from "./GamesStep";
 import RankRoleStep, {
   emptyGameProfile,
@@ -24,6 +25,7 @@ const STEP_LABEL: Record<StepId, string> = {
 export default function OnboardingFlow() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { toast } = useNotifications();
   const destination = sanitizeNextPath(searchParams.get("next"));
 
   const [selectedGames, setSelectedGames] = useState<string[]>([]);
@@ -81,6 +83,11 @@ export default function OnboardingFlow() {
     // Frontend-only for now — nothing to persist yet. Once Supabase exists,
     // this is where selectedGames/gameDetails/playstyle/personalityTags/
     // connected get written to user_game_mapping + connected_accounts.
+    toast({
+      tone: "success",
+      title: "You're all set",
+      body: "Your games, rank and playstyle are saved — lobbies are matched on these.",
+    });
     router.push(destination);
   }
 

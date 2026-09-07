@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { NotificationProvider } from "@/contexts/NotificationContext";
+import ToastHost from "@/components/notifications/ToastHost";
 import "./globals.css";
 
 const inter = Inter({
@@ -33,7 +35,12 @@ export default function RootLayout({
       className={`${inter.variable} ${jakarta.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-bg-page text-text-primary">
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <NotificationProvider>
+            {children}
+            <ToastHost />
+          </NotificationProvider>
+        </AuthProvider>
       </body>
     </html>
   );

@@ -7,6 +7,7 @@ import type { LfgTeam } from "@/data/lfg-teams";
 import { lfgRoles, type LfgRole } from "@/data/lfg-roles";
 import { findProfileByUsername } from "@/data/player-profiles";
 import { modeStyles } from "./LfgTeamCard";
+import { useNotifications } from "@/contexts/NotificationContext";
 
 const allRoles: LfgRole[] = Object.values(lfgRoles);
 
@@ -23,6 +24,7 @@ export default function RequestToJoinModal({
     team.lookingFor[0] ?? allRoles[0]
   );
   const [message, setMessage] = useState("");
+  const { toast } = useNotifications();
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -45,6 +47,11 @@ export default function RequestToJoinModal({
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
     // TODO: wire up to the join-request API once it exists.
+    toast({
+      tone: "success",
+      title: "Request sent",
+      body: `${team.leaderName} will get back to you — you'll be notified either way.`,
+    });
     onClose();
   }
 

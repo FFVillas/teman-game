@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { lfgRoles, type LfgRole } from "@/data/lfg-roles";
 import { lfgRanks } from "@/data/lfg-ranks";
+import { useNotifications } from "@/contexts/NotificationContext";
 import { regions, defaultRegion } from "@/data/regions";
 
 const gamemodeOptions = ["Competitive", "Casual", "Deathmatch", "Spike Rush"];
@@ -82,6 +83,7 @@ function SelectField({
 
 export default function CreateTeamForm() {
   const router = useRouter();
+  const { toast } = useNotifications();
 
   const [teamName, setTeamName] = useState("");
   const [gamemode, setGamemode] = useState(gamemodeOptions[0]);
@@ -114,6 +116,13 @@ export default function CreateTeamForm() {
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
     // TODO: wire up to the create-team API once it exists.
+    toast({
+      tone: "success",
+      title: "Lobby created",
+      body: teamName.trim()
+        ? `${teamName.trim()} is now open for applications.`
+        : "Your lobby is now open for applications.",
+    });
     router.push("/lfg/valorant");
   }
 

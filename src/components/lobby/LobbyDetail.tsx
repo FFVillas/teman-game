@@ -11,6 +11,7 @@ import LobbyChat from "./LobbyChat";
 import RatingModal, { type LobbyReview } from "./RatingModal";
 import RoleSwitcher from "./RoleSwitcher";
 import type { ReportSubmission } from "@/data/lfg-lobby";
+import { useNotifications } from "@/contexts/NotificationContext";
 
 /**
  * Holds all lobby state client-side while there's no backend. Every mutation
@@ -19,6 +20,7 @@ import type { ReportSubmission } from "@/data/lfg-lobby";
  */
 export default function LobbyDetail({ lobby }: { lobby: Lobby }) {
   const router = useRouter();
+  const { toast, notify } = useNotifications();
 
   // Role comes from the data (you lead the lobby you created). Until auth
   // exists there's no signed-in user, so this stays switchable for demos.
@@ -75,6 +77,15 @@ export default function LobbyDetail({ lobby }: { lobby: Lobby }) {
       },
     ]);
     addSystemMessage(`${app.applicantName} joined the lobby`);
+    notify({
+      kind: "application_accepted",
+      tone: "success",
+      title: `${app.applicantName} joined your lobby`,
+      body: `${app.role.name} · ${app.rank.name}`,
+      actorName: app.applicantName,
+      actorAvatar: app.avatar,
+      href: `/lfg/${lobby.game}/lobby/${lobby.id}`,
+    });
   }
 
   function handleReject(id: string) {
@@ -107,6 +118,11 @@ export default function LobbyDetail({ lobby }: { lobby: Lobby }) {
   function handleStart() {
     setStatus("live");
     addSystemMessage("Lobby started — good luck!");
+    toast({
+      tone: "success",
+      title: "Lobby is live",
+      body: "Everyone in the lobby has been notified.",
+    });
   }
 
   function handleEnd() {
@@ -116,6 +132,7 @@ export default function LobbyDetail({ lobby }: { lobby: Lobby }) {
   }
 
   function handleLeave() {
+    toast({ tone: "info", title: "You left the lobby" });
     router.push(`/lfg/${lobby.game}`);
   }
 
