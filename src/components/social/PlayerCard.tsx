@@ -1,7 +1,6 @@
-"use client";
-
-import { useEffect, useRef, useState } from "react";
-import PlayerActionsPopup from "./PlayerActionsPopup";
+import Link from "next/link";
+import PlayerRowActions from "./PlayerRowActions";
+import { findProfileByUsername } from "@/data/player-profiles";
 
 interface PlayerCardProps {
   id: string;
@@ -11,46 +10,32 @@ interface PlayerCardProps {
 }
 
 export default function PlayerCard({ id, avatar, name, context }: PlayerCardProps) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  const profile = findProfileByUsername(name);
 
   return (
-    <div className="relative" ref={rootRef}>
-      <button
-        type="button"
-        onClick={() => setOpen((prev) => !prev)}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        className="flex w-full items-center gap-2.5 rounded-xl p-2.5 text-left transition-colors hover:bg-white/5"
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization */}
-        <img
-          src={avatar}
-          alt=""
-          className="size-9 shrink-0 rounded-full object-cover"
-        />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate text-[13px] font-bold text-white">{name}</span>
-          <span className="truncate text-[11px] text-text-muted">{context}</span>
-        </div>
-      </button>
+    <div className="flex w-full items-center gap-2.5 rounded-xl p-2.5 transition-colors hover:bg-white/5">
+      {/* eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization */}
+      <img
+        src={avatar}
+        alt=""
+        className="size-9 shrink-0 rounded-full object-cover"
+      />
 
-      {open && (
-        <PlayerActionsPopup
-          target={{ id, name, avatar }}
-          onClose={() => setOpen(false)}
-        />
-      )}
+      <div className="flex min-w-0 flex-1 flex-col">
+        {profile ? (
+          <Link
+            href={`/profile/${profile.slug}`}
+            className="truncate text-[13px] font-bold text-white transition-colors hover:text-brand"
+          >
+            {name}
+          </Link>
+        ) : (
+          <span className="truncate text-[13px] font-bold text-white">{name}</span>
+        )}
+        <span className="truncate text-[11px] text-text-muted">{context}</span>
+      </div>
+
+      <PlayerRowActions target={{ id, name, avatar }} />
     </div>
   );
 }

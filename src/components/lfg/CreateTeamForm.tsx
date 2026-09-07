@@ -7,6 +7,7 @@ import { lfgRoles, type LfgRole } from "@/data/lfg-roles";
 import { lfgRanks } from "@/data/lfg-ranks";
 import { useNotifications } from "@/contexts/NotificationContext";
 import { regions, defaultRegion } from "@/data/regions";
+import BackLink from "@/components/BackLink";
 
 const gamemodeOptions = ["Competitive", "Casual", "Deathmatch", "Spike Rush"];
 const regionOptions = [...regions];
@@ -128,14 +129,7 @@ export default function CreateTeamForm() {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <Link
-        href="/lfg/valorant"
-        className="flex w-fit items-center gap-2 text-sm font-medium text-text-muted transition-colors hover:text-white"
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
-        <img src="/icons/lfg-back-arrow.svg" alt="" className="size-4" />
-        Back to lobbies
-      </Link>
+      <BackLink label="Back to lobbies" href="/lfg/valorant" />
 
       <div className="overflow-hidden rounded-2xl border border-border-strong bg-bg-card-alt">
         <div className="flex flex-col gap-2 px-6 pb-6 pt-8 sm:px-10 sm:pt-10">

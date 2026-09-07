@@ -151,6 +151,34 @@ tracks who still needs rating — `/profile/<user>/matches/<id>` is where
 that gets picked back up. Reviews and reports return separately from the
 modal because they're separate tables.
 
+## Row actions: inline vs. overflow
+
+Frequent, safe, reversible actions (message, add friend / invite) sit
+**inline as icon buttons** — making someone open a menu first is friction
+on the action they take most. Rare or accusatory actions (report, and
+block when it exists) stay in the **overflow menu**, so they take
+deliberate effort and can't be mis-tapped next to "Message".
+`PlayerRowActions` implements both halves; reuse it rather than adding a
+new pattern.
+
+## Back navigation
+
+`BackLink` is the shared back control. It's **sticky under the 60px
+navbar** (`top-[60px]`), so on long pages — lobby, profile, match detail —
+you don't scroll to the top just to go back. Sticky strip rather than a
+floating button: it keeps its place in the layout, covers no content, and
+sits where the eye already looks for back.
+
+Default to a semantic destination (`href`). `useHistory` pops one history
+entry — rarely what you want inside a multi-page section.
+
+Social needs to leave the **whole section**: friends → discover → back
+should return to wherever you were before opening Social, not to friends.
+`router.back()` can't express that, so `NavOriginTracker` (root layout)
+records every non-social route to `sessionStorage`, and `SocialBackLink`
+reads it. See `src/lib/section-origin.ts`. Copy that shape if another
+section ever needs the same.
+
 ## Reusable anchored-dropdown pattern
 
 `SortDropdown`, `GameFilterDropdown`, `PlayerActionsPopup`, and

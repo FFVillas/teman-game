@@ -3,6 +3,7 @@ import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import ToastHost from "@/components/notifications/ToastHost";
+import NavOriginTracker from "@/components/NavOriginTracker";
 import "./globals.css";
 
 const inter = Inter({
@@ -44,6 +45,7 @@ export default function RootLayout({
       >
         <AuthProvider>
           <NotificationProvider>
+            <NavOriginTracker />
             {children}
             <ToastHost />
           </NotificationProvider>
