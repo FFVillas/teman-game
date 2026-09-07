@@ -30,6 +30,8 @@ interface NotificationContextValue {
   unreadCount: number;
   markRead: (id: string) => void;
   markAllRead: () => void;
+  /** Accept or decline an actionable notification (invite / join request). */
+  resolve: (id: string, resolution: "accepted" | "declined") => void;
   /** Transient confirmation of something the user just did. */
   toast: (input: Omit<Toast, "id">) => void;
   /** An incoming event: shows a toast *and* lands in the notification list. */
@@ -141,6 +143,17 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     [notifications, persist]
   );
 
+  const resolve = useCallback(
+    (id: string, resolution: "accepted" | "declined") => {
+      persist(
+        notifications.map((n) =>
+          n.id === id ? { ...n, resolution, read: true } : n
+        )
+      );
+    },
+    [notifications, persist]
+  );
+
   const markAllRead = useCallback(() => {
     persist(notifications.map((n) => ({ ...n, read: true })));
   }, [notifications, persist]);
@@ -154,6 +167,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         unreadCount,
         markRead,
         markAllRead,
+        resolve,
         toast: pushToast,
         notify,
         toasts,

@@ -35,6 +35,25 @@ export interface AppNotification {
   href?: string;
   createdAgo: string;
   read: boolean;
+  /** Set once the user accepts or declines an actionable notification. */
+  resolution?: "accepted" | "declined";
+}
+
+/**
+ * Kinds the user can act on straight from the list. Friend requests are
+ * deliberately excluded — they already have accept/decline on
+ * /social/pending, so the notification just links there instead of
+ * duplicating the action in two places.
+ */
+export const actionableKinds: NotificationKind[] = [
+  "join_request",
+  "lobby_invite",
+];
+
+export function isActionable(notification: AppNotification): boolean {
+  return (
+    actionableKinds.includes(notification.kind) && !notification.resolution
+  );
 }
 
 /** Icon + accent per kind, so the list is scannable without reading it. */

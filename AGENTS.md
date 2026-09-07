@@ -75,7 +75,10 @@ both a "lobby". A user can only be in one live lobby at a time, but may
 hold several scheduled ones — hence `activeLobby` plus `scheduledLobbies`.
 
 `RoleSwitcher` is a **demo-only** control, separate from the auth system
-below — it's per-lobby (leader vs. member of *this* lobby), not identity.
+below — it's per-lobby (leader vs. member vs. invited for *this* lobby), not
+identity. `invited` is a real third state, not a variant of member: you can
+see the lobby, but you're not on the roster and chat stays read-only until
+you accept.
 Leader vs. member is really decided by `lobby.leaderId === session.user.id`;
 delete the switcher once real per-lobby membership exists.
 
@@ -127,6 +130,12 @@ read state to `localStorage`, the same frontend-only pattern as
 provider is the seam.
 
 `ToastHost` is mounted once in the root layout — don't add another.
+
+Join requests and lobby invites are **actionable**: they render accept /
+decline icon buttons in the row (`actionableKinds` in
+`src/data/notifications.ts`) and store the outcome on `resolution`. Friend
+requests deliberately aren't — `/social/pending` already owns that action,
+and having it in two places invites them drifting apart.
 
 ## Reporting and reviewing
 

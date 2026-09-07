@@ -136,7 +136,7 @@ export default function LobbyHeader({
                 Start lobby
               </button>
             )
-          ) : (
+          ) : role === "member" ? (
             status !== "completed" && (
               <button
                 type="button"
@@ -146,7 +146,7 @@ export default function LobbyHeader({
                 Leave lobby
               </button>
             )
-          )}
+          ) : null}
 
           {lobby.discordUrl && (
             <a

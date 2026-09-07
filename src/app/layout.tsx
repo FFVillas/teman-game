@@ -34,7 +34,14 @@ export default function RootLayout({
       lang="en"
       className={`${inter.variable} ${jakarta.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-bg-page text-text-primary">
+      <body
+        className="min-h-full flex flex-col bg-bg-page text-text-primary"
+        // Grammarly and similar extensions inject attributes onto <body>
+        // (data-gr-ext-installed, data-new-gr-c-s-check-loaded) before React
+        // hydrates, which trips the hydration warning. This suppresses only
+        // this element's own attributes — mismatches inside the tree still warn.
+        suppressHydrationWarning
+      >
         <AuthProvider>
           <NotificationProvider>
             {children}
