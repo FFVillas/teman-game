@@ -7,6 +7,7 @@ import RatingModal, { type LobbyReview } from "@/components/lobby/RatingModal";
 import { modeStyles } from "@/components/lfg/LfgTeamCard";
 import type { MatchRecord, MatchTeammate } from "@/data/match-history";
 import type { ReportSubmission } from "@/data/lfg-lobby";
+import BackLink from "@/components/BackLink";
 
 interface MatchDetailViewProps {
   match: MatchRecord;
@@ -55,14 +56,7 @@ export default function MatchDetailView({
 
   return (
     <div className="flex flex-col gap-4">
-      <Link
-        href={`/profile/${slug}/matches`}
-        className="flex w-fit items-center gap-2 text-sm font-medium text-text-muted transition-colors hover:text-white"
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
-        <img src="/icons/lfg-back-arrow.svg" alt="" className="size-4" />
-        Back to match history
-      </Link>
+      <BackLink label="Back to match history" href={`/profile/${slug}/matches`} />
 
       <header className="relative overflow-hidden rounded-2xl border border-border-strong bg-bg-card-alt">
         {/*

@@ -21,7 +21,7 @@ export default function RecentTeammatesPanel() {
         </p>
       </div>
 
-      <div className="grid min-h-0 flex-1 auto-rows-min grid-cols-1 gap-1 overflow-y-auto p-6 pt-2 sm:grid-cols-3">
+      <div className="grid min-h-0 flex-1 auto-rows-min grid-cols-1 gap-1 overflow-y-auto p-6 pt-2 sm:grid-cols-1 lg:grid-cols-2">
         {recentTeammates.map((teammate) => (
           <PlayerCard
             key={teammate.id}

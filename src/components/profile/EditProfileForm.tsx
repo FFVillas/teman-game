@@ -9,6 +9,7 @@ import {
 } from "@/data/player-profiles";
 import { regions } from "@/data/regions";
 import { useNotifications } from "@/contexts/NotificationContext";
+import BackLink from "@/components/BackLink";
 
 const MAX_TAGS = 3;
 
@@ -96,14 +97,7 @@ export default function EditProfileForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <Link
-        href="/profile/me"
-        className="flex w-fit items-center gap-2 text-sm font-medium text-text-muted transition-colors hover:text-white"
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
-        <img src="/icons/lfg-back-arrow.svg" alt="" className="size-4" />
-        Back to profile
-      </Link>
+      <BackLink label="Back to profile" href="/profile/me" />
 
       <div className="flex flex-col gap-1">
         <h1 className="text-xl font-extrabold tracking-tight text-white">

@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Lobby, LobbyStatus, LobbyViewerRole } from "@/data/lfg-lobby";
 import LobbyHeader from "./LobbyHeader";
@@ -12,6 +11,7 @@ import RatingModal, { type LobbyReview } from "./RatingModal";
 import RoleSwitcher from "./RoleSwitcher";
 import type { ReportSubmission } from "@/data/lfg-lobby";
 import { useNotifications } from "@/contexts/NotificationContext";
+import BackLink from "@/components/BackLink";
 
 /**
  * Holds all lobby state client-side while there's no backend. Every mutation
@@ -173,15 +173,14 @@ export default function LobbyDetail({ lobby }: { lobby: Lobby }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Link
+      {/* Sticky strip: on a long lobby page the back link and the demo role
+          switcher both stay reachable without scrolling to the top. */}
+      <div className="sticky top-[60px] z-30 -mx-6 -mt-2 mb-1 flex flex-wrap items-center justify-between gap-3 bg-bg-page/85 px-6 py-3 backdrop-blur-sm">
+        <BackLink
+          label="Back to lobbies"
           href={`/lfg/${lobby.game}`}
-          className="flex w-fit items-center gap-2 text-sm font-medium text-text-muted transition-colors hover:text-white"
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
-          <img src="/icons/lfg-back-arrow.svg" alt="" className="size-4" />
-          Back to lobbies
-        </Link>
+          sticky={false}
+        />
 
         <RoleSwitcher role={role} onChange={setRole} />
       </div>

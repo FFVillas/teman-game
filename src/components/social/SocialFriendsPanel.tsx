@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import FriendCard from "./FriendCard";
 import GameFilterDropdown from "./GameFilterDropdown";
 import { onlineFriends, offlineFriends } from "@/data/social-friends";
@@ -45,12 +46,14 @@ export default function SocialFriendsPanel() {
           </div>
         </div>
 
-        <button
-          type="button"
-          className="flex h-9 items-center justify-center rounded-lg bg-[#10b981] px-4 text-xs font-bold text-white transition-opacity hover:opacity-90"
+        {/* Adding a friend means finding one first — this is the entry point
+            to Discover rather than a dead button. */}
+        <Link
+          href="/social/discover"
+          className="flex h-9 items-center justify-center rounded-lg bg-success px-4 text-xs font-bold text-white transition-opacity hover:opacity-90"
         >
           Add Friend
-        </button>
+        </Link>
       </div>
 
       <div className="flex flex-wrap items-center gap-3 border-b border-border-subtle px-6 py-4">
@@ -77,7 +80,7 @@ export default function SocialFriendsPanel() {
               <h2 className="text-[11px] font-bold uppercase tracking-wider text-text-muted">
                 Online — {onlineFriends.length}
               </h2>
-              <div className="grid grid-cols-1 gap-1 sm:grid-cols-3">
+              <div className="grid grid-cols-1 gap-1 sm:grid-cols-1 lg:grid-cols-2">
                 {onlineFriends.map((friend) => (
                   <FriendCard key={friend.id} friend={friend} />
                 ))}
@@ -88,7 +91,7 @@ export default function SocialFriendsPanel() {
               <h2 className="text-[11px] font-bold uppercase tracking-wider text-text-muted">
                 Offline — {offlineFriends.length}
               </h2>
-              <div className="grid grid-cols-1 gap-1 sm:grid-cols-3">
+              <div className="grid grid-cols-1 gap-1 sm:grid-cols-1 lg:grid-cols-2">
                 {offlineFriends.map((friend) => (
                   <FriendCard key={friend.id} friend={friend} />
                 ))}

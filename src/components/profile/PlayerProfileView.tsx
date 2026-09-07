@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { PlayerProfile } from "@/data/player-profiles";
 import { matchesForSlug } from "@/data/match-history";
 import MatchHistoryList from "./MatchHistoryList";
+import BackLink from "@/components/BackLink";
 
 const gameTabs = [
   "Valorant",
@@ -67,14 +68,7 @@ export default function PlayerProfileView({
 
   return (
     <div className="flex flex-col gap-4">
-      <Link
-        href="/lfg/valorant"
-        className="flex w-fit items-center gap-2 text-sm font-medium text-text-muted transition-colors hover:text-white"
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
-        <img src="/icons/lfg-back-arrow.svg" alt="" className="size-4" />
-        Back to lobbies
-      </Link>
+      <BackLink label="Back to lobbies" href="/lfg/valorant" />
 
       <div className="overflow-hidden rounded-2xl border border-border-strong bg-bg-page">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border-default bg-bg-card-alt p-5 sm:p-6">
