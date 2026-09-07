@@ -2,7 +2,11 @@
 
 import Link from "next/link";
 import { useNotifications } from "@/contexts/NotificationContext";
-import { notificationStyles, type AppNotification } from "@/data/notifications";
+import {
+  isActionable,
+  notificationStyles,
+  type AppNotification,
+} from "@/data/notifications";
 
 const toneRing: Record<string, string> = {
   brand: "border-brand/30 bg-brand/10",
@@ -11,16 +15,71 @@ const toneRing: Record<string, string> = {
   danger: "border-danger/30 bg-danger/10",
 };
 
-function Row({
+/**
+ * Accept / decline straight from the row, so an invite or a join request
+ * doesn't need a trip to the lobby page to answer.
+ */
+function ActionButtons({
   notification,
-  onRead,
+  onResolve,
 }: {
   notification: AppNotification;
-  onRead: (id: string) => void;
+  onResolve: (resolution: "accepted" | "declined") => void;
 }) {
-  const style = notificationStyles[notification.kind];
+  const isInvite = notification.kind === "lobby_invite";
 
-  const body = (
+  return (
+    <div className="flex shrink-0 items-center gap-2">
+      <button
+        type="button"
+        onClick={() => onResolve("accepted")}
+        aria-label={isInvite ? "Accept invitation" : "Accept request"}
+        title={isInvite ? "Accept invitation" : "Accept request"}
+        className="flex size-8 items-center justify-center rounded-lg bg-brand transition-opacity hover:opacity-90"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
+        <img src="/icons/action-accept.svg" alt="" className="size-3.5" />
+      </button>
+      <button
+        type="button"
+        onClick={() => onResolve("declined")}
+        aria-label={isInvite ? "Decline invitation" : "Decline request"}
+        title={isInvite ? "Decline invitation" : "Decline request"}
+        className="flex size-8 items-center justify-center rounded-lg border border-border-strong text-text-muted transition-colors hover:border-danger hover:text-danger"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
+        <img src="/icons/action-decline.svg" alt="" className="size-3.5" />
+      </button>
+    </div>
+  );
+}
+
+function Row({ notification }: { notification: AppNotification }) {
+  const { markRead, resolve, toast } = useNotifications();
+  const style = notificationStyles[notification.kind];
+  const actionable = isActionable(notification);
+
+  function handleResolve(resolution: "accepted" | "declined") {
+    // TODO: PATCH the underlying application / invite row.
+    resolve(notification.id, resolution);
+    toast({
+      tone: resolution === "accepted" ? "success" : "info",
+      title:
+        resolution === "accepted"
+          ? notification.kind === "lobby_invite"
+            ? "Invitation accepted"
+            : "Request accepted"
+          : notification.kind === "lobby_invite"
+            ? "Invitation declined"
+            : "Request declined",
+      body: notification.actorName
+        ? `${notification.actorName} has been notified.`
+        : undefined,
+      href: resolution === "accepted" ? notification.href : undefined,
+    });
+  }
+
+  const inner = (
     <>
       {notification.actorAvatar ? (
         // eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization
@@ -51,42 +110,53 @@ function Row({
           {notification.createdAgo}
         </span>
       </div>
-
-      {!notification.read && (
-        <span
-          aria-label="Unread"
-          className="mt-1.5 size-2 shrink-0 rounded-full bg-brand"
-        />
-      )}
     </>
   );
 
   const className = `flex items-start gap-3 rounded-xl border p-4 transition-colors ${
     notification.read
-      ? "border-border-default bg-bg-page hover:border-border-strong"
-      : "border-brand/25 bg-brand/[0.04] hover:border-brand/50"
+      ? "border-border-default bg-bg-page"
+      : "border-brand/25 bg-brand/[0.04]"
   }`;
 
-  if (!notification.href) {
-    return <li className={className}>{body}</li>;
-  }
-
   return (
-    <li>
-      <Link
-        href={notification.href}
-        onClick={() => onRead(notification.id)}
-        className={className}
-      >
-        {body}
-      </Link>
+    <li className={className}>
+      {notification.href && !actionable ? (
+        <Link
+          href={notification.href}
+          onClick={() => markRead(notification.id)}
+          className="flex min-w-0 flex-1 items-start gap-3"
+        >
+          {inner}
+        </Link>
+      ) : (
+        <div className="flex min-w-0 flex-1 items-start gap-3">{inner}</div>
+      )}
+
+      {actionable ? (
+        <ActionButtons notification={notification} onResolve={handleResolve} />
+      ) : notification.resolution ? (
+        <span
+          className={`mt-1 shrink-0 rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${
+            notification.resolution === "accepted"
+              ? "bg-success/10 text-success"
+              : "bg-white/5 text-text-muted"
+          }`}
+        >
+          {notification.resolution}
+        </span>
+      ) : !notification.read ? (
+        <span
+          aria-label="Unread"
+          className="mt-1.5 size-2 shrink-0 rounded-full bg-brand"
+        />
+      ) : null}
     </li>
   );
 }
 
 export default function NotificationList() {
-  const { notifications, unreadCount, markRead, markAllRead } =
-    useNotifications();
+  const { notifications, unreadCount, markAllRead } = useNotifications();
 
   return (
     <div className="flex flex-col gap-4 rounded-2xl border border-border-strong bg-bg-card-alt p-5 sm:p-6">
@@ -96,9 +166,7 @@ export default function NotificationList() {
             Notifications
           </h1>
           <p className="text-xs text-text-muted">
-            {unreadCount > 0
-              ? `${unreadCount} unread`
-              : "You're all caught up."}
+            {unreadCount > 0 ? `${unreadCount} unread` : "You're all caught up."}
           </p>
         </div>
 
@@ -121,11 +189,7 @@ export default function NotificationList() {
       ) : (
         <ul className="flex flex-col gap-2">
           {notifications.map((notification) => (
-            <Row
-              key={notification.id}
-              notification={notification}
-              onRead={markRead}
-            />
+            <Row key={notification.id} notification={notification} />
           ))}
         </ul>
       )}

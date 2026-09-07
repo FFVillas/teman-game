@@ -14,8 +14,12 @@ import type { LfgMode } from "./lfg-teams";
 /** Lifecycle of a lobby, matching `lobby.status` in the ERD. */
 export type LobbyStatus = "forming" | "live" | "completed";
 
-/** Whether the viewer created this lobby or joined it. */
-export type LobbyViewerRole = "leader" | "member";
+/**
+ * How the viewer relates to this lobby. "invited" is a real third state:
+ * you can see the lobby because someone asked you in, but you are not a
+ * member until you accept.
+ */
+export type LobbyViewerRole = "leader" | "member" | "invited";
 
 export type ApplicationStatus = "pending" | "accepted" | "rejected";
 

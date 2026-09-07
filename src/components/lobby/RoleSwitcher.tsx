@@ -5,6 +5,7 @@ import type { LobbyViewerRole } from "@/data/lfg-lobby";
 const roles: { id: LobbyViewerRole; label: string }[] = [
   { id: "leader", label: "Leader" },
   { id: "member", label: "Member" },
+  { id: "invited", label: "Invited" },
 ];
 
 /**

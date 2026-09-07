@@ -8,8 +8,10 @@ import { findProfileByUsername } from "@/data/player-profiles";
 interface LobbyChatProps {
   messages: LobbyMessage[];
   currentUserId: string;
-  /** Chat closes once the lobby is completed. */
+  /** Chat closes once the lobby is completed, or before you accept an invite. */
   disabled?: boolean;
+  /** Placeholder shown while disabled. */
+  disabledLabel?: string;
   onSend: (body: string) => void;
 }
 
@@ -17,6 +19,7 @@ export default function LobbyChat({
   messages,
   currentUserId,
   disabled = false,
+  disabledLabel = "This lobby has ended",
   onSend,
 }: LobbyChatProps) {
   const [draft, setDraft] = useState("");
@@ -132,7 +135,7 @@ export default function LobbyChat({
           onChange={(event) => setDraft(event.target.value)}
           disabled={disabled}
           placeholder={
-            disabled ? "This lobby has ended" : "Message your lobby..."
+            disabled ? disabledLabel : "Message your lobby..."
           }
           aria-label="Message your lobby"
           className="h-10 flex-1 rounded-lg border border-border-strong bg-bg-page px-3 text-xs text-white placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-brand disabled:opacity-50"

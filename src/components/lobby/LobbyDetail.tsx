@@ -33,8 +33,12 @@ export default function LobbyDetail({ lobby }: { lobby: Lobby }) {
   const [isRating, setIsRating] = useState(false);
   const [ratingDone, setRatingDone] = useState(false);
   const [reportCount, setReportCount] = useState(0);
+  // Set once an invited viewer answers, so the banner stops asking.
+  const [inviteAnswered, setInviteAnswered] = useState(false);
 
-  const currentUserId = role === "leader" ? lobby.leaderId : "u-2";
+  const isInvited = role === "invited" && !inviteAnswered;
+  const currentUserId =
+    role === "leader" ? lobby.leaderId : role === "member" ? "u-2" : "u-invited";
   const isFull = members.length >= lobby.slotsTotal;
 
   const teammates = useMemo(
@@ -136,6 +140,25 @@ export default function LobbyDetail({ lobby }: { lobby: Lobby }) {
     router.push(`/lfg/${lobby.game}`);
   }
 
+  function handleAcceptInvite() {
+    // TODO: PATCH the invite row to accepted, then add the member server-side.
+    setInviteAnswered(true);
+    setRole("member");
+    addSystemMessage("You joined the lobby");
+    toast({
+      tone: "success",
+      title: "Invitation accepted",
+      body: `You're now in ${lobby.name}.`,
+    });
+  }
+
+  function handleDeclineInvite() {
+    // TODO: PATCH the invite row to declined.
+    setInviteAnswered(true);
+    toast({ tone: "info", title: "Invitation declined" });
+    router.push(`/lfg/${lobby.game}`);
+  }
+
   function handleRatingComplete(
     reviews: LobbyReview[],
     reports: ReportSubmission[]
@@ -179,6 +202,39 @@ export default function LobbyDetail({ lobby }: { lobby: Lobby }) {
           {reportCount > 0 &&
             ` ${reportCount} report${reportCount === 1 ? " was" : "s were"} sent to a moderator for review.`}
         </p>
+      )}
+
+      {isInvited && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand/30 bg-brand/[0.07] px-4 py-3">
+          <div className="flex flex-col gap-0.5">
+            <p className="text-xs font-bold text-white">
+              You&apos;ve been invited to this lobby
+            </p>
+            <p className="text-[11px] text-text-muted">
+              Accept to join the roster and unlock lobby chat.
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={handleAcceptInvite}
+              className="flex h-9 items-center justify-center gap-2 rounded-lg bg-brand px-4 text-xs font-bold text-white transition-opacity hover:opacity-90"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
+              <img src="/icons/action-accept.svg" alt="" className="size-3" />
+              Accept invitation
+            </button>
+            <button
+              type="button"
+              onClick={handleDeclineInvite}
+              className="flex h-9 items-center justify-center gap-2 rounded-lg border border-border-strong px-4 text-xs font-semibold text-text-muted transition-colors hover:border-danger hover:text-danger"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
+              <img src="/icons/action-decline.svg" alt="" className="size-3" />
+              Decline
+            </button>
+          </div>
+        </div>
       )}
 
       <div className="grid gap-4 lg:grid-cols-[1fr_400px]">
@@ -225,7 +281,12 @@ export default function LobbyDetail({ lobby }: { lobby: Lobby }) {
         <LobbyChat
           messages={messages}
           currentUserId={currentUserId}
-          disabled={status === "completed"}
+          disabled={status === "completed" || isInvited}
+          disabledLabel={
+            isInvited
+              ? "Accept the invitation to join the chat"
+              : "This lobby has ended"
+          }
           onSend={handleSend}
         />
       </div>
