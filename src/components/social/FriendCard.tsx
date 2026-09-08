@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Friend } from "@/data/social-friends";
 import PlayerRowActions from "./PlayerRowActions";
-import { findProfileByUsername } from "@/data/player-profiles";
+import { profileHrefFor } from "@/data/profile-lookup";
 
 const statusDot: Record<Friend["status"], string> = {
   online: "/icons/status-dot-online.svg",
@@ -23,10 +23,9 @@ const statusColor: Record<Friend["status"], string> = {
 
 export default function FriendCard({ friend }: { friend: Friend }) {
   const isOffline = friend.status === "offline";
-  const profile = findProfileByUsername(friend.name);
 
   return (
-    <div className="flex w-full items-center gap-2.5 rounded-xl p-2.5 transition-colors hover:bg-white/5">
+    <div className="group relative flex w-full items-center gap-2.5 rounded-xl p-2.5 transition-colors hover:bg-white/5">
       <div className={`relative shrink-0 ${isOffline ? "opacity-60" : ""}`}>
         {/* eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization */}
         <img
@@ -43,20 +42,13 @@ export default function FriendCard({ friend }: { friend: Friend }) {
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {profile ? (
-          <Link
-            href={`/profile/${profile.slug}`}
-            className={`truncate text-[13px] font-bold transition-colors hover:text-brand ${isOffline ? "text-white/60" : "text-white"}`}
-          >
-            {friend.name}
-          </Link>
-        ) : (
-          <span
-            className={`truncate text-[13px] font-bold ${isOffline ? "text-white/60" : "text-white"}`}
-          >
-            {friend.name}
-          </span>
-        )}
+        {/* Full-row link — see PlayerCard for why it's done with ::after. */}
+        <Link
+          href={profileHrefFor(friend.name)}
+          className={`truncate text-[13px] font-bold transition-colors after:absolute after:inset-0 after:content-[''] group-hover:text-brand ${isOffline ? "text-white/60" : "text-white"}`}
+        >
+          {friend.name}
+        </Link>
         <span className={`text-[11px] ${statusColor[friend.status]}`}>
           {statusLabel[friend.status]}
         </span>

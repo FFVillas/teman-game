@@ -137,6 +137,17 @@ decline icon buttons in the row (`actionableKinds` in
 requests deliberately aren't — `/social/pending` already owns that action,
 and having it in two places invites them drifting apart.
 
+## Profiles for everyone
+
+Every player row links to `/profile/<slug>`, but only a few people have a
+full mock record. `resolveProfile()` in `src/data/profile-lookup.ts`
+returns the real record when there is one and otherwise builds a
+**placeholder** from the name + avatar found anywhere in the social mock
+data, so no row dead-ends on a 404. Unknown fields render "Not set"
+rather than invented stats — filler here would undercut a product about
+trustworthy player data. Once the backend lands this collapses into one
+`users` query.
+
 ## Reporting and reviewing
 
 `ReportForm` is shared. It takes a loose `ReportTarget` ({ id, name,
@@ -151,15 +162,23 @@ tracks who still needs rating — `/profile/<user>/matches/<id>` is where
 that gets picked back up. Reviews and reports return separately from the
 modal because they're separate tables.
 
-## Row actions: inline vs. overflow
+## Row actions and full-row links
 
-Frequent, safe, reversible actions (message, add friend / invite) sit
-**inline as icon buttons** — making someone open a menu first is friction
-on the action they take most. Rare or accusatory actions (report, and
-block when it exists) stay in the **overflow menu**, so they take
-deliberate effort and can't be mis-tapped next to "Message".
-`PlayerRowActions` implements both halves; reuse it rather than adding a
-new pattern.
+Player rows carry two inline icon buttons (message, add friend / invite)
+via `PlayerRowActions`. There is **no overflow menu** — the row itself
+opens the player's profile, and Report lives there, so a menu holding one
+item was a detour.
+
+The whole row is clickable using the stretched-link pattern: the name is
+the `<Link>`, and `after:absolute after:inset-0 after:content-['']`
+expands its hit area over the row. Two things that will bite you:
+
+- `after:content-['']` is **required** — without a content value the
+  pseudo-element is never generated and the overlay silently does nothing.
+- Action buttons need `relative z-10` to sit above the overlay, and their
+  handlers call `preventDefault()`/`stopPropagation()` so clicking one
+  doesn't also follow the row link. Never nest them inside the anchor —
+  that's invalid HTML.
 
 ## Back navigation
 
