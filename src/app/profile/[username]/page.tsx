@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import PlayerProfileView from "@/components/profile/PlayerProfileView";
-import { playerProfiles } from "@/data/player-profiles";
+import { resolveProfile } from "@/data/profile-lookup";
 
 interface ProfilePageProps {
   params: Promise<{ username: string }>;
@@ -13,7 +13,7 @@ export async function generateMetadata({
   params,
 }: ProfilePageProps): Promise<Metadata> {
   const { username } = await params;
-  const profile = playerProfiles[username];
+  const profile = resolveProfile(username);
 
   return {
     title: profile
@@ -29,7 +29,7 @@ export default async function PlayerProfilePage({
   params,
 }: ProfilePageProps) {
   const { username } = await params;
-  const profile = playerProfiles[username];
+  const profile = resolveProfile(username);
 
   if (!profile) {
     notFound();

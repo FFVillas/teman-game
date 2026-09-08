@@ -4,6 +4,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ReportPlayerPanel from "@/components/profile/ReportPlayerPanel";
 import { playerProfiles } from "@/data/player-profiles";
+import { resolveProfile } from "@/data/profile-lookup";
 
 interface ReportPageProps {
   params: Promise<{ username: string }>;
@@ -17,7 +18,7 @@ export async function generateMetadata({
   params,
 }: ReportPageProps): Promise<Metadata> {
   const { username } = await params;
-  const profile = playerProfiles[username];
+  const profile = resolveProfile(username);
 
   return {
     title: profile
@@ -28,7 +29,7 @@ export async function generateMetadata({
 
 export default async function ReportPlayerPage({ params }: ReportPageProps) {
   const { username } = await params;
-  const profile = playerProfiles[username];
+  const profile = resolveProfile(username);
 
   if (!profile) notFound();
 

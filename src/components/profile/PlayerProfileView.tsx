@@ -154,18 +154,21 @@ export default function PlayerProfileView({
                 <div className="flex flex-col gap-1">
                   <span className={fieldLabel}>Age</span>
                   <span className="text-xs text-white">
-                    {profile.dossier.age} years
+                    {profile.dossier.age ? `${profile.dossier.age} years` : "Not set"}
                   </span>
                 </div>
                 <div className="flex flex-col gap-1">
                   <span className={fieldLabel}>Gender</span>
                   <span className="text-xs text-white">
-                    {profile.dossier.gender}
+                    {profile.dossier.gender || "Not set"}
                   </span>
                 </div>
                 <div className="col-span-2 flex flex-col gap-1.5">
                   <span className={fieldLabel}>Personality</span>
                   <div className="flex flex-wrap gap-1.5">
+                    {profile.personalityTags.length === 0 && (
+                      <span className="text-xs text-text-muted">Not set</span>
+                    )}
                     {profile.personalityTags.map((tag) => (
                       <span
                         key={tag}
@@ -179,7 +182,7 @@ export default function PlayerProfileView({
                 <div className="col-span-2 flex flex-col gap-1">
                   <span className={fieldLabel}>Languages</span>
                   <span className="text-xs text-white">
-                    {profile.dossier.languages}
+                    {profile.dossier.languages || "Not set"}
                   </span>
                 </div>
                 <div className="col-span-2 flex items-center gap-2">
@@ -190,7 +193,7 @@ export default function PlayerProfileView({
                     className="size-3"
                   />
                   <span className="text-xs text-white">
-                    {profile.dossier.availability}
+                    {profile.dossier.availability || "Not set"}
                   </span>
                 </div>
               </div>
@@ -199,6 +202,11 @@ export default function PlayerProfileView({
             <div className="flex flex-col gap-3 rounded-2xl border border-border-default bg-bg-card-alt p-5">
               <h2 className={sectionHeading}>Connections</h2>
               <div className="flex flex-col gap-2">
+                {profile.connections.length === 0 && (
+                  <p className="rounded-lg border border-dashed border-border-default p-4 text-center text-xs text-text-muted">
+                    No linked accounts yet.
+                  </p>
+                )}
                 {profile.connections.map((account) => (
                   <div
                     key={account.provider}

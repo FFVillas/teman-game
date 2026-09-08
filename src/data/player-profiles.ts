@@ -48,6 +48,8 @@ export interface PlayerProfile {
   isOnline: boolean;
   /** True when this profile belongs to the currently signed-in visitor. */
   isOwner?: boolean;
+  /** Built from a name + avatar only — see data/profile-lookup.ts. */
+  isPlaceholder?: boolean;
   ratingScore: number;
   reviewCount: number;
   personalityTags: PersonalityTag[];
