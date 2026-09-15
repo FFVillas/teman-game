@@ -4,10 +4,15 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth, type AuthUser } from "@/contexts/AuthContext";
-import { userMenuLinks, userMenuLegalLinks } from "@/data/user-menu";
+import {
+  adminMenuLinks,
+  userMenuLinks,
+  userMenuLegalLinks,
+} from "@/data/user-menu";
 
 export default function UserMenu({ user }: { user: AuthUser }) {
-  const { logout } = useAuth();
+  const { logout, isAdmin } = useAuth();
+  const menuLinks = isAdmin ? adminMenuLinks : userMenuLinks;
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -37,12 +42,18 @@ export default function UserMenu({ user }: { user: AuthUser }) {
         aria-expanded={open}
         className="flex h-8 items-center gap-2 rounded-lg border border-border-default bg-white/5 py-1 pl-1 pr-3 transition-colors hover:border-border-strong"
       >
-        {/* eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization */}
-        <img
-          src={user.avatar}
-          alt=""
-          className="size-6 rounded-full object-cover"
-        />
+        {user.avatar ? (
+          // eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization
+          <img
+            src={user.avatar}
+            alt=""
+            className="size-6 rounded-full object-cover"
+          />
+        ) : (
+          <span className="flex size-6 items-center justify-center rounded-full bg-brand/15 text-[10px] font-bold text-brand">
+            {user.name.charAt(0)}
+          </span>
+        )}
         <span className="text-xs font-semibold text-text-subtle">
           {user.name}
         </span>
@@ -53,7 +64,7 @@ export default function UserMenu({ user }: { user: AuthUser }) {
           role="menu"
           className="absolute right-0 top-[calc(100%+8px)] z-20 w-52 overflow-hidden rounded-xl border border-white/10 bg-bg-card-alt py-1.5 shadow-xl shadow-black/40"
         >
-          {userMenuLinks.map((link) => (
+          {menuLinks.map((link) => (
             <Link
               key={link.label}
               href={link.href}

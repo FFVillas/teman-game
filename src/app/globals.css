@@ -25,6 +25,7 @@
   /* Feedback */
   --color-danger: #f2555a;
   --color-success: #10b981;
+  --color-warning: #f59e0b;
   --color-star: #f5b544;
 
   /* Auth panel gradient */
@@ -58,6 +59,7 @@
 
   --color-danger: var(--color-danger);
   --color-success: var(--color-success);
+  --color-warning: var(--color-warning);
   --color-star: var(--color-star);
 
   --color-discord: var(--color-discord);

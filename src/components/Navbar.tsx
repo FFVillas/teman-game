@@ -11,7 +11,9 @@ import NotificationBell from "./NotificationBell";
 import { totalUnreadCount } from "@/data/lfg-messages";
 
 export default function Navbar() {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
+  // Staff accounts don't play, so player-only controls are hidden for them.
+  const isPlayer = Boolean(user) && !isAdmin;
   const unreadMessages = totalUnreadCount();
 
   return (
@@ -75,9 +77,9 @@ export default function Navbar() {
             <img src="/icons/people.svg" alt="" width={16} height={12} />
           </Link>
 
-          {user && <NotificationBell />}
+          {isPlayer && <NotificationBell />}
 
-          {user && (
+          {isPlayer && (
             <Link
               href="/messages"
               aria-label={

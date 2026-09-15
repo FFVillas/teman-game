@@ -50,6 +50,11 @@ src/components/social/   friends/pending/discover/recent UI (FriendCard, PlayerC
 src/components/auth/     auth UI (AuthShell, AuthField, OAuthButtons, AuthPanelCards)
 src/contexts/AuthContext.tsx  session mock — see "Auth" below
 src/lib/                 small shared helpers (auth redirect)
+src/app/admin/           admin console (overview, reports, players, lobbies, audit-log) — see docs/admin-console.md
+src/components/admin/    admin UI (AdminGate, AdminShell, AdminUi primitives, modals, one view per page)
+src/contexts/AdminDataContext.tsx  mock moderation API + audit log
+src/lib/admin.ts         derived rules: account status, suggested sanction, queue order, credibility
+src/data/admin-*.ts      admin accounts, moderation mock data + types, nav/labels
 src/app/profile/         me, me/edit, [username], [username]/matches, .../report
 src/components/profile/  profile UI (view, edit form, match history, report panel)
 src/data/                static content (nav links, games, landing copy, footer links)
@@ -136,6 +141,28 @@ decline icon buttons in the row (`actionableKinds` in
 `src/data/notifications.ts`) and store the outcome on `resolution`. Friend
 requests deliberately aren't — `/social/pending` already owns that action,
 and having it in two places invites them drifting apart.
+
+## Admin console
+
+**Read [`docs/admin-console.md`](docs/admin-console.md) before touching
+`/admin`.** Short version:
+
+- Admins are **separate staff accounts** (`src/data/admin-accounts.ts`),
+  signed in through the normal `/login`. Demo: `admin@temangame.dev`, any
+  password. `AuthUser.role` is `"player" | "admin"`; missing means player.
+- `/admin/*` is wrapped in `AdminGate`, which waits for `useAuth().isReady`
+  and then calls `notFound()` for non-admins — a 404, not "access denied".
+  It's a client check standing in for middleware + RLS, not security.
+- The console has its own shell (sidebar, no public Navbar/Footer) and a
+  wider container (`max-w-[1160px]`) for tables. Reuse the primitives in
+  `components/admin/AdminUi.tsx` and the modals in `AdminModal.tsx`.
+- Data model follows **Option B**: new `sanctions` and `admin_actions`
+  tables on top of the 13-entity ERD. Account status is **derived** from
+  sanctions in `src/lib/admin.ts` — don't store it separately in mock data.
+- Every mutation in `AdminDataContext` requires a reason and appends an
+  audit entry. Nothing is deleted: lobbies close, sanctions get lifted.
+- Staff accounts see no player controls in the public Navbar (bell,
+  messages), and `UserMenu` links them to the console instead.
 
 ## Profiles for everyone
 
