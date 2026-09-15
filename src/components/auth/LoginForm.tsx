@@ -8,6 +8,7 @@ import OAuthButtons from "./OAuthButtons";
 import { useAuth } from "@/contexts/AuthContext";
 import { playerProfiles } from "@/data/player-profiles";
 import { sanitizeNextPath, withNext } from "@/lib/auth-redirect";
+import { ADMIN_HOME, findAdminByEmail } from "@/data/admin-accounts";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -34,11 +35,28 @@ export default function LoginForm() {
     if (Object.keys(nextErrors).length > 0) return;
 
     // TODO: wire up to Supabase Auth signInWithPassword once the backend exists.
+    // The role will then come from `user_role_mapping`, not the email.
+    const admin = findAdminByEmail(email);
+    if (admin) {
+      login({
+        id: admin.id,
+        name: admin.name,
+        avatar: "",
+        profileHref: ADMIN_HOME,
+        role: "admin",
+      });
+      // Staff accounts only work in the console, so an ordinary ?next=
+      // (a lobby, a profile) is ignored in favour of the admin home.
+      router.push(next.startsWith("/admin") ? next : ADMIN_HOME);
+      return;
+    }
+
     const me = playerProfiles.fayaz_ilovelittle;
     login({
       name: me.username,
       avatar: me.avatar,
       profileHref: "/profile/me",
+      role: "player",
     });
     router.push(next);
   }

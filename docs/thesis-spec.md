@@ -113,6 +113,12 @@ moderation ticket for an admin.
 
 Two actors: **User** and **Admin** (moderation, sanctions, bans).
 
+**Pending ERD change:** the team chose to add two tables for the admin
+console — `sanctions` and `admin_actions` (audit log) — plus status and
+resolution columns on `reports`. That makes 15 entities; the thesis ERD and
+class diagram still show 13. Details in
+[`admin-console.md`](admin-console.md).
+
 ## Evaluation plan
 
 1. **UAT** — end-user sign-off against the original requirements.
@@ -137,6 +143,7 @@ the code is at UI-shell stage while the spec describes the full system.
 | Personality tags | not modeled |
 | PWA (service worker, manifest, FCM) | none present |
 | Supabase + Auth + RLS | no backend; submit handlers are `// TODO` + `router.push` |
+| Admin moderation (reports, sanctions, bans) | `/admin` console on mock data; client-side role gate, no RLS; players aren't notified of sanctions yet |
 | Rank/role/region filtering | `LfgToolbar` has a hardcoded `resultCount={128}`; `SortDropdown` not wired |
 
 **Terminology drift:** the proposal says **lobby**, the code says
