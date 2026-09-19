@@ -53,8 +53,13 @@ explainability is itself part of the thesis argument. Lobbies are hard
 filtered by game first, then ranked by:
 
 ```
-S_total = (weighted combination of P, R, T) × M_rank
+S_total = (0.40 · P + 0.30 · R + 0.30 · T) × M_rank
 ```
+
+The weights (0.40/0.30/0.30) are typed as plain text in the proposal's
+Persamaan 3.1, not locked in an image — confirmed 2026-09-19 by extracting
+`word/document.xml` from the docx directly. An earlier version of this
+doc hedged on this; that hedge was wrong and is now removed.
 
 `S_total` lands in 0.00–1.00. Components:
 
@@ -62,15 +67,26 @@ S_total = (weighted combination of P, R, T) × M_rank
 | --- | --- | --- |
 | `P` | Playstyle proximity | `1 − |P_a − P_b| / 4` over a 1–5 Likert scale ("Sangat Kasual" → "Sangat Kompetitif"). Identical = 1.00; 5-vs-1 = 0.00. |
 | `R` | Reputation | `avg_stars / 5`. A 5.0 player contributes 1.00; a 1.5 player contributes 0.30. |
-| `T` | Personality tag match | `|A ∩ B| / |B|`, where A = applicant's tags, B = tags the lobby asks for (max 3). **Edge case: when `|B| = 0`, `T = 1`** — no criteria means the leader is flexible. |
-| `M_rank` | Rank distance penalty | Linear decay on `ΔR` = absolute sub-rank distance, tolerance `ΔR = 10`, degrading to a **floor of 0.30** (never 0 or negative). |
+| `T` | Personality tag match | `|A ∩ B| / |B|`, where A = applicant's tags, B = tags the lobby asks for (max 3). **Edge case `|B| = 0`: `T = 1`** — this is *our* interpretation to avoid a divide-by-zero, not something the proposal states; flag it to the examiner as an implementation decision if asked. |
+| `M_rank` | Rank distance penalty | See below. |
+
+**`M_rank` reconstructed formula** (Persamaan 3.5 is an embedded equation
+image, not extractable as text — this is inferred from the surrounding
+prose, which *is* text, so it's a high-confidence reconstruction, not a
+guess, but worth eyeballing against the actual rendered equation once):
+
+```
+M_rank = max(0.30, 1 − 0.07 × ΔR)
+```
+
+i.e. linear decay starting at 1.00 (ΔR = 0), reaching the 0.30 floor
+exactly at ΔR = 10 sub-ranks, clamped at 0.30 beyond that (never 0 or
+negative). `ΔR` needs a fully-ordered numeric sub-rank ladder to compute
+— see the rank-ladder gap noted below; this is the formula that gap
+blocks.
 
 Personality tags: Shot Caller, PMA (Positive Mental Attitude), Chill,
 Never Surrender, Flex Player.
-
-> The exact weights on P/R/T are in the proposal's Persamaan 3.1, which
-> is a rendered image — not transcribed here. Get them from the PDF
-> before implementing.
 
 Computed server-side; the client receives a pre-sorted lobby list.
 
