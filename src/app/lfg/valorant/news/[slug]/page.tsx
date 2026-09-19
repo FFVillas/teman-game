@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Image from "next/image";
-import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import BackLink from "@/components/BackLink";
 import NewsCard from "@/components/lfg/NewsCard";
 import { lfgNews } from "@/data/lfg-news";
 
@@ -55,14 +55,7 @@ export default async function ArticlePage({
       <Navbar />
       <main className="flex flex-1 flex-col">
         <div className="mx-auto flex w-full max-w-[1000px] flex-col px-6 py-12">
-          <Link
-            href={backHref}
-            className="mb-5 flex w-fit items-center gap-1.5 text-xs font-medium text-text-muted transition-colors hover:text-white"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
-            <img src="/icons/lfg-back-arrow.svg" alt="" className="size-3.5" />
-            {backLabel}
-          </Link>
+          <BackLink label={backLabel} href={backHref} />
 
           <div className="flex flex-col gap-4">
             <h1 className="text-xl font-extrabold text-white sm:text-2xl">
