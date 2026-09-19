@@ -11,7 +11,7 @@ import { regions } from "@/data/regions";
 import { useNotifications } from "@/contexts/NotificationContext";
 import BackLink from "@/components/BackLink";
 
-const MAX_TAGS = 3;
+const MAX_TAGS = 5;
 
 const genderOptions = ["Male", "Female", "Prefer not to say"];
 
