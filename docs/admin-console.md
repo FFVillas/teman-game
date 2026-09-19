@@ -94,6 +94,23 @@ row.
 - Server-side protection: `AdminGate` is a client check. Move it to
   middleware (Supabase session + role) and protect the tables with RLS.
 - Notifying players about sanctions / closed lobbies (FCM). Marked `TODO`.
-- A "your account is suspended" screen when a restricted player logs in.
 - Evidence preview (needs a storage bucket).
-- Appeals.
+
+Appeals are **out of scope** by team decision (not in the proposal's use
+cases).
+
+## Suspended / banned login
+
+Logging in with a player email that has an active suspension or ban (see
+`restrictionForEmail()` in `src/lib/admin-store.ts`) creates **no session**
+and routes to `/account-restricted`, which shows the rule broken and the
+dates. It never shows the moderator's note, the moderator, or the reporter.
+The notice is passed through sessionStorage, not the URL. It reads the same
+localStorage the console writes, so a sanction issued in `/admin` applies on
+the next login in that browser, and an expired or lifted one stops applying.
+
+Demo: `carrypotter@mail.com` (3-day suspension), `lagswitch@mail.com`
+(banned). Any password.
+
+Still TODO once Supabase exists: reject the sign-in server-side, and revoke
+sessions that are already open when a sanction is issued.

@@ -53,7 +53,8 @@ explainability is itself part of the thesis argument. Lobbies are hard
 filtered by game first, then ranked by:
 
 ```
-S_total = (weighted combination of P, R, T) × M_rank
+S_total = (0.40·P + 0.30·R + 0.30·T) × M_rank
+M_rank  = max(0.30, 1 − (ΔR / 10 × 0.70))
 ```
 
 `S_total` lands in 0.00–1.00. Components:
@@ -68,9 +69,9 @@ S_total = (weighted combination of P, R, T) × M_rank
 Personality tags: Shot Caller, PMA (Positive Mental Attitude), Chill,
 Never Surrender, Flex Player.
 
-> The exact weights on P/R/T are in the proposal's Persamaan 3.1, which
-> is a rendered image — not transcribed here. Get them from the PDF
-> before implementing.
+Weights transcribed from the proposal's Persamaan 3.1 and 3.5 (rendered
+images in the PDF). Implemented in `src/lib/recommendation.ts`; ΔR is
+measured in Valorant divisions (Iron 1 = 0 … Radiant = 24).
 
 Computed server-side; the client receives a pre-sorted lobby list.
 
@@ -137,7 +138,7 @@ the code is at UI-shell stage while the spec describes the full system.
 | Spec | Code today |
 | --- | --- |
 | 6 games | only `lfg/valorant`; all 6 `nav-links.ts` entries point there |
-| Lobbies ranked by `S_total` | "Recommended Teams" is a static label; `lfgTeams` renders in array order |
+| Lobbies ranked by `S_total` | "Recommended Teams" is a static label; `lfgTeams` renders in array order. The formula **is** implemented (`lib/recommendation.ts`) and drives the leader's Invite players panel; the lobby list and the applicants' `matchScore` don't use it yet |
 | Reputation (stars, sanctions, tags) | no reputation field on `LfgTeam` |
 | Playstyle 1–5 Likert | closest is free-text `vibeTags` in the create form |
 | Personality tags | not modeled |
@@ -150,9 +151,10 @@ the code is at UI-shell stage while the spec describes the full system.
 **team** (`LfgTeam`, `lfg-teams.ts`). Same concept. Worth unifying
 before the backend lands.
 
-**Rank ladder gap:** `lfg-ranks.ts` holds 4 Valorant ranks with no
-ordinal value. The `ΔR` penalty needs a fully ordered sub-rank ladder
-(Iron 1 … Radiant) to compute distance against.
+**Rank ladder:** `lfg-ranks.ts` still holds only 4 Valorant ranks (for
+icons). The full ordered ladder used for `ΔR` (Iron 1 … Radiant) lives in
+`rankOrdinal()` in `src/lib/recommendation.ts`; lobbies and candidates
+carry a division alongside their rank.
 
 ## Source material
 

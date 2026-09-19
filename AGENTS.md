@@ -79,13 +79,38 @@ list**; `Lobby` (`lfg-lobby.ts`) is the same entity as seen from
 both a "lobby". A user can only be in one live lobby at a time, but may
 hold several scheduled ones — hence `activeLobby` plus `scheduledLobbies`.
 
-`RoleSwitcher` is a **demo-only** control, separate from the auth system
-below — it's per-lobby (leader vs. member vs. invited for *this* lobby), not
-identity. `invited` is a real third state, not a variant of member: you can
-see the lobby, but you're not on the roster and chat stays read-only until
-you accept.
-Leader vs. member is really decided by `lobby.leaderId === session.user.id`;
-delete the switcher once real per-lobby membership exists.
+Your role in a lobby comes **from the data**, the way the backend will
+decide it: `viewerRoleIn(lobby, CURRENT_PLAYER_ID)` in `lfg-lobby.ts`
+checks `leaderId`, then membership, then `invitedIds`, and the lobby page
+404s if none match. The mock player (Fayaz, the account login signs you
+into) leads `lobby-1`, is a member of `lobby-2`, and is invited to
+`lobby-4`, so all three views are reachable from the LFG page banner. There
+is no preview switcher any more. `invited` is a real third state: you can see
+the lobby, but you're not on the roster and chat stays read-only until you
+accept. Swap `CURRENT_PLAYER_ID` for the session's user id when auth is real.
+
+## Lobby screen behaviour
+
+- **Invite players** (leader only): the open-slot rows and the "Invite
+  players" button open `InvitePlayersModal`, which is where the
+  recommendation engine lives. It orders `lfgCandidates` by `S_total`
+  (`src/lib/recommendation.ts`, Persamaan 3.1–3.5) under "Sort by:
+  Recommended", and lets the leader filter by role, rating, online and mic.
+  The score and its breakdown are **deliberately not shown** to players —
+  only the order. Hard filters run first: already in the lobby, already
+  applied, or suspended/banned. Pending invites fill open slots on the roster.
+- **Chat**: every lobby automatically has a chat page at
+  `/lfg/<game>/lobby/<id>/chat`; the lobby page shows a compact panel with a
+  button that opens it, and `/messages` lists it under "Lobby chats" above
+  your DMs (only lobbies you lead or have joined — not pending invites).
+  `/messages?lobby=<id>` opens one directly. Both read the same state from
+  `src/lib/lobby-session.ts` (sessionStorage, standing in for
+  `lobby_messages` + realtime). **Lobby chats are temporary**: ending the
+  lobby closes the chat, clears its messages, and drops it from
+  `/messages`. Backend TODO: keep a
+  moderator-only copy, since reports use the chat log as evidence.
+- **After a lobby ends**, the notice counts down 8s and returns to the LFG
+  page, with "Stay here" to cancel. Skipping the rating does the same.
 
 ## Auth (still a frontend mock — not Supabase yet)
 
@@ -163,6 +188,9 @@ and having it in two places invites them drifting apart.
   audit entry. Nothing is deleted: lobbies close, sanctions get lifted.
 - Staff accounts see no player controls in the public Navbar (bell,
   messages), and `UserMenu` links them to the console instead.
+- Suspended/banned players who log in get **no session** and land on
+  `/account-restricted` (rule + dates only, never the internal note or
+  reporter). Demo: `carrypotter@mail.com`, `lagswitch@mail.com`.
 
 ## Profiles for everyone
 

@@ -17,6 +17,7 @@ import {
   type SanctionType,
 } from "@/data/admin-moderation";
 import { describeSanction } from "@/lib/admin";
+import { ADMIN_STORAGE_KEY } from "@/lib/admin-store";
 
 export interface IssueSanctionInput {
   playerId: string;
@@ -41,8 +42,7 @@ const AdminDataContext = createContext<AdminDataContextValue | undefined>(
   undefined
 );
 
-/** Bump when the seed shape changes so stale demo state gets replaced. */
-const STORAGE_KEY = "temangame:admin-data:v1";
+const STORAGE_KEY = ADMIN_STORAGE_KEY;
 
 /**
  * Frontend-only stand-in for the moderation API. Every mutation here is one
