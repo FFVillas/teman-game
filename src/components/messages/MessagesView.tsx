@@ -1,9 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import ConversationList from "./ConversationList";
+import ConversationList, { type LobbyChatEntry } from "./ConversationList";
 import MessageThread from "./MessageThread";
+import LobbyChatThread from "./LobbyChatThread";
+import {
+  CURRENT_PLAYER_ID,
+  allLobbies,
+  viewerRoleIn,
+} from "@/data/lfg-lobby";
+import { useLobbySessions } from "@/lib/lobby-session";
 import {
   conversations as initialConversations,
   CURRENT_USER_ID,
@@ -32,9 +39,12 @@ function buildInitialState(
   userId: string | null,
   name: string | null,
   avatar: string | null,
+  lobbyId: string | null,
 ) {
   let conversations = initialConversations;
-  let activeId = initialConversations[0]?.id ?? null;
+  let activeId = lobbyId
+    ? `lobby:${lobbyId}`
+    : (initialConversations[0]?.id ?? null);
 
   if (userId) {
     const existing = conversations.find(
@@ -70,10 +80,36 @@ export default function MessagesView() {
       searchParams.get("user"),
       searchParams.get("name"),
       searchParams.get("avatar"),
+      searchParams.get("lobby"),
     ),
   );
   const { conversations, activeId } = state;
   const active = conversations.find((c) => c.id === activeId) ?? null;
+
+  // Lobby group chats you're part of (as leader or member), for as long as
+  // the lobby runs. Invites don't count until accepted, and an ended lobby's
+  // chat is gone — it drops off this list, not just the lobby page.
+  const sessionFor = useLobbySessions();
+  const lobbyChats = useMemo<LobbyChatEntry[]>(
+    () =>
+      allLobbies
+        .filter((lobby) => {
+          const session = sessionFor(lobby);
+          const role =
+            session.roleOverride ?? viewerRoleIn(lobby, CURRENT_PLAYER_ID);
+          return (role === "leader" || role === "member") && !session.chatClosed;
+        })
+        .map((lobby) => {
+          const { messages } = sessionFor(lobby);
+          return {
+            key: `lobby:${lobby.id}`,
+            lobby,
+            lastMessage: messages[messages.length - 1],
+          };
+        }),
+    [sessionFor],
+  );
+  const activeLobbyChat = lobbyChats.find((entry) => entry.key === activeId);
 
   function handleSelect(id: string) {
     setState((prev) => ({
@@ -106,10 +142,18 @@ export default function MessagesView() {
     <>
       <ConversationList
         conversations={conversations}
+        lobbyChats={lobbyChats}
         activeId={activeId}
         onSelect={handleSelect}
       />
-      <MessageThread conversation={active} onSend={handleSend} />
+      {activeLobbyChat ? (
+        <LobbyChatThread
+          lobby={activeLobbyChat.lobby}
+          session={sessionFor(activeLobbyChat.lobby)}
+        />
+      ) : (
+        <MessageThread conversation={active} onSend={handleSend} />
+      )}
     </>
   );
 }

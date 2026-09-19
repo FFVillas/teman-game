@@ -43,13 +43,14 @@ export const lfgTeams: LfgTeam[] = [
     micRequired: true,
     bio: "Climbing to Radiant this act. We play clean, communicate a lot, and don't tilt after a bad round. Come ready to grind ranked together.",
     members: [
-      { id: "m1", avatar: "/lfg/avatars/avatar-1.jpg" },
+      { id: "m1", avatar: "/profile/fayaz-ilovelittle.jpg" },
       { id: "m2", avatar: "/lfg/avatars/avatar-2.jpg" },
       { id: "m3", avatar: "/lfg/avatars/avatar-3.jpg" },
     ],
     slotsFilled: 3,
     slotsTotal: 5,
-    leaderName: "Yonziii",
+    // Your own lobby (activeLobby in lfg-lobby.ts), led by the mock session.
+    leaderName: "Fayaz_ILoveLittle",
     rank: lfgRanks.immortal,
     lookingFor: [lfgRoles.duelist, lfgRoles.initiator],
   },

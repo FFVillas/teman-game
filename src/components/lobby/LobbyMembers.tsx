@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { LobbyMember } from "@/data/lfg-lobby";
 import { findProfileByUsername } from "@/data/player-profiles";
+import type { LfgCandidate } from "@/data/lfg-candidates";
 
 interface LobbyMembersProps {
   members: LobbyMember[];
@@ -11,6 +12,11 @@ interface LobbyMembersProps {
   /** Leaders can remove members; members just see the roster. */
   canManage: boolean;
   onRemove?: (memberId: string) => void;
+  /** Invites that are out but not answered. They sit in open slots. */
+  pendingInvites?: LfgCandidate[];
+  onCancelInvite?: (candidateId: string) => void;
+  /** Present only when the viewer may invite (leader, lobby not over). */
+  onInvite?: () => void;
 }
 
 export default function LobbyMembers({
@@ -19,8 +25,13 @@ export default function LobbyMembers({
   currentUserId,
   canManage,
   onRemove,
+  pendingInvites = [],
+  onCancelInvite,
+  onInvite,
 }: LobbyMembersProps) {
-  const emptySlots = Math.max(slotsTotal - members.length, 0);
+  const openSlots = Math.max(slotsTotal - members.length, 0);
+  const shownInvites = pendingInvites.slice(0, openSlots);
+  const emptySlots = openSlots - shownInvites.length;
 
   return (
     <section className="flex flex-col gap-3 rounded-2xl border border-border-strong bg-bg-card-alt p-5">
@@ -28,9 +39,22 @@ export default function LobbyMembers({
         <h2 className="text-[11px] font-bold uppercase tracking-widest text-text-muted">
           Members
         </h2>
-        <span className="text-xs font-bold text-white">
-          {members.length}/{slotsTotal}
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-bold text-white">
+            {members.length}/{slotsTotal}
+          </span>
+          {onInvite && emptySlots > 0 && (
+            <button
+              type="button"
+              onClick={onInvite}
+              className="flex h-8 items-center gap-1.5 rounded-lg bg-brand px-3 text-[11px] font-bold text-white transition-opacity hover:opacity-90"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
+              <img src="/icons/lobby-invite.svg" alt="" className="size-3.5 brightness-0 invert" />
+              Invite players
+            </button>
+          )}
+        </div>
       </div>
 
       <ul className="flex flex-col gap-2">
@@ -132,18 +156,74 @@ export default function LobbyMembers({
           );
         })}
 
-        {Array.from({ length: emptySlots }).map((_, index) => (
+        {shownInvites.map((invite) => (
           <li
-            key={index}
-            className="flex items-center gap-3 rounded-xl border border-dashed border-border-default p-3"
+            key={invite.id}
+            className="flex items-center gap-3 rounded-xl border border-dashed border-brand/40 bg-brand/[0.04] p-3"
           >
-            <div className="flex size-10 items-center justify-center rounded-full bg-white/5">
-              {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
-              <img src="/icons/lfg-avatar-more.svg" alt="" className="size-3" />
+            {/* eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization */}
+            <img
+              src={invite.avatar}
+              alt=""
+              className="size-10 shrink-0 rounded-full object-cover opacity-60"
+            />
+            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="truncate text-sm font-bold text-white/80">
+                {invite.name}
+              </span>
+              <span className="text-[11px] text-brand">
+                Invited · waiting for reply
+              </span>
             </div>
-            <span className="text-xs text-text-muted">Open slot</span>
+            {onCancelInvite && (
+              <button
+                type="button"
+                onClick={() => onCancelInvite(invite.id)}
+                className="shrink-0 rounded-md border border-border-strong px-2.5 py-1 text-[11px] font-semibold text-text-muted transition-colors hover:border-danger hover:text-danger"
+              >
+                Cancel
+              </button>
+            )}
           </li>
         ))}
+
+        {Array.from({ length: emptySlots }).map((_, index) =>
+          onInvite ? (
+            // The leader's open slots are the most natural "add" button: the
+            // gap on the roster is exactly where they're looking.
+            <li key={index}>
+              <button
+                type="button"
+                onClick={onInvite}
+                className="group flex w-full items-center gap-3 rounded-xl border border-dashed border-border-default p-3 text-left transition-colors hover:border-brand/60 hover:bg-brand/[0.04]"
+              >
+                <div className="flex size-10 items-center justify-center rounded-full bg-white/5 transition-colors group-hover:bg-brand/15">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
+                  <img src="/icons/lfg-plus.svg" alt="" className="size-3" />
+                </div>
+                <span className="flex flex-col">
+                  <span className="text-xs font-semibold text-text-subtle group-hover:text-white">
+                    Open slot
+                  </span>
+                  <span className="text-[11px] text-text-muted">
+                    Invite a recommended player
+                  </span>
+                </span>
+              </button>
+            </li>
+          ) : (
+            <li
+              key={index}
+              className="flex items-center gap-3 rounded-xl border border-dashed border-border-default p-3"
+            >
+              <div className="flex size-10 items-center justify-center rounded-full bg-white/5">
+                {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
+                <img src="/icons/lfg-avatar-more.svg" alt="" className="size-3" />
+              </div>
+              <span className="text-xs text-text-muted">Open slot</span>
+            </li>
+          )
+        )}
       </ul>
     </section>
   );

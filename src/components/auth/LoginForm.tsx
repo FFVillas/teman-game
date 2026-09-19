@@ -9,6 +9,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { playerProfiles } from "@/data/player-profiles";
 import { sanitizeNextPath, withNext } from "@/lib/auth-redirect";
 import { ADMIN_HOME, findAdminByEmail } from "@/data/admin-accounts";
+import { RESTRICTION_NOTICE_KEY } from "@/data/account-restriction";
+import { restrictionForEmail } from "@/lib/admin-store";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -48,6 +50,18 @@ export default function LoginForm() {
       // Staff accounts only work in the console, so an ordinary ?next=
       // (a lobby, a profile) is ignored in favour of the admin home.
       router.push(next.startsWith("/admin") ? next : ADMIN_HOME);
+      return;
+    }
+
+    // Suspended or banned accounts don't get a session — they get told why.
+    // TODO: Supabase sign-in should reject these server-side instead.
+    const restriction = restrictionForEmail(email);
+    if (restriction) {
+      window.sessionStorage.setItem(
+        RESTRICTION_NOTICE_KEY,
+        JSON.stringify(restriction)
+      );
+      router.push("/account-restricted");
       return;
     }
 
