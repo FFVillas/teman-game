@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
-import LobbyDetail from "@/components/lobby/LobbyDetail";
+import LobbyChatRoom from "@/components/lobby/LobbyChatRoom";
 import {
   CURRENT_PLAYER_ID,
   allLobbies,
@@ -10,6 +9,7 @@ import {
   viewerRoleIn,
 } from "@/data/lfg-lobby";
 
+// Every lobby gets a chat page automatically — no separate "create chat" step.
 export function generateStaticParams() {
   return allLobbies.map((lobby) => ({ id: lobby.id }));
 }
@@ -21,25 +21,20 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params;
   const lobby = lobbyById(id);
-
-  if (!lobby) return { title: "Lobby not found — TemanGame" };
-
   return {
-    title: `${lobby.name} — TemanGame`,
-    description: lobby.bio,
+    title: lobby ? `${lobby.name} chat — TemanGame` : "Chat not found — TemanGame",
   };
 }
 
-export default async function LobbyPage({
+export default async function LobbyChatPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
   const lobby = lobbyById(id);
-  // Your role comes from the lobby data itself, like it will from the
-  // database: leader, member, or holding an invite. Anyone else has no
-  // business on this page. TODO: use the real session's user id.
+  // Same rule as the lobby page: only the leader, members and invitees get
+  // in. TODO: use the real session's user id.
   const role = lobby ? viewerRoleIn(lobby, CURRENT_PLAYER_ID) : null;
 
   if (!lobby || !role) notFound();
@@ -47,12 +42,13 @@ export default async function LobbyPage({
   return (
     <>
       <Navbar />
-      <main className="flex flex-1 flex-col">
-        <div className="mx-auto flex w-full max-w-[1000px] flex-col gap-4 px-6 py-10">
-          <LobbyDetail lobby={lobby} initialRole={role} />
+      {/* Full height under the 60px navbar and no footer: the chat is the
+          whole page, with the message list scrolling inside it. */}
+      <main className="flex h-[calc(100dvh-60px)] flex-col">
+        <div className="mx-auto flex h-full w-full max-w-[1000px] flex-col px-4 py-4 sm:px-6 sm:py-6">
+          <LobbyChatRoom lobby={lobby} initialRole={role} />
         </div>
       </main>
-      <Footer />
     </>
   );
 }

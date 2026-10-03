@@ -1,6 +1,14 @@
 import { lfgRanks, type LfgRank } from "./lfg-ranks";
 import { lfgRoles, type LfgRole } from "./lfg-roles";
 import type { LfgMode } from "./lfg-teams";
+import type { PersonalityTag } from "./player-profiles";
+
+/**
+ * The signed-in player in the mock session (the account the login form signs
+ * you into). Replace with `session.user.id` once auth is real — every "is
+ * this me?" check in the lobby screens goes through this.
+ */
+export const CURRENT_PLAYER_ID = "u-me";
 
 /**
  * The lobby a user is currently inside, plus everything the detail screen
@@ -80,6 +88,16 @@ export interface Lobby {
   lookingFor: LfgRole[];
   slotsTotal: number;
   leaderId: string;
+  /** Players the leader has invited who haven't answered yet. */
+  invitedIds: string[];
+  /**
+   * Recommendation-engine inputs set by the leader (see lib/recommendation):
+   * playstyle on the 1–5 Likert scale, up to 3 wanted personality tags, and
+   * the division of `rank` used as the lobby's minimum.
+   */
+  playstyle: number;
+  wantedTags: PersonalityTag[];
+  rankDivision: number;
   /** Present when the lobby is scheduled rather than running now. */
   scheduledFor?: string;
   discordUrl?: string;
@@ -87,6 +105,18 @@ export interface Lobby {
   applications: LobbyApplication[];
   messages: LobbyMessage[];
 }
+
+/** How the signed-in player appears on a roster. */
+export const currentPlayerMember: LobbyMember = {
+  id: CURRENT_PLAYER_ID,
+  name: "Fayaz_ILoveLittle",
+  avatar: "/profile/fayaz-ilovelittle.jpg",
+  rank: lfgRanks.immortal,
+  role: lfgRoles.duelist,
+  isLeader: false,
+  micOn: true,
+  reputation: 4.5,
+};
 
 /**
  * A user can only be in one running lobby at a time, but may hold several
@@ -106,19 +136,14 @@ export const activeLobby: Lobby = {
   rank: lfgRanks.immortal,
   lookingFor: [lfgRoles.duelist, lfgRoles.initiator],
   slotsTotal: 5,
-  leaderId: "u-1",
+  leaderId: CURRENT_PLAYER_ID,
+  invitedIds: [],
+  playstyle: 4,
+  wantedTags: ["Shot Caller", "Positive Mental Attitude"],
+  rankDivision: 1,
   discordUrl: "https://discord.gg/temangame",
   members: [
-    {
-      id: "u-1",
-      name: "Yonziii",
-      avatar: "/lfg/avatars/avatar-1.jpg",
-      rank: lfgRanks.immortal,
-      role: lfgRoles.controller,
-      isLeader: true,
-      micOn: true,
-      reputation: 4.8,
-    },
+    { ...currentPlayerMember, isLeader: true },
     {
       id: "u-2",
       name: "Kinoyyy",
@@ -184,15 +209,15 @@ export const activeLobby: Lobby = {
       id: "m-1",
       authorId: "system",
       authorName: "System",
-      body: "Lobby created by Yonziii",
+      body: "Lobby created by Fayaz_ILoveLittle",
       sentAt: "20:04",
       isSystem: true,
     },
     {
       id: "m-2",
-      authorId: "u-1",
-      authorName: "Yonziii",
-      avatar: "/lfg/avatars/avatar-1.jpg",
+      authorId: CURRENT_PLAYER_ID,
+      authorName: "Fayaz_ILoveLittle",
+      avatar: "/profile/fayaz-ilovelittle.jpg",
       body: "yo, hop in the Discord when you're ready",
       sentAt: "20:06",
     },
@@ -239,6 +264,10 @@ export const scheduledLobbies: Lobby[] = [
     lookingFor: [lfgRoles.sentinel],
     slotsTotal: 5,
     leaderId: "u-9",
+    invitedIds: [],
+    playstyle: 5,
+    wantedTags: ["Shot Caller", "Never Surrender"],
+    rankDivision: 1,
     scheduledFor: "21 May, 12:00 AM",
     members: [
       {
@@ -261,9 +290,87 @@ export const scheduledLobbies: Lobby[] = [
         micOn: true,
         reputation: 4.5,
       },
+      currentPlayerMember,
     ],
     applications: [],
-    messages: [],
+    messages: [
+      {
+        id: "s2-1",
+        authorId: "u-9",
+        authorName: "Threshcan",
+        avatar: "/lfg/avatars/avatar-4.jpg",
+        body: "scrims start thursday, be on 15 min early",
+        sentAt: "Mon 21:10",
+      },
+    ],
+  },
+];
+
+/**
+ * Lobbies someone has invited you to. You can open them and read who's in,
+ * but you're not on the roster until you accept.
+ */
+export const invitedLobbies: Lobby[] = [
+  {
+    id: "lobby-4",
+    name: "KINOYYY",
+    game: "valorant",
+    cover: "/lfg/covers/valorant-cover-4.jpg",
+    mode: "casual",
+    status: "forming",
+    region: "SG2",
+    micRequired: true,
+    bio: "Chill casual squad, no pressure. We just want good vibes, some laughs, and the occasional clutch. All ranks welcome.",
+    rank: lfgRanks.silver,
+    lookingFor: [lfgRoles.duelist, lfgRoles.sentinel],
+    slotsTotal: 5,
+    leaderId: "u-10",
+    invitedIds: [CURRENT_PLAYER_ID],
+    playstyle: 2,
+    wantedTags: [],
+    rankDivision: 1,
+    scheduledFor: "Tonight, 9:00 PM",
+    members: [
+      {
+        id: "u-10",
+        name: "Tenz",
+        avatar: "/lfg/avatars/avatar-4.jpg",
+        rank: lfgRanks.radiant,
+        role: lfgRoles.controller,
+        isLeader: true,
+        micOn: true,
+        reputation: 4.0,
+      },
+      {
+        id: "u-11",
+        name: "Nyawit",
+        avatar: "/lfg/avatars/avatar-5.jpg",
+        rank: lfgRanks.ascendant,
+        role: lfgRoles.initiator,
+        isLeader: false,
+        micOn: true,
+        reputation: 4.4,
+      },
+    ],
+    applications: [],
+    messages: [
+      {
+        id: "i4-1",
+        authorId: "system",
+        authorName: "System",
+        body: "Lobby created by Tenz",
+        sentAt: "19:40",
+        isSystem: true,
+      },
+      {
+        id: "i4-2",
+        authorId: "u-10",
+        authorName: "Tenz",
+        avatar: "/lfg/avatars/avatar-4.jpg",
+        body: "sent you an invite fayaz, we need a duelist tonight",
+        sentAt: "19:42",
+      },
+    ],
   },
 ];
 
@@ -320,6 +427,27 @@ export interface ReportSubmission {
 export const EVIDENCE_MAX_BYTES = 5 * 1024 * 1024;
 export const EVIDENCE_ACCEPT = "image/png,image/jpeg,video/mp4";
 
+export const allLobbies: Lobby[] = [
+  activeLobby,
+  ...scheduledLobbies,
+  ...invitedLobbies,
+];
+
 export function lobbyById(id: string): Lobby | undefined {
-  return [activeLobby, ...scheduledLobbies].find((lobby) => lobby.id === id);
+  return allLobbies.find((lobby) => lobby.id === id);
+}
+
+/**
+ * How a player relates to a lobby, from the data alone — the same check the
+ * backend will make (`lobby.leader_id`, lobby membership, pending invite).
+ * Null means they have no business on this lobby's page.
+ */
+export function viewerRoleIn(
+  lobby: Lobby,
+  playerId: string
+): LobbyViewerRole | null {
+  if (lobby.leaderId === playerId) return "leader";
+  if (lobby.members.some((member) => member.id === playerId)) return "member";
+  if (lobby.invitedIds.includes(playerId)) return "invited";
+  return null;
 }

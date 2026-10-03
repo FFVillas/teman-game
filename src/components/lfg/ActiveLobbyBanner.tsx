@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import type { Lobby } from "@/data/lfg-lobby";
+import { CURRENT_PLAYER_ID, type Lobby } from "@/data/lfg-lobby";
 import { modeStyles } from "./LfgTeamCard";
 
 function lobbyHref(lobby: Lobby) {
@@ -8,6 +8,7 @@ function lobbyHref(lobby: Lobby) {
 }
 
 function ScheduledRow({ lobby }: { lobby: Lobby }) {
+  const leads = lobby.leaderId === CURRENT_PLAYER_ID;
   return (
     <Link
       href={lobbyHref(lobby)}
@@ -18,8 +19,33 @@ function ScheduledRow({ lobby }: { lobby: Lobby }) {
       <span className="flex-1 truncate text-xs font-bold text-white">
         {lobby.name}
       </span>
+      <span className="shrink-0 rounded bg-white/5 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-text-muted">
+        {leads ? "Leader" : "Member"}
+      </span>
       <span className="shrink-0 text-[11px] text-text-muted">
         {lobby.scheduledFor}
+      </span>
+    </Link>
+  );
+}
+
+function InviteRow({ lobby }: { lobby: Lobby }) {
+  const leader = lobby.members.find((member) => member.isLeader);
+  return (
+    <Link
+      href={lobbyHref(lobby)}
+      className="flex items-center gap-3 rounded-lg border border-brand/30 bg-brand/[0.05] px-3 py-2.5 transition-colors hover:border-brand/60"
+    >
+      {leader && (
+        // eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization
+        <img src={leader.avatar} alt="" className="size-5 rounded-full object-cover" />
+      )}
+      <span className="min-w-0 flex-1 truncate text-xs text-text-subtle">
+        <span className="font-bold text-white">{leader?.name}</span> invited
+        you to <span className="font-bold text-white">{lobby.name}</span>
+      </span>
+      <span className="shrink-0 text-[11px] font-semibold text-brand">
+        View invite
       </span>
     </Link>
   );
@@ -28,15 +54,17 @@ function ScheduledRow({ lobby }: { lobby: Lobby }) {
 interface ActiveLobbyBannerProps {
   lobby: Lobby;
   scheduled?: Lobby[];
-  /** Drives the "N requests" badge — only meaningful for the leader. */
-  isLeader?: boolean;
+  /** Lobbies you've been invited to but haven't answered. */
+  invites?: Lobby[];
 }
 
 export default function ActiveLobbyBanner({
   lobby,
   scheduled = [],
-  isLeader = false,
+  invites = [],
 }: ActiveLobbyBannerProps) {
+  // Drives the crown and the "N requests" badge — only the leader sees those.
+  const isLeader = lobby.leaderId === CURRENT_PLAYER_ID;
   const mode = modeStyles[lobby.mode];
   const pending = lobby.applications.filter((a) => a.status === "pending");
   const emptySlots = Math.max(lobby.slotsTotal - lobby.members.length, 0);
@@ -141,6 +169,19 @@ export default function ActiveLobbyBanner({
           </div>
         </div>
       </Link>
+
+      {invites.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
+            Invitations
+          </span>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {invites.map((invite) => (
+              <InviteRow key={invite.id} lobby={invite} />
+            ))}
+          </div>
+        </div>
+      )}
 
       {scheduled.length > 0 && (
         <div className="flex flex-col gap-2">

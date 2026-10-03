@@ -98,7 +98,7 @@ function ValorantCard({
   profile: GameProfile;
   onUpdate: (patch: ProfilePatch) => void;
 }) {
-  const [status, setStatus] = useState<"idle" | "detecting" | "detected">("idle");
+  const [status, setStatus] = useState<"idle" | "connecting" | "connected">("idle");
   const selectedRoles = rolesToList(profile.role);
 
   function toggleRole(role: string) {
@@ -113,11 +113,11 @@ function ValorantCard({
 
   function handleDetect() {
     if (!profile.username.trim()) return;
-    setStatus("detecting");
+    setStatus("connecting");
     // Mocked — no backend to actually call Riot's API from yet.
     setTimeout(() => {
       onUpdate({ rank: mockDetectRank(profile.username.trim()) });
-      setStatus("detected");
+      setStatus("connected");
     }, 700);
   }
 
@@ -169,15 +169,15 @@ function ValorantCard({
           <button
             type="button"
             onClick={handleDetect}
-            disabled={!profile.username.trim() || status === "detecting"}
+            disabled={!profile.username.trim() || status === "connecting"}
             className="flex h-9 shrink-0 items-center justify-center rounded-lg border border-border-strong px-4 text-xs font-bold text-text-subtle transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {status === "detecting" ? "Looking up…" : "Detect"}
+            {status === "connecting" ? "Looking up…" : "Connect"}
           </button>
         </div>
-        {status === "detected" && (
+        {status === "connected" && (
           <p className="text-xs text-brand">
-            Detected {profile.rank} from {profile.username} — this is a
+            Connected {profile.rank} from {profile.username} — this is a
             preview, not a live lookup yet.
           </p>
         )}

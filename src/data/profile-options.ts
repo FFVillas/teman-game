@@ -5,12 +5,16 @@
 export const MAX_LANGUAGES = 8;
 
 /**
- * Personality tags a player can claim. The matching score's T term is
- * |A∩B|/|B| against the tags a lobby asks for, so an unlimited list would let
- * anyone claim every tag and max it out — hence a cap, shared by onboarding
- * and the edit form so the two can't disagree.
+ * Personality tags a player can claim, shared by onboarding and the edit form
+ * so the two can't disagree. A teammate raised this from 3 to 5 on purpose
+ * ("change limit personality tags in profile").
+ *
+ * Worth knowing: there are only 5 tags, so a cap of 5 is no cap at all. The
+ * matching score's T term is |A∩B|/|B| against the tags a lobby asks for, so
+ * a player who claims every tag always gets T = 1. If that should be
+ * prevented, lower this number — it is the only place to change.
  */
-export const MAX_PERSONALITY_TAGS = 3;
+export const MAX_PERSONALITY_TAGS = 5;
 
 export const languageOptions = [
   "Indonesian",

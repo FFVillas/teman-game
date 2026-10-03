@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
+import BackLink from "@/components/BackLink";
 import ReportForm from "@/components/lobby/ReportForm";
 import type { ReportSubmission, ReportTarget } from "@/data/lfg-lobby";
 import { useNotifications } from "@/contexts/NotificationContext";
@@ -42,14 +42,7 @@ export default function ReportPlayerPanel({
 
   return (
     <div className="flex flex-col gap-4">
-      <Link
-        href={backHref}
-        className="flex w-fit items-center gap-2 text-sm font-medium text-text-muted transition-colors hover:text-white"
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
-        <img src="/icons/lfg-back-arrow.svg" alt="" className="size-4" />
-        {backLabel}
-      </Link>
+      <BackLink label={backLabel} href={backHref} />
 
       <div className="mx-auto w-full max-w-[560px] rounded-2xl border border-border-strong bg-bg-card-alt p-6">
         {submitted ? (

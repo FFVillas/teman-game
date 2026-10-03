@@ -1,63 +1,115 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { Lobby, LobbyStatus, LobbyViewerRole } from "@/data/lfg-lobby";
+import {
+  CURRENT_PLAYER_ID,
+  currentPlayerMember,
+  type Lobby,
+  type LobbyViewerRole,
+} from "@/data/lfg-lobby";
+import type { LfgCandidate } from "@/data/lfg-candidates";
 import LobbyHeader from "./LobbyHeader";
 import LobbyMembers from "./LobbyMembers";
 import LobbyApplications from "./LobbyApplications";
 import LobbyChat from "./LobbyChat";
 import RatingModal, { type LobbyReview } from "./RatingModal";
-import RoleSwitcher from "./RoleSwitcher";
+import InvitePlayersModal from "./InvitePlayersModal";
 import type { ReportSubmission } from "@/data/lfg-lobby";
 import { useNotifications } from "@/contexts/NotificationContext";
 import BackLink from "@/components/BackLink";
+import {
+  chatHref,
+  useLobbySession,
+  withPlayerMessage,
+} from "@/lib/lobby-session";
+
+/** How long the "lobby ended" notice stays before sending you back. */
+const RETURN_SECONDS = 8;
+
+interface LobbyDetailProps {
+  lobby: Lobby;
+  /** Worked out from the data by the page — see `viewerRoleIn`. */
+  initialRole: LobbyViewerRole;
+}
 
 /**
  * Holds all lobby state client-side while there's no backend. Every mutation
- * below (accept, remove, send, start, end) is where an API call will go —
- * the component tree above it shouldn't need to change.
+ * below (accept, remove, invite, send, start, end) is where an API call will
+ * go — the component tree above it shouldn't need to change.
  */
-export default function LobbyDetail({ lobby }: { lobby: Lobby }) {
+export default function LobbyDetail({ lobby, initialRole }: LobbyDetailProps) {
   const router = useRouter();
   const { toast, notify } = useNotifications();
 
-  // Role comes from the data (you lead the lobby you created). Until auth
-  // exists there's no signed-in user, so this stays switchable for demos.
-  const [role, setRole] = useState<LobbyViewerRole>("leader");
+  // Status, chat and an accepted invite are shared with the lobby's chat
+  // page, so they live in the lobby session store rather than local state.
+  const { session, update } = useLobbySession(lobby);
+  const { status, messages, chatClosed } = session;
+  // Starts from the data; only changes when an invited player accepts.
+  const role: LobbyViewerRole = session.roleOverride ?? initialRole;
 
-  const [status, setStatus] = useState<LobbyStatus>(lobby.status);
-  const [members, setMembers] = useState(lobby.members);
+  const [baseMembers, setMembers] = useState(lobby.members);
+  // An accepted invite is stored in the session, so after a reload (or
+  // coming back from the chat page) you're still on the roster.
+  const joinedViaInvite =
+    initialRole === "invited" && session.roleOverride === "member";
+  const members = useMemo(
+    () =>
+      joinedViaInvite &&
+      !baseMembers.some((member) => member.id === CURRENT_PLAYER_ID)
+        ? [...baseMembers, currentPlayerMember]
+        : baseMembers,
+    [baseMembers, joinedViaInvite]
+  );
   const [applications, setApplications] = useState(lobby.applications);
-  const [messages, setMessages] = useState(lobby.messages);
+  const [invites, setInvites] = useState<LfgCandidate[]>([]);
+  const [isInviting, setIsInviting] = useState(false);
   const [isRating, setIsRating] = useState(false);
-  const [ratingDone, setRatingDone] = useState(false);
-  const [reportCount, setReportCount] = useState(0);
-  // Set once an invited viewer answers, so the banner stops asking.
-  const [inviteAnswered, setInviteAnswered] = useState(false);
+  const [ratingOutcome, setRatingOutcome] = useState<
+    { rated: true; reportCount: number } | { rated: false } | null
+  >(null);
+  const [returnIn, setReturnIn] = useState<number | null>(null);
 
-  const isInvited = role === "invited" && !inviteAnswered;
-  const currentUserId =
-    role === "leader" ? lobby.leaderId : role === "member" ? "u-2" : "u-invited";
+  const isInvited = role === "invited";
+  const isLeader = role === "leader";
+  const lobbiesHref = `/lfg/${lobby.game}`;
   const isFull = members.length >= lobby.slotsTotal;
+  const openSlots = Math.max(lobby.slotsTotal - members.length, 0);
 
   const teammates = useMemo(
-    () => members.filter((m) => m.id !== currentUserId),
-    [members, currentUserId]
+    () => members.filter((m) => m.id !== CURRENT_PLAYER_ID),
+    [members]
   );
 
+  // Countdown back to the lobby list once the lobby is over and rating is
+  // done (or skipped). Cancellable, so nobody gets yanked away mid-read.
+  useEffect(() => {
+    if (returnIn === null) return;
+    if (returnIn <= 0) {
+      router.push(lobbiesHref);
+      return;
+    }
+    const timer = setTimeout(() => setReturnIn(returnIn - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [returnIn, router, lobbiesHref]);
+
   function addSystemMessage(body: string) {
-    setMessages((prev) => [
+    update((prev) => ({
       ...prev,
-      {
-        id: `sys-${Date.now()}`,
-        authorId: "system",
-        authorName: "System",
-        body,
-        sentAt: "now",
-        isSystem: true,
-      },
-    ]);
+      messages: [
+        ...prev.messages,
+        {
+          id: `sys-${Date.now()}`,
+          authorId: "system",
+          authorName: "System",
+          body,
+          sentAt: "now",
+          isSystem: true,
+        },
+      ],
+    }));
   }
 
   function handleAccept(id: string) {
@@ -104,23 +156,23 @@ export default function LobbyDetail({ lobby }: { lobby: Lobby }) {
     if (member) addSystemMessage(`${member.name} was removed from the lobby`);
   }
 
+  function handleInvite(candidate: LfgCandidate) {
+    // TODO: POST an invite row; the invitee gets a lobby_invite notification.
+    // No toast — the button flips to "Invited" and the roster shows the
+    // pending slot, so the result is already on screen.
+    setInvites((prev) => [...prev, candidate]);
+  }
+
+  function handleCancelInvite(candidateId: string) {
+    setInvites((prev) => prev.filter((invite) => invite.id !== candidateId));
+  }
+
   function handleSend(body: string) {
-    const me = members.find((m) => m.id === currentUserId);
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: `msg-${Date.now()}`,
-        authorId: currentUserId,
-        authorName: me?.name ?? "You",
-        avatar: me?.avatar,
-        body,
-        sentAt: "now",
-      },
-    ]);
+    update((prev) => withPlayerMessage(prev, body));
   }
 
   function handleStart() {
-    setStatus("live");
+    update((prev) => ({ ...prev, status: "live" }));
     addSystemMessage("Lobby started — good luck!");
     toast({
       tone: "success",
@@ -130,21 +182,28 @@ export default function LobbyDetail({ lobby }: { lobby: Lobby }) {
   }
 
   function handleEnd() {
-    setStatus("completed");
-    addSystemMessage("Lobby ended by the leader");
+    // Ending the lobby closes its chat and clears the messages for everyone.
+    // TODO (backend): archive a moderator-only copy first (see lobby-session).
+    update((prev) => ({
+      ...prev,
+      status: "completed",
+      chatClosed: true,
+      messages: [],
+    }));
+    setInvites([]);
     if (teammates.length > 0) setIsRating(true);
+    else setReturnIn(RETURN_SECONDS);
   }
 
   function handleLeave() {
     toast({ tone: "info", title: "You left the lobby" });
-    router.push(`/lfg/${lobby.game}`);
+    router.push(lobbiesHref);
   }
 
   function handleAcceptInvite() {
     // TODO: PATCH the invite row to accepted, then add the member server-side.
-    setInviteAnswered(true);
-    setRole("member");
-    addSystemMessage("You joined the lobby");
+    update((prev) => ({ ...prev, roleOverride: "member" }));
+    addSystemMessage(`${currentPlayerMember.name} joined the lobby`);
     toast({
       tone: "success",
       title: "Invitation accepted",
@@ -154,9 +213,8 @@ export default function LobbyDetail({ lobby }: { lobby: Lobby }) {
 
   function handleDeclineInvite() {
     // TODO: PATCH the invite row to declined.
-    setInviteAnswered(true);
     toast({ tone: "info", title: "Invitation declined" });
-    router.push(`/lfg/${lobby.game}`);
+    router.push(lobbiesHref);
   }
 
   function handleRatingComplete(
@@ -166,24 +224,23 @@ export default function LobbyDetail({ lobby }: { lobby: Lobby }) {
     // TODO: POST reviews (recalculating each target's reputation) and open a
     // moderation ticket per report. They go to separate tables.
     void reviews;
-    setReportCount(reports.length);
     setIsRating(false);
-    setRatingDone(true);
+    setRatingOutcome({ rated: true, reportCount: reports.length });
+    setReturnIn(RETURN_SECONDS);
+  }
+
+  function handleRatingClosed() {
+    setIsRating(false);
+    // Skipping rating still ends here — they can rate later from history.
+    if (status === "completed") {
+      setRatingOutcome({ rated: false });
+      setReturnIn(RETURN_SECONDS);
+    }
   }
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Sticky strip: on a long lobby page the back link and the demo role
-          switcher both stay reachable without scrolling to the top. */}
-      <div className="sticky top-[60px] z-30 -mx-6 -mt-2 mb-1 flex flex-wrap items-center justify-between gap-3 bg-bg-page/85 px-6 py-3 backdrop-blur-sm">
-        <BackLink
-          label="Back to lobbies"
-          href={`/lfg/${lobby.game}`}
-          sticky={false}
-        />
-
-        <RoleSwitcher role={role} onChange={setRole} />
-      </div>
+      <BackLink label="Back to lobbies" href={lobbiesHref} />
 
       <LobbyHeader
         lobby={lobby}
@@ -194,20 +251,55 @@ export default function LobbyDetail({ lobby }: { lobby: Lobby }) {
         onLeave={handleLeave}
       />
 
-      {ratingDone && (
-        <p className="rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-xs text-success">
-          Thanks — your reviews were saved and your teammates&apos; reputation
-          scores have been updated.
-          {reportCount > 0 &&
-            ` ${reportCount} report${reportCount === 1 ? " was" : "s were"} sent to a moderator for review.`}
-        </p>
+      {ratingOutcome && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-success/30 bg-success/10 px-4 py-3">
+          <p className="text-xs leading-relaxed text-success">
+            {ratingOutcome.rated ? (
+              <>
+                Thanks — your reviews were saved and your teammates&apos;
+                reputation scores have been updated.
+                {ratingOutcome.reportCount > 0 &&
+                  ` ${ratingOutcome.reportCount} report${ratingOutcome.reportCount === 1 ? " was" : "s were"} sent to a moderator for review.`}
+              </>
+            ) : (
+              <>
+                Lobby ended. You can still rate your teammates later from
+                your match history.
+              </>
+            )}
+            {returnIn !== null && (
+              <span className="text-success/80">
+                {" "}
+                Taking you back to lobbies in {returnIn}s.
+              </span>
+            )}
+          </p>
+          <div className="flex shrink-0 items-center gap-2">
+            {returnIn !== null && (
+              <button
+                type="button"
+                onClick={() => setReturnIn(null)}
+                className="h-8 rounded-lg px-3 text-xs font-semibold text-success/80 transition-colors hover:text-success"
+              >
+                Stay here
+              </button>
+            )}
+            <Link
+              href={lobbiesHref}
+              className="flex h-8 items-center rounded-lg bg-success/15 px-3 text-xs font-bold text-success transition-colors hover:bg-success/25"
+            >
+              Back to lobbies
+            </Link>
+          </div>
+        </div>
       )}
 
       {isInvited && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand/30 bg-brand/[0.07] px-4 py-3">
           <div className="flex flex-col gap-0.5">
             <p className="text-xs font-bold text-white">
-              You&apos;ve been invited to this lobby
+              {members.find((m) => m.isLeader)?.name ?? "The leader"} invited
+              you to this lobby
             </p>
             <p className="text-[11px] text-text-muted">
               Accept to join the roster and unlock lobby chat.
@@ -236,17 +328,24 @@ export default function LobbyDetail({ lobby }: { lobby: Lobby }) {
         </div>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_400px]">
+      <div className="grid items-start gap-4 lg:grid-cols-[1fr_380px]">
         <div className="flex flex-col gap-4">
           <LobbyMembers
             members={members}
             slotsTotal={lobby.slotsTotal}
-            currentUserId={currentUserId}
-            canManage={role === "leader" && status !== "completed"}
+            currentUserId={CURRENT_PLAYER_ID}
+            canManage={isLeader && status !== "completed"}
             onRemove={handleRemove}
+            pendingInvites={invites}
+            onCancelInvite={isLeader ? handleCancelInvite : undefined}
+            onInvite={
+              isLeader && status !== "completed"
+                ? () => setIsInviting(true)
+                : undefined
+            }
           />
 
-          {role === "leader" ? (
+          {isLeader ? (
             <LobbyApplications
               applications={applications}
               onAccept={handleAccept}
@@ -271,7 +370,7 @@ export default function LobbyDetail({ lobby }: { lobby: Lobby }) {
                 ))}
               </div>
               <p className="pt-1 text-[11px] text-text-muted">
-                Only the lobby leader can accept new members.
+                Only the lobby leader can accept or invite new members.
               </p>
             </section>
           )}
@@ -279,23 +378,39 @@ export default function LobbyDetail({ lobby }: { lobby: Lobby }) {
 
         <LobbyChat
           messages={messages}
-          currentUserId={currentUserId}
+          currentUserId={CURRENT_PLAYER_ID}
           disabled={status === "completed" || isInvited}
           disabledLabel={
             isInvited
               ? "Accept the invitation to join the chat"
               : "This lobby has ended"
           }
+          closed={chatClosed}
           onSend={handleSend}
+          expandHref={chatHref(lobby)}
         />
       </div>
+
+      {isInviting && (
+        <InvitePlayersModal
+          lobby={lobby}
+          members={members}
+          invitedIds={invites.map((invite) => invite.id)}
+          applicantNames={applications
+            .filter((a) => a.status === "pending")
+            .map((a) => a.applicantName)}
+          openSlots={openSlots}
+          onInvite={handleInvite}
+          onClose={() => setIsInviting(false)}
+        />
+      )}
 
       {isRating && (
         <RatingModal
           teammates={teammates}
           lobbyName={lobby.name}
           game={lobby.game}
-          onClose={() => setIsRating(false)}
+          onClose={handleRatingClosed}
           onComplete={handleRatingComplete}
         />
       )}

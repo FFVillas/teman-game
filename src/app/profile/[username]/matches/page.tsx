@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import BackLink from "@/components/BackLink";
 import MatchHistoryList from "@/components/profile/MatchHistoryList";
 import { playerProfiles } from "@/data/player-profiles";
 import { matchesForSlug, pendingReviews } from "@/data/match-history";
@@ -46,14 +46,10 @@ export default async function MatchesPage({ params }: MatchesPageProps) {
       <Navbar />
       <main className="flex flex-1 flex-col">
         <div className="mx-auto flex w-full max-w-[1000px] flex-col gap-4 px-6 py-10">
-          <Link
+          <BackLink
+            label="Back to profile"
             href={isOwner ? "/profile/me" : `/profile/${profile.slug}`}
-            className="flex w-fit items-center gap-2 text-sm font-medium text-text-muted transition-colors hover:text-white"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
-            <img src="/icons/lfg-back-arrow.svg" alt="" className="size-4" />
-            Back to profile
-          </Link>
+          />
 
           <div className="flex flex-col gap-4 rounded-2xl border border-border-strong bg-bg-card-alt p-5 sm:p-6">
             <div className="flex flex-wrap items-end justify-between gap-3">

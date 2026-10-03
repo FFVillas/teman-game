@@ -95,7 +95,7 @@ export const seedNotifications: AppNotification[] = [
     body: "KINOYYY · Casual · starts around 9PM",
     actorName: "Tenz",
     actorAvatar: "/lfg/avatars/avatar-4.jpg",
-    href: "/lfg/valorant/lobby/lobby-2",
+    href: "/lfg/valorant/lobby/lobby-4",
     createdAgo: "18m ago",
     read: false,
   },
