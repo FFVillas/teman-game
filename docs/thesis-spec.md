@@ -57,21 +57,43 @@ S_total = (0.40·P + 0.30·R + 0.30·T) × M_rank
 M_rank  = max(0.30, 1 − (ΔR / 10 × 0.70))
 ```
 
+The weights (0.40/0.30/0.30) are typed as plain text in the proposal's
+Persamaan 3.1, not locked in an image — confirmed 2026-09-19 by extracting
+`word/document.xml` from the docx directly. An earlier version of this
+doc hedged on this; that hedge was wrong and is now removed.
+
 `S_total` lands in 0.00–1.00. Components:
 
 | Sym | Meaning | Formula |
 | --- | --- | --- |
 | `P` | Playstyle proximity | `1 − |P_a − P_b| / 4` over a 1–5 Likert scale ("Sangat Kasual" → "Sangat Kompetitif"). Identical = 1.00; 5-vs-1 = 0.00. |
 | `R` | Reputation | `avg_stars / 5`. A 5.0 player contributes 1.00; a 1.5 player contributes 0.30. |
-| `T` | Personality tag match | `|A ∩ B| / |B|`, where A = applicant's tags, B = tags the lobby asks for (max 3). **Edge case: when `|B| = 0`, `T = 1`** — no criteria means the leader is flexible. |
-| `M_rank` | Rank distance penalty | Linear decay on `ΔR` = absolute sub-rank distance, tolerance `ΔR = 10`, degrading to a **floor of 0.30** (never 0 or negative). |
+| `T` | Personality tag match | `|A ∩ B| / |B|`, where A = applicant's tags, B = tags the lobby asks for (max 3). **Edge case `|B| = 0`: `T = 1`** — this is *our* interpretation to avoid a divide-by-zero, not something the proposal states; flag it to the examiner as an implementation decision if asked. |
+| `M_rank` | Rank distance penalty | See below. |
+
+**`M_rank` reconstructed formula** (Persamaan 3.5 is an embedded equation
+image, not extractable as text — this is inferred from the surrounding
+prose, which *is* text, so it's a high-confidence reconstruction, not a
+guess, but worth eyeballing against the actual rendered equation once):
+
+```
+M_rank = max(0.30, 1 − 0.07 × ΔR)
+```
+
+i.e. linear decay starting at 1.00 (ΔR = 0), reaching the 0.30 floor
+exactly at ΔR = 10 sub-ranks, clamped at 0.30 beyond that (never 0 or
+negative). `ΔR` needs a fully-ordered numeric sub-rank ladder to compute
+— see the rank-ladder gap noted below; this is the formula that gap
+blocks.
 
 Personality tags: Shot Caller, PMA (Positive Mental Attitude), Chill,
 Never Surrender, Flex Player.
 
-Weights transcribed from the proposal's Persamaan 3.1 and 3.5 (rendered
-images in the PDF). Implemented in `src/lib/recommendation.ts`; ΔR is
-measured in Valorant divisions (Iron 1 = 0 … Radiant = 24).
+Implemented in the frontend as `src/lib/recommendation.ts` (mock data for
+now); ΔR is measured in Valorant divisions (Iron 1 = 0 … Radiant = 24), so
+the ordered ladder exists in code for Valorant — what's still missing is the
+`game_ranks` table that will hold it for every game. The weights are plain
+text in the proposal, as noted above; only the `M_rank` equation is an image.
 
 Computed server-side; the client receives a pre-sorted lobby list.
 
@@ -114,11 +136,60 @@ moderation ticket for an admin.
 
 Two actors: **User** and **Admin** (moderation, sanctions, bans).
 
-**Pending ERD change:** the team chose to add two tables for the admin
-console — `sanctions` and `admin_actions` (audit log) — plus status and
-resolution columns on `reports`. That makes 15 entities; the thesis ERD and
-class diagram still show 13. Details in
-[`admin-console.md`](admin-console.md).
+## Divergences from the proposal (bring these to your advisor)
+
+Real schema work started 2026-09-19. Three deliberate departures from the
+ERD as written — both decided in favor of standard practice over what
+the proposal originally specified. Not gaps: each is a considered
+substitution, argued below.
+
+1. **Admin identity is not `role` + `user_role_mapping`.** The proposal
+   models admin as a permission a user account can hold. The actual
+   schema (`supabase/migrations/20260919000100_admin_roles.sql`) instead
+   gives admins their own `admins` table, completely independent of
+   `profiles` — a compromised or self-reported player account can never
+   carry moderation power. This is the same separation real platforms
+   use between end-user accounts and internal staff tooling.
+   `role`/`user_role_mapping` are not built, on purpose. **Live** as of
+   2026-09-19 — prioritized ahead of the rest of the moderation schema
+   because Login/Profile needs it (same `/login`, role decides where you
+   land).
+2. **Four entities beyond the original 13**: `admins` (above), plus
+   `sanctions`, `sanction_reports` (join table — one decision can close
+   several reports), and `admin_actions` (append-only audit log) in
+   `supabase/migrations/20260919000200_reports_moderation.sql` — written
+   but **not run yet**, deferred until the report feature is actually
+   being built. Once it is, `reports` itself will carry
+   `status`/`assigned_to`/`resolution_*`/`sanction_id` — arguably
+   *detailing* the proposal's own reports entity ("status penanganan
+   tiket... catatan resolusi dari administrator") rather than inventing
+   a new one, but worth being explicit that the data dictionary as
+   submitted doesn't show these columns.
+3. **Profile data the UI needs (2026-10-03).** `profiles` carries
+   `gender`, `languages` (a list picked from a dropdown) and a structured
+   play schedule — `play_days`, `play_start`, `play_end`, `timezone` —
+   instead of a free-text availability field (migrations
+   `20261003000000_profiles_dossier.sql` and
+   `20261003000100_profiles_schedule_languages.sql`). The schedule is structured so
+   the "schedule overlap" filter can be computed later. The profile screen
+   shows these as a player dossier — check them against the data
+   dictionary's user entity and add any that are missing. Age comes from a **date of
+   birth** (never a stored age, which goes stale), kept in a separate
+   private table `profile_private` because `profiles` is publicly
+   readable; everyone else only gets the derived age via `profile_age()`.
+   A database trigger enforces the 13+ minimum. This is one more table
+   than the proposal's ERD. **`region` is not on `profiles`** — it is per
+   game, so it will live on `user_game_mapping` in the Lobby slice.
+
+Net effect: 13 → 17 distinct tables once the rest of the model is built
+(13 original, minus `user`/`role`/`user_role_mapping` reshaped into
+`profiles` + `admins`, plus `sanctions`/`sanction_reports`/`admin_actions`,
+plus the still-pending `game_ranks` addition noted below). If your
+proposal can still be revised, this is the number and reasoning to bring
+to your advisor — if it can't, this doc is the record of what changed
+and why for your BAB 4 writeup.
+
+Design context for the admin console generally: [`admin-console.md`](admin-console.md).
 
 ## Evaluation plan
 
@@ -143,8 +214,8 @@ the code is at UI-shell stage while the spec describes the full system.
 | Playstyle 1–5 Likert | closest is free-text `vibeTags` in the create form |
 | Personality tags | not modeled |
 | PWA (service worker, manifest, FCM) | none present |
-| Supabase + Auth + RLS | no backend; submit handlers are `// TODO` + `router.push` |
-| Admin moderation (reports, sanctions, bans) | `/admin` console on mock data; client-side role gate, no RLS; players aren't notified of sanctions yet |
+| Supabase + Auth + RLS | `profiles` table + RLS live (Account slice). Everything else still `// TODO` + `router.push` |
+| Admin moderation (reports, sanctions, bans) | `admins` + `is_admin()` live (see divergences above); `reports`/`sanctions`/`sanction_reports`/`admin_actions` written but not run — deferred until the report feature is built. `/admin` console itself still runs on mock data; `AdminGate` is still a client-side check, not yet wired to real auth/RLS; players aren't notified of sanctions yet |
 | Rank/role/region filtering | `LfgToolbar` has a hardcoded `resultCount={128}`; `SortDropdown` not wired |
 
 **Terminology drift:** the proposal says **lobby**, the code says

@@ -1,24 +1,19 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ReportPlayerPanel from "@/components/profile/ReportPlayerPanel";
-import { playerProfiles } from "@/data/player-profiles";
-import { resolveProfile } from "@/data/profile-lookup";
+import { loadProfile } from "@/lib/profile-loader";
 
 interface ReportPageProps {
   params: Promise<{ username: string }>;
-}
-
-export function generateStaticParams() {
-  return Object.keys(playerProfiles).map((username) => ({ username }));
 }
 
 export async function generateMetadata({
   params,
 }: ReportPageProps): Promise<Metadata> {
   const { username } = await params;
-  const profile = resolveProfile(username);
+  const profile = await loadProfile(username);
 
   return {
     title: profile
@@ -29,9 +24,13 @@ export async function generateMetadata({
 
 export default async function ReportPlayerPage({ params }: ReportPageProps) {
   const { username } = await params;
-  const profile = resolveProfile(username);
+  const profile = await loadProfile(username);
 
   if (!profile) notFound();
+
+  // You can't report yourself — the profile has no Report button for the
+  // owner, so this only catches a hand-typed URL.
+  if (profile.isOwner) redirect("/profile/me");
 
   const primaryStat = profile.gameStats[0];
 

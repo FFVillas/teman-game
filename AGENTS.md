@@ -1,6 +1,8 @@
 # TemanGame — Agent Notes
 
-Frontend only, for now.
+Mostly frontend on mock data; the backend is being added in small vertical
+slices on Supabase — Auth, `profiles` and `admins` are real, everything else
+(lobbies, social, messages, reviews, reports) is still mock.
 
 ## What this is
 
@@ -48,7 +50,9 @@ src/components/lfg/      LFG page UI (LfgHero, LfgToolbar, LfgTeamCard, SortDrop
 src/components/lobby/    lobby detail UI (header, members, applications, chat, rating, LobbyActionsMenu)
 src/components/social/   friends/pending/discover/recent UI (FriendCard, PlayerCard, dropdowns)
 src/components/auth/     auth UI (AuthShell, AuthField, OAuthButtons, AuthPanelCards)
-src/contexts/AuthContext.tsx  session mock — see "Auth" below
+src/contexts/AuthContext.tsx  Supabase session — see "Auth" below
+src/lib/supabase/        browser + server Supabase clients; src/proxy.ts refreshes sessions
+supabase/migrations/     schema, applied manually in the Supabase SQL editor
 src/lib/                 small shared helpers (auth redirect)
 src/app/admin/           admin console (overview, reports, players, lobbies, audit-log) — see docs/admin-console.md
 src/components/admin/    admin UI (AdminGate, AdminShell, AdminUi primitives, modals, one view per page)
@@ -112,13 +116,31 @@ accept. Swap `CURRENT_PLAYER_ID` for the session's user id when auth is real.
 - **After a lobby ends**, the notice counts down 8s and returns to the LFG
   page, with "Stay here" to cancel. Skipping the rating does the same.
 
-## Auth (still a frontend mock — not Supabase yet)
+## Auth (real Supabase Auth)
 
-`AuthContext`/`useAuth()` gives a real session shape (`login`/`logout`,
-`user: AuthUser | null`) but persists to `localStorage`, not a backend —
-see the TODO in `AuthContext.tsx`. `Navbar` reads `useAuth().user` to swap
-Log in/Sign up for `UserMenu`. Treat this as the seam to replace with a
-real Supabase session check, not as auth already being "done."
+Signup, login and logout go through Supabase Auth. Setup:
+
+- `.env.local` (gitignored) needs `NEXT_PUBLIC_SUPABASE_URL` and
+  `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (the `sb_publishable_…` key, which
+  replaced "anon"). Never put the `sb_secret_…` key in the frontend.
+- `src/lib/supabase/client.ts` (browser) and `server.ts` (Server
+  Components / Route Handlers); `src/proxy.ts` refreshes the session on
+  every request (Next 16 renamed `middleware.ts` → `proxy.ts`). Server-side,
+  trust `getUser()`, never `getSession()`.
+- `supabase/migrations/` is the schema, applied **by hand** in the Supabase
+  SQL editor (no CLI tracking). Never edit an applied migration — add a new
+  timestamped one. `20260919000200_reports_moderation.sql` is written but
+  deliberately **not run** until the report feature is built.
+- A signup creates `auth.users`; the `on_auth_user_created` trigger creates
+  the `profiles` row. Staff are rows in `admins`, not a role on `profiles`
+  (a divergence from the proposal — see `docs/thesis-spec.md`).
+
+`AuthContext`/`useAuth()` exposes `user`, `isReady`, `isAdmin`, `logout` and
+`refreshUser` (call it after editing the profile so the navbar updates).
+There is no `login()` setter — `onAuthStateChange` is the only writer.
+
+Still open: Google/Discord buttons are stubs, there is no forgot-password
+flow, and `AdminGate` is a client check (RLS is the real protection).
 
 ## Image cropping
 
@@ -194,14 +216,33 @@ and having it in two places invites them drifting apart.
 
 ## Profiles for everyone
 
-Every player row links to `/profile/<slug>`, but only a few people have a
-full mock record. `resolveProfile()` in `src/data/profile-lookup.ts`
-returns the real record when there is one and otherwise builds a
-**placeholder** from the name + avatar found anywhere in the social mock
-data, so no row dead-ends on a 404. Unknown fields render "Not set"
-rather than invented stats — filler here would undercut a product about
-trustworthy player data. Once the backend lands this collapses into one
-`users` query.
+`/profile/me`, `/profile/me/edit` and `/profile/<username>` read the real
+`profiles` row (`src/lib/profiles.ts` maps it onto the `PlayerProfile` shape
+the UI was built for; lookup by username is case-insensitive). Only
+account-level fields exist so far — username, avatar, playstyle, personality
+tags, reputation, gender, languages (list), a structured play schedule
+(`play_days`/`play_start`/`play_end`/`timezone`, formatted for display by
+`src/lib/availability.ts`; option lists in `src/data/profile-options.ts`),
+plus a **private** date of
+birth (`profile_private`, owner-only; others see only the derived age via
+`profile_age()`). Region, rank, linked
+accounts and match history are **per game** and arrive with the Lobby slice,
+so they render as empty / "Not set". Usernames are 3–24 chars of
+`[A-Za-z0-9_.-]` (`src/lib/username.ts`) because they appear in URLs.
+
+Every *mock* player row still links to `/profile/<slug>`, but only a few have
+a full mock record. When no real user matches, `resolveProfile()` in
+`src/data/profile-lookup.ts` returns the mock record or builds a
+**placeholder** from the name + avatar found in the social mock data, so no
+row dead-ends on a 404. Unknown fields render "Not set" rather than invented
+stats — filler would undercut a product about trustworthy player data. That
+fallback goes away once the social/LFG screens read from the database too.
+`src/lib/profile-loader.ts` (`loadProfile`, cached per request) does that
+real-then-mock lookup for both `/profile/<user>` and `/profile/<user>/report`.
+`/matches` is still mock-only (real users have no match history yet, so the
+link never shows). The report form works for real players but **submitting
+saves nothing** — it only shows a toast until the `reports` migration is run
+and wired in.
 
 ## Reporting and reviewing
 

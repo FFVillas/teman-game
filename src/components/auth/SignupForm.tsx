@@ -4,40 +4,39 @@ import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import AuthField from "./AuthField";
-import AuthSelect from "./AuthSelect";
 import OAuthButtons from "./OAuthButtons";
 import { authLegal } from "@/data/auth";
-import { regions, defaultRegion } from "@/data/regions";
-import { useAuth } from "@/contexts/AuthContext";
-import { playerProfiles } from "@/data/player-profiles";
+import { createClient } from "@/lib/supabase/client";
 import { sanitizeNextPath, withNext } from "@/lib/auth-redirect";
+import { validateUsername } from "@/lib/username";
 
 const MIN_PASSWORD_LENGTH = 8;
 
 export default function SignupForm() {
   const router = useRouter();
-  const { login } = useAuth();
   const searchParams = useSearchParams();
   // Where the user was before they hit the auth screens.
   const next = sanitizeNextPath(searchParams.get("next"));
 
   const [username, setUsername] = useState("");
-  const [region, setRegion] = useState<string>(defaultRegion);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<{
     username?: string;
     email?: string;
     password?: string;
     terms?: string;
+    form?: string;
   }>({});
 
-  function handleSubmit(event: FormEvent) {
+  async function handleSubmit(event: FormEvent) {
     event.preventDefault();
 
     const nextErrors: typeof errors = {};
-    if (!username.trim()) nextErrors.username = "Pick a username.";
+    const usernameError = validateUsername(username);
+    if (usernameError) nextErrors.username = usernameError;
     if (!email.trim()) nextErrors.email = "Enter your email address.";
     if (password.length < MIN_PASSWORD_LENGTH) {
       nextErrors.password = `Use at least ${MIN_PASSWORD_LENGTH} characters.`;
@@ -49,18 +48,40 @@ export default function SignupForm() {
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
-    // TODO: wire up to Supabase Auth signUp once the backend exists. Until
-    // then, new accounts land on the same mock "own profile" record — the
-    // chip shows the name just entered, but the linked profile page is Fayaz's.
-    const me = playerProfiles.fayaz_ilovelittle;
-    login({
-      name: username.trim() || me.username,
-      avatar: me.avatar,
-      profileHref: "/profile/me",
+    setSubmitting(true);
+    const supabase = createClient();
+    // The `on_auth_user_created` trigger (see the profiles migration)
+    // reads raw_user_meta_data.username to seed the profile row — that's
+    // why it's passed as `options.data` here rather than written to
+    // `profiles` directly from the client.
+    const { data, error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password,
+      options: { data: { username: username.trim() } },
     });
-    // New accounts go through onboarding first (games/rank/playstyle) —
-    // it carries the original ?next= along so it can hand off there once
-    // the user finishes or skips.
+
+    if (error || !data.user) {
+      setSubmitting(false);
+      // The profile row is created by a trigger inside the signup itself, so
+      // a username that's already taken (the unique index is case-insensitive)
+      // surfaces as this generic message rather than a clear one.
+      const usernameTaken = error?.message
+        ?.toLowerCase()
+        .includes("database error saving new user");
+      setErrors(
+        usernameTaken
+          ? { username: "That username is already taken." }
+          : {
+              form: error?.message ?? "Couldn't create that account. Try again.",
+            },
+      );
+      return;
+    }
+
+    // New accounts go through onboarding next (games/rank/playstyle —
+    // region is collected there too, per game, not once at account
+    // level). It carries the original ?next= along so it can hand off
+    // there once the user finishes or skips.
     router.push(withNext("/onboarding", next));
   }
 
@@ -69,22 +90,14 @@ export default function SignupForm() {
       <OAuthButtons verb="sign up" />
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_140px]">
-          <AuthField
-            label="Username"
-            value={username}
-            onChange={setUsername}
-            placeholder="eg. Yonziii"
-            autoComplete="username"
-            error={errors.username}
-          />
-          <AuthSelect
-            label="Region"
-            value={region}
-            onChange={setRegion}
-            options={regions}
-          />
-        </div>
+        <AuthField
+          label="Username"
+          value={username}
+          onChange={setUsername}
+          placeholder="eg. Yonziii"
+          autoComplete="username"
+          error={errors.username}
+        />
 
         <AuthField
           label="Email"
@@ -138,11 +151,14 @@ export default function SignupForm() {
           )}
         </div>
 
+        {errors.form && <p className="text-xs text-danger">{errors.form}</p>}
+
         <button
           type="submit"
-          className="mt-1 flex h-11 items-center justify-center rounded-lg bg-brand text-sm font-bold text-white transition-opacity hover:opacity-90"
+          disabled={submitting}
+          className="mt-1 flex h-11 items-center justify-center rounded-lg bg-brand text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Create account
+          {submitting ? "Creating account…" : "Create account"}
         </button>
       </form>
 

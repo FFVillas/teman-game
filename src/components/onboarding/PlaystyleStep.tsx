@@ -1,6 +1,7 @@
 "use client";
 
 import { personalityTagOptions } from "@/data/player-profiles";
+import { MAX_PERSONALITY_TAGS } from "@/data/profile-options";
 
 interface PlaystyleStepProps {
   playstyle: number;
@@ -62,13 +63,15 @@ export default function PlaystyleStep({
         <div className="flex flex-wrap gap-2">
           {personalityTagOptions.map((tag) => {
             const isSelected = tags.includes(tag);
+            const isLocked = !isSelected && tags.length >= MAX_PERSONALITY_TAGS;
             return (
               <button
                 key={tag}
                 type="button"
                 onClick={() => onToggleTag(tag)}
                 aria-pressed={isSelected}
-                className={`rounded-full border px-4 py-1.5 text-xs transition-colors ${
+                disabled={isLocked}
+                className={`rounded-full border px-4 py-1.5 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                   isSelected
                     ? "border-brand text-brand"
                     : "border-border-strong text-text-muted hover:border-white/30"
@@ -79,6 +82,10 @@ export default function PlaystyleStep({
             );
           })}
         </div>
+        <p className="text-[11px] text-text-muted">
+          Pick up to {MAX_PERSONALITY_TAGS} · {tags.length}/{MAX_PERSONALITY_TAGS}{" "}
+          selected
+        </p>
       </div>
     </div>
   );

@@ -1,14 +1,15 @@
 /**
- * Staff accounts for the admin console.
+ * Mock display data for the admin console's UI (names shown on cases,
+ * audit log entries, etc.) — not the real login check anymore.
  *
  * Admins are deliberately *separate* accounts, not players with an extra
  * role: a moderator shouldn't be ruling on reports from the same account they
- * queue ranked with, next to people they may know. There is no admin sign-up
- * — in production these rows are created by hand in Supabase and given the
- * `admin` role through `user_role_mapping`.
- *
- * Until the backend exists, logging in on the normal /login page with one of
- * these emails (any password) starts an admin session.
+ * queue ranked with, next to people they may know. There is no admin
+ * sign-up — real admin rows are added by hand directly in Supabase's SQL
+ * editor, into their own `admins` table (not `user_role_mapping` — see
+ * docs/thesis-spec.md's "Divergences from the proposal"). `LoginForm`
+ * checks that real table now; `findAdminByEmail` here is unused by login
+ * and only kept for the admin console's own mock UI needs.
  */
 
 export interface AdminAccount {
