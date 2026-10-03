@@ -14,6 +14,14 @@ const gameTabs = [
   "Counter-Strike 2",
 ];
 
+const playstyleLabel = [
+  "Very casual",
+  "Casual",
+  "Balanced",
+  "Competitive",
+  "Very competitive",
+];
+
 /**
  * Type scale here deliberately matches the lobby and LFG screens — section
  * headings at 11px uppercase, cards at p-5, header actions at h-10/text-xs.
@@ -75,12 +83,18 @@ export default function PlayerProfileView({
           <div className="flex items-center gap-4">
             <div className="relative shrink-0">
               <div className="size-16 overflow-hidden rounded-full border-2 border-brand p-0.5 sm:size-20">
-                {/* eslint-disable-next-line @next/next/no-img-element -- profile avatar, no benefit from next/image optimization */}
-                <img
-                  src={profile.avatar}
-                  alt=""
-                  className="size-full rounded-full object-cover"
-                />
+                {profile.avatar ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- profile avatar, no benefit from next/image optimization
+                  <img
+                    src={profile.avatar}
+                    alt=""
+                    className="size-full rounded-full object-cover"
+                  />
+                ) : (
+                  <span className="flex size-full items-center justify-center rounded-full bg-brand/15 text-xl font-bold text-brand sm:text-2xl">
+                    {profile.username.charAt(0).toUpperCase()}
+                  </span>
+                )}
               </div>
               {profile.isOnline && (
                 <span className="absolute bottom-0 right-0 flex size-4 items-center justify-center rounded-full border-2 border-bg-card-alt bg-bg-card-alt">
@@ -161,6 +175,14 @@ export default function PlayerProfileView({
                   <span className={fieldLabel}>Gender</span>
                   <span className="text-xs text-white">
                     {profile.dossier.gender || "Not set"}
+                  </span>
+                </div>
+                <div className="col-span-2 flex flex-col gap-1">
+                  <span className={fieldLabel}>Playstyle</span>
+                  <span className="text-xs text-white">
+                    {profile.playstyle
+                      ? `${profile.playstyle}/5 · ${playstyleLabel[profile.playstyle - 1]}`
+                      : "Not set"}
                   </span>
                 </div>
                 <div className="col-span-2 flex flex-col gap-1.5">
@@ -354,11 +376,13 @@ export default function PlayerProfileView({
             <span className="size-1 rounded-full bg-border-strong" />
             <span>Last match: {profile.lastMatch}</span>
           </div>
-          <div className="flex items-center gap-1.5 text-[11px] text-text-muted">
-            {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
-            <img src="/icons/lfg-region.svg" alt="" className="size-2.5" />
-            {profile.region} region
-          </div>
+          {profile.region !== "—" && (
+            <div className="flex items-center gap-1.5 text-[11px] text-text-muted">
+              {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
+              <img src="/icons/lfg-region.svg" alt="" className="size-2.5" />
+              {profile.region} region
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -5,14 +5,12 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import AuthField from "./AuthField";
 import OAuthButtons from "./OAuthButtons";
-import { useAuth } from "@/contexts/AuthContext";
-import { playerProfiles } from "@/data/player-profiles";
+import { createClient } from "@/lib/supabase/client";
 import { sanitizeNextPath, withNext } from "@/lib/auth-redirect";
-import { ADMIN_HOME, findAdminByEmail } from "@/data/admin-accounts";
+import { ADMIN_HOME } from "@/data/admin-accounts";
 
 export default function LoginForm() {
   const router = useRouter();
-  const { login } = useAuth();
   const searchParams = useSearchParams();
   // Where the user was before they hit the auth screens.
   const next = sanitizeNextPath(searchParams.get("next"));
@@ -20,11 +18,14 @@ export default function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>(
-    {}
-  );
+  const [submitting, setSubmitting] = useState(false);
+  const [errors, setErrors] = useState<{
+    email?: string;
+    password?: string;
+    form?: string;
+  }>({});
 
-  function handleSubmit(event: FormEvent) {
+  async function handleSubmit(event: FormEvent) {
     event.preventDefault();
 
     const nextErrors: typeof errors = {};
@@ -34,30 +35,36 @@ export default function LoginForm() {
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
-    // TODO: wire up to Supabase Auth signInWithPassword once the backend exists.
-    // The role will then come from `user_role_mapping`, not the email.
-    const admin = findAdminByEmail(email);
+    setSubmitting(true);
+    const supabase = createClient();
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+
+    if (error || !data.user) {
+      setSubmitting(false);
+      setErrors({ form: "Wrong email or password." });
+      return;
+    }
+
+    // Role comes from whether a row exists in `admins`, not from the
+    // email — see AuthContext's buildAuthUser for the same check. Done
+    // here too so we know where to redirect before the context's own
+    // listener has necessarily resolved.
+    const { data: admin } = await supabase
+      .from("admins")
+      .select("user_id")
+      .eq("user_id", data.user.id)
+      .maybeSingle();
+
     if (admin) {
-      login({
-        id: admin.id,
-        name: admin.name,
-        avatar: "",
-        profileHref: ADMIN_HOME,
-        role: "admin",
-      });
       // Staff accounts only work in the console, so an ordinary ?next=
       // (a lobby, a profile) is ignored in favour of the admin home.
       router.push(next.startsWith("/admin") ? next : ADMIN_HOME);
       return;
     }
 
-    const me = playerProfiles.fayaz_ilovelittle;
-    login({
-      name: me.username,
-      avatar: me.avatar,
-      profileHref: "/profile/me",
-      role: "player",
-    });
     router.push(next);
   }
 
@@ -86,6 +93,8 @@ export default function LoginForm() {
           error={errors.password}
         />
 
+        {errors.form && <p className="text-xs text-danger">{errors.form}</p>}
+
         <div className="flex items-center justify-between">
           <label className="flex cursor-pointer items-center gap-2 text-xs text-text-muted">
             <input
@@ -106,9 +115,10 @@ export default function LoginForm() {
 
         <button
           type="submit"
-          className="mt-1 flex h-11 items-center justify-center rounded-lg bg-brand text-sm font-bold text-white transition-opacity hover:opacity-90"
+          disabled={submitting}
+          className="mt-1 flex h-11 items-center justify-center rounded-lg bg-brand text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Log in
+          {submitting ? "Logging in…" : "Log in"}
         </button>
       </form>
 

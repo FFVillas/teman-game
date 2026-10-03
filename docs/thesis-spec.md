@@ -129,11 +129,60 @@ moderation ticket for an admin.
 
 Two actors: **User** and **Admin** (moderation, sanctions, bans).
 
-**Pending ERD change:** the team chose to add two tables for the admin
-console — `sanctions` and `admin_actions` (audit log) — plus status and
-resolution columns on `reports`. That makes 15 entities; the thesis ERD and
-class diagram still show 13. Details in
-[`admin-console.md`](admin-console.md).
+## Divergences from the proposal (bring these to your advisor)
+
+Real schema work started 2026-09-19. Three deliberate departures from the
+ERD as written — both decided in favor of standard practice over what
+the proposal originally specified. Not gaps: each is a considered
+substitution, argued below.
+
+1. **Admin identity is not `role` + `user_role_mapping`.** The proposal
+   models admin as a permission a user account can hold. The actual
+   schema (`supabase/migrations/20260919000100_admin_roles.sql`) instead
+   gives admins their own `admins` table, completely independent of
+   `profiles` — a compromised or self-reported player account can never
+   carry moderation power. This is the same separation real platforms
+   use between end-user accounts and internal staff tooling.
+   `role`/`user_role_mapping` are not built, on purpose. **Live** as of
+   2026-09-19 — prioritized ahead of the rest of the moderation schema
+   because Login/Profile needs it (same `/login`, role decides where you
+   land).
+2. **Four entities beyond the original 13**: `admins` (above), plus
+   `sanctions`, `sanction_reports` (join table — one decision can close
+   several reports), and `admin_actions` (append-only audit log) in
+   `supabase/migrations/20260919000200_reports_moderation.sql` — written
+   but **not run yet**, deferred until the report feature is actually
+   being built. Once it is, `reports` itself will carry
+   `status`/`assigned_to`/`resolution_*`/`sanction_id` — arguably
+   *detailing* the proposal's own reports entity ("status penanganan
+   tiket... catatan resolusi dari administrator") rather than inventing
+   a new one, but worth being explicit that the data dictionary as
+   submitted doesn't show these columns.
+3. **Profile data the UI needs (2026-10-03).** `profiles` carries
+   `gender`, `languages` (a list picked from a dropdown) and a structured
+   play schedule — `play_days`, `play_start`, `play_end`, `timezone` —
+   instead of a free-text availability field (migrations
+   `20261003000000_profiles_dossier.sql` and
+   `20261003000100_profiles_schedule_languages.sql`). The schedule is structured so
+   the "schedule overlap" filter can be computed later. The profile screen
+   shows these as a player dossier — check them against the data
+   dictionary's user entity and add any that are missing. Age comes from a **date of
+   birth** (never a stored age, which goes stale), kept in a separate
+   private table `profile_private` because `profiles` is publicly
+   readable; everyone else only gets the derived age via `profile_age()`.
+   A database trigger enforces the 13+ minimum. This is one more table
+   than the proposal's ERD. **`region` is not on `profiles`** — it is per
+   game, so it will live on `user_game_mapping` in the Lobby slice.
+
+Net effect: 13 → 17 distinct tables once the rest of the model is built
+(13 original, minus `user`/`role`/`user_role_mapping` reshaped into
+`profiles` + `admins`, plus `sanctions`/`sanction_reports`/`admin_actions`,
+plus the still-pending `game_ranks` addition noted below). If your
+proposal can still be revised, this is the number and reasoning to bring
+to your advisor — if it can't, this doc is the record of what changed
+and why for your BAB 4 writeup.
+
+Design context for the admin console generally: [`admin-console.md`](admin-console.md).
 
 ## Evaluation plan
 
@@ -158,8 +207,8 @@ the code is at UI-shell stage while the spec describes the full system.
 | Playstyle 1–5 Likert | closest is free-text `vibeTags` in the create form |
 | Personality tags | not modeled |
 | PWA (service worker, manifest, FCM) | none present |
-| Supabase + Auth + RLS | no backend; submit handlers are `// TODO` + `router.push` |
-| Admin moderation (reports, sanctions, bans) | `/admin` console on mock data; client-side role gate, no RLS; players aren't notified of sanctions yet |
+| Supabase + Auth + RLS | `profiles` table + RLS live (Account slice). Everything else still `// TODO` + `router.push` |
+| Admin moderation (reports, sanctions, bans) | `admins` + `is_admin()` live (see divergences above); `reports`/`sanctions`/`sanction_reports`/`admin_actions` written but not run — deferred until the report feature is built. `/admin` console itself still runs on mock data; `AdminGate` is still a client-side check, not yet wired to real auth/RLS; players aren't notified of sanctions yet |
 | Rank/role/region filtering | `LfgToolbar` has a hardcoded `resultCount={128}`; `SortDropdown` not wired |
 
 **Terminology drift:** the proposal says **lobby**, the code says

@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Logo from "@/components/Logo";
 import { sanitizeNextPath } from "@/lib/auth-redirect";
 import { useNotifications } from "@/contexts/NotificationContext";
+import { createClient } from "@/lib/supabase/client";
+import { MAX_PERSONALITY_TAGS } from "@/data/profile-options";
 import GamesStep from "./GamesStep";
 import RankRoleStep, {
   emptyGameProfile,
@@ -65,9 +67,13 @@ export default function OnboardingFlow() {
   }
 
   function toggleTag(tag: string) {
-    setPersonalityTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
-    );
+    setPersonalityTags((prev) => {
+      if (prev.includes(tag)) return prev.filter((t) => t !== tag);
+      // At the cap, further picks are ignored — PlaystyleStep says so and
+      // dims the remaining tags.
+      if (prev.length >= MAX_PERSONALITY_TAGS) return prev;
+      return [...prev, tag];
+    });
   }
 
   function toggleProvider(provider: ConnectedProvider) {
@@ -79,14 +85,25 @@ export default function OnboardingFlow() {
     });
   }
 
-  function finish() {
-    // Frontend-only for now — nothing to persist yet. Once Supabase exists,
-    // this is where selectedGames/gameDetails/playstyle/personalityTags/
-    // connected get written to user_game_mapping + connected_accounts.
+  async function finish() {
+    // selectedGames/gameDetails/connected have nowhere to go yet —
+    // user_game_mapping and connected_accounts don't exist until the
+    // Lobby slice lands (see docs/thesis-spec.md). playstyle and
+    // personality_tags DO have real columns on profiles already, so
+    // those are the only two actually written here.
+    const supabase = createClient();
+    const { data } = await supabase.auth.getUser();
+    if (data.user) {
+      await supabase
+        .from("profiles")
+        .update({ playstyle, personality_tags: personalityTags })
+        .eq("id", data.user.id);
+    }
+
     toast({
       tone: "success",
       title: "You're all set",
-      body: "Your games, rank and playstyle are saved — lobbies are matched on these.",
+      body: "Playstyle and personality are saved to your profile — lobby matching uses these first. Game and rank sync comes with lobbies.",
     });
     router.push(destination);
   }

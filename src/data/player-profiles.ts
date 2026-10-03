@@ -53,6 +53,8 @@ export interface PlayerProfile {
   ratingScore: number;
   reviewCount: number;
   personalityTags: PersonalityTag[];
+  /** 1 (very casual) – 5 (very competitive). Only real profiles carry it. */
+  playstyle?: number;
   dossier: {
     age: number;
     gender: string;

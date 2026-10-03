@@ -1,0 +1,12 @@
+-- Region moves from a one-time account-level field to a per-game field —
+-- someone's server can differ by title, so it belongs on the (still
+-- upcoming) user_game_mapping / Lobby-slice tables, not on `profiles`.
+-- The onboarding flow's Rank & Role step already collects it per game
+-- (RankRoleStep.tsx's UsernameAndRegion), so this was redundant the
+-- moment that step existed.
+--
+-- A genuinely new migration rather than an edit to
+-- 20260919000000_profiles.sql — that one already ran against the live
+-- database, so changing it wouldn't retroactively fix anything there;
+-- this is the actual mechanism that does.
+alter table public.profiles drop column region;

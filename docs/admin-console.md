@@ -1,8 +1,21 @@
 # Admin console
 
 The moderation side of TemanGame: the **Admin** actor from the proposal
-(moderation, sanctions, bans). Frontend only for now — every screen runs on
-mock data in `src/data/admin-moderation.ts`, persisted to `localStorage`.
+(moderation, sanctions, bans). Every screen still runs on mock data in
+`src/data/admin-moderation.ts`, persisted to `localStorage`. The real
+schema this design implies is split into two migrations, staged by
+priority rather than run together:
+
+- `supabase/migrations/20260919000100_admin_roles.sql` — **live** as of
+  2026-09-19. Just `admins` + `is_admin()`, prioritized ahead of the rest
+  because Login/Profile needs it (same `/login`, role decides where you
+  land).
+- `supabase/migrations/20260919000200_reports_moderation.sql` — **not
+  run yet**. `reports`, `sanctions`, `sanction_reports`, `admin_actions`.
+  Waiting until the report feature is actually being built.
+
+The app itself isn't wired to either yet — that's the "Server-side
+protection" item in **Not built yet**.
 
 ## Decisions (agreed with the team)
 
