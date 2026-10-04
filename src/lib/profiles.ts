@@ -5,12 +5,14 @@ import {
   type PlayerProfile,
 } from "@/data/player-profiles";
 import { formatAvailability, trimSeconds } from "@/lib/availability";
+import { avatarUrl } from "@/lib/avatar";
 
 /** Columns of `public.profiles` the profile screens read, plus the derived age. */
 export interface ProfileRow {
   id: string;
   username: string;
-  avatar_url: string | null;
+  /** Path inside the avatars bucket, not a URL — see src/lib/avatar.ts. */
+  avatar_path: string | null;
   playstyle: number | null;
   personality_tags: string[];
   reputation_score: number;
@@ -28,7 +30,7 @@ export interface ProfileRow {
 }
 
 const PROFILE_COLUMNS =
-  "id, username, avatar_url, playstyle, personality_tags, reputation_score, review_count, created_at, gender, languages, play_days, play_start, play_end, timezone";
+  "id, username, avatar_path, playstyle, personality_tags, reputation_score, review_count, created_at, gender, languages, play_days, play_start, play_end, timezone";
 
 /** Adds the public, derived age. The date of birth lives in a private table. */
 async function withAge(
@@ -104,7 +106,7 @@ export function profileFromRow(
   return {
     slug: row.username,
     username: row.username,
-    avatar: row.avatar_url ?? "",
+    avatar: avatarUrl(row.avatar_path),
     isOnline: false,
     isOwner,
     ratingScore: Number(row.reputation_score),

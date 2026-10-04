@@ -9,6 +9,7 @@ import {
 } from "react";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
+import { avatarUrl } from "@/lib/avatar";
 
 /**
  * DIVERGENCE FROM PROPOSAL: the ERD models admin via `role` +
@@ -79,14 +80,14 @@ async function buildAuthUser(
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("username, avatar_url")
+    .select("username, avatar_path")
     .eq("id", authUser.id)
     .maybeSingle();
 
   return {
     id: authUser.id,
     name: profile?.username ?? authUser.email ?? "Player",
-    avatar: profile?.avatar_url ?? "",
+    avatar: avatarUrl(profile?.avatar_path),
     profileHref: "/profile/me",
     role: "player",
   };
