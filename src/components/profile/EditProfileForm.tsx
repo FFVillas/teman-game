@@ -1,6 +1,13 @@
 "use client";
 
-import { useState, type FormEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -20,6 +27,12 @@ import {
   type DateParts,
 } from "@/lib/age";
 import { formatTime, timeOptions, trimSeconds } from "@/lib/availability";
+import {
+  AVATAR_ACCEPT,
+  AVATAR_BUCKET,
+  newAvatarPath,
+  processAvatar,
+} from "@/lib/avatar";
 import type { ProfileRow } from "@/lib/profiles";
 import {
   DEFAULT_TIMEZONE,
@@ -211,9 +224,31 @@ export default function EditProfileForm({
       profile.connections.map((account) => [account.provider, account.handle])
     )
   );
+  // The picture is processed (cropped + shrunk) as soon as it's picked, so the
+  // preview shows exactly what will be stored, but it is only uploaded on
+  // Save — "Discard" really does discard it.
+  const [newAvatar, setNewAvatar] = useState<{
+    blob: Blob;
+    previewUrl: string;
+  } | null>(null);
+  const [removeAvatar, setRemoveAvatar] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const shownAvatar = removeAvatar
+    ? ""
+    : (newAvatar?.previewUrl ?? profile.avatar);
+
+  // Frees the preview's object URL when it's replaced or the form closes.
+  useEffect(
+    () => () => {
+      if (newAvatar) URL.revokeObjectURL(newAvatar.previewUrl);
+    },
+    [newAvatar]
+  );
+
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<{
     username?: string;
+    avatar?: string;
     dateOfBirth?: string;
     schedule?: string;
     tags?: string;
@@ -243,12 +278,32 @@ export default function EditProfileForm({
       if (prev.length >= MAX_TAGS) {
         setErrors((e) => ({
           ...e,
-          tags: `Pick at most ${MAX_TAGS} — the matching score compares against the lobby's requested tags.`,
+          tags: `You can pick up to ${MAX_TAGS} tags.`,
         }));
         return prev;
       }
       return [...prev, tag];
     });
+  }
+
+  async function handleAvatarPicked(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    // Reset so picking the same file again still fires onChange.
+    event.target.value = "";
+    if (!file) return;
+
+    setErrors((prev) => ({ ...prev, avatar: undefined }));
+    try {
+      const blob = await processAvatar(file);
+      setNewAvatar({ blob, previewUrl: URL.createObjectURL(blob) });
+      setRemoveAvatar(false);
+    } catch (error) {
+      setErrors((prev) => ({
+        ...prev,
+        avatar:
+          error instanceof Error ? error.message : "Couldn't use that image.",
+      }));
+    }
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -266,7 +321,7 @@ export default function EditProfileForm({
     ).length;
     const dateError =
       filledParts > 0 && filledParts < 3
-        ? "Pick a day, month and year — or clear all three."
+        ? "Pick a day, month and year, or clear all three."
         : validateDateOfBirth(dateOfBirth);
     if (dateError) nextErrors.dateOfBirth = dateError;
 
@@ -303,9 +358,38 @@ export default function EditProfileForm({
       }
     }
 
+    // Upload first, record second: if the upload fails nothing changed, and
+    // if recording fails the new file is removed again below. Each upload
+    // gets a brand-new file name, so there's nothing to overwrite and no
+    // stale cached copy to worry about.
+    const oldAvatarPath = row.avatar_path;
+    let uploadedPath: string | null = null;
+    let nextAvatarPath: string | null | undefined; // undefined = unchanged
+
+    if (newAvatar) {
+      const path = newAvatarPath(userId);
+      const { error: uploadError } = await supabase.storage
+        .from(AVATAR_BUCKET)
+        .upload(path, newAvatar.blob, {
+          contentType: "image/jpeg",
+          cacheControl: "31536000", // a year — the name changes on every upload
+        });
+
+      if (uploadError) {
+        setSaving(false);
+        setErrors({ form: "Couldn't upload your picture. Try again." });
+        return;
+      }
+      uploadedPath = path;
+      nextAvatarPath = path;
+    } else if (removeAvatar) {
+      nextAvatarPath = null;
+    }
+
     const { error } = await supabase
       .from("profiles")
       .update({
+        ...(nextAvatarPath !== undefined && { avatar_path: nextAvatarPath }),
         username: username.trim(),
         gender: gender || null,
         languages,
@@ -321,6 +405,10 @@ export default function EditProfileForm({
       .eq("id", userId);
 
     if (error) {
+      // Don't leave the file we just uploaded orphaned in the bucket.
+      if (uploadedPath) {
+        await supabase.storage.from(AVATAR_BUCKET).remove([uploadedPath]);
+      }
       setSaving(false);
       // 23505 = unique_violation, from the case-insensitive username index.
       setErrors(
@@ -331,11 +419,17 @@ export default function EditProfileForm({
       return;
     }
 
+    // The previous picture is now unreferenced. Best-effort: if this fails
+    // the profile is already correct and only an unused file is left behind.
+    if (nextAvatarPath !== undefined && oldAvatarPath) {
+      await supabase.storage.from(AVATAR_BUCKET).remove([oldAvatarPath]);
+    }
+
     await refreshUser();
     toast({
       tone: "success",
       title: "Profile updated",
-      body: "Your playstyle and tags feed straight into lobby recommendations.",
+      body: "Your changes have been saved.",
     });
     router.push("/profile/me");
     router.refresh();
@@ -350,8 +444,8 @@ export default function EditProfileForm({
           Edit profile
         </h1>
         <p className="text-xs text-text-muted">
-          Your rank, playstyle and personality tags are what lobbies get matched
-          on — keeping them current improves your recommendations.
+          Fill in your profile so other players know what to expect from you.
+          The more you add, the easier it is to find a team that fits.
         </p>
       </div>
 
@@ -359,10 +453,10 @@ export default function EditProfileForm({
         <div className="flex flex-col gap-4">
           <Card title="Identity">
             <div className="flex items-center gap-4">
-              {profile.avatar ? (
+              {shownAvatar ? (
                 // eslint-disable-next-line @next/next/no-img-element -- avatar preview, no benefit from next/image optimization
                 <img
-                  src={profile.avatar}
+                  src={shownAvatar}
                   alt=""
                   className="size-14 shrink-0 rounded-full border-2 border-border-strong object-cover"
                 />
@@ -371,16 +465,43 @@ export default function EditProfileForm({
                   {profile.username.charAt(0).toUpperCase()}
                 </span>
               )}
-              {/* Upload needs Supabase Storage — not built yet. */}
-              <button
-                type="button"
-                disabled
-                title="Avatar upload is coming soon"
-                className="flex h-9 items-center justify-center rounded-lg border border-border-strong px-4 text-xs font-semibold text-text-subtle opacity-50"
-              >
-                Change avatar
-              </button>
+              <div className="flex flex-col gap-1.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex h-9 items-center justify-center rounded-lg border border-border-strong px-4 text-xs font-semibold text-text-subtle transition-colors hover:text-white"
+                  >
+                    {shownAvatar ? "Change avatar" : "Upload avatar"}
+                  </button>
+                  {shownAvatar && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewAvatar(null);
+                        setRemoveAvatar(true);
+                      }}
+                      className="flex h-9 items-center justify-center rounded-lg px-3 text-xs font-semibold text-text-muted transition-colors hover:text-danger"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+                <p className="text-[11px] text-text-muted">
+                  Image should be at least 256 by 256 pixels.
+                </p>
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept={AVATAR_ACCEPT}
+                onChange={handleAvatarPicked}
+                className="hidden"
+              />
             </div>
+            {errors.avatar && (
+              <p className="text-[11px] text-danger">{errors.avatar}</p>
+            )}
 
             <Field label="Username">
               <input
@@ -414,7 +535,7 @@ export default function EditProfileForm({
                 <p className="text-[11px] text-danger">{errors.dateOfBirth}</p>
               ) : (
                 <p className="text-[11px] text-text-muted">
-                  Private — others only see your age.
+                  Only your age is shown to other players.
                 </p>
               )}
             </Field>
@@ -501,10 +622,6 @@ export default function EditProfileForm({
           </Card>
 
           <Card title="Personality tags">
-            <p className="text-[11px] leading-relaxed text-text-muted">
-              Pick up to {MAX_TAGS}. Lobby leaders list the tags they&apos;re
-              looking for, and your overlap with them is scored directly.
-            </p>
             <div className="flex flex-wrap gap-2">
               {personalityTagOptions.map((tag) => {
                 const isSelected = tags.includes(tag);
@@ -525,19 +642,23 @@ export default function EditProfileForm({
                 );
               })}
             </div>
-            <p
-              className={`text-[11px] ${errors.tags ? "text-danger" : "text-text-muted"}`}
-            >
-              {errors.tags ?? `${tags.length}/${MAX_TAGS} selected`}
-            </p>
+            <div className="flex items-center justify-between gap-3 text-[11px]">
+              <p className={errors.tags ? "text-danger" : "text-text-muted"}>
+                {errors.tags ?? `${tags.length}/${MAX_TAGS} selected`}
+              </p>
+              {/* The error already says the limit, so don't repeat it. */}
+              {!errors.tags && (
+                <p className="text-text-muted">Pick up to {MAX_TAGS}.</p>
+              )}
+            </div>
           </Card>
 
           <Card title="Connected accounts">
             <div className="flex flex-col gap-3">
               {profile.connections.length === 0 && (
                 <p className="rounded-lg border border-dashed border-border-default p-4 text-center text-xs text-text-muted">
-                  No linked accounts yet — Discord, Steam and Riot linking
-                  arrives with lobbies.
+                  No linked accounts yet. Discord, Steam and Riot linking is
+                  coming soon.
                 </p>
               )}
               {profile.connections.map((account) => (
@@ -634,11 +755,6 @@ export default function EditProfileForm({
             {errors.schedule && (
               <p className="text-[11px] text-danger">{errors.schedule}</p>
             )}
-            <p className="text-[11px] leading-relaxed text-text-muted">
-              Schedule overlap is one of the filters players search on. If the
-              end time is earlier than the start (for example 8 PM – 1 AM), it
-              runs past midnight.
-            </p>
           </Card>
 
           <div className="flex flex-col gap-2 rounded-2xl border border-border-strong bg-bg-card-alt p-5">
