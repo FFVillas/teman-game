@@ -8,13 +8,8 @@ import MatchHistoryList from "./MatchHistoryList";
 import BackLink from "@/components/BackLink";
 import { EmptyState, NotSetOrAdd } from "@/components/EmptyState";
 import { profileCompleteness } from "@/lib/profile-completeness";
-
-const gameTabs = [
-  "Valorant",
-  "League of Legends",
-  "Mobile Legends: Bang Bang",
-  "Counter-Strike 2",
-];
+import { gameByName } from "@/data/games";
+import type { UserGame } from "@/lib/user-games";
 
 const playstyleLabel = [
   "Very casual",
@@ -64,13 +59,38 @@ function StarRating({ score }: { score: number }) {
   );
 }
 
+/**
+ * Mock profiles predate `user_game_mapping` and carry `gameStats` instead
+ * (with invented win rates). Reading them through the same shape keeps one
+ * rendering path until the social/LFG mock rows read from the database too.
+ */
+function gamesOf(profile: PlayerProfile): UserGame[] {
+  if (profile.games) return profile.games;
+  return profile.gameStats.map((stat) => ({
+    slug: gameByName(stat.game)?.slug ?? stat.game,
+    name: stat.game,
+    inGameName: "",
+    region: profile.region === "\u2014" ? "" : profile.region,
+    rank: [stat.rank.name, stat.tier].filter(Boolean).join(" "),
+    roles: [stat.mainRole.name],
+  }));
+}
+
 export default function PlayerProfileView({
   profile,
 }: {
   profile: PlayerProfile;
 }) {
-  const [activeGame, setActiveGame] = useState(gameTabs[0]);
-  const activeStat = profile.gameStats.find((stat) => stat.game === activeGame);
+  // Only the games this player actually added — the tabs used to be a fixed
+  // list of four titles, which left most profiles advertising games they
+  // don't play.
+  const playerGames = gamesOf(profile);
+  const [activeSlug, setActiveSlug] = useState(playerGames[0]?.slug ?? "");
+  const activeGame =
+    playerGames.find((game) => game.slug === activeSlug) ?? playerGames[0];
+  const activeStat = profile.gameStats.find(
+    (stat) => stat.game === activeGame?.name,
+  );
 
   const isOwner = Boolean(profile.isOwner);
   const matches = matchesForSlug(profile.slug);
@@ -352,63 +372,106 @@ export default function PlayerProfileView({
           </div>
 
           <div className="flex flex-col overflow-hidden rounded-2xl border border-border-default bg-bg-card-alt">
-            <div className="flex overflow-x-auto border-b border-border-default px-2">
-              {gameTabs.map((game) => (
-                <button
-                  key={game}
-                  type="button"
-                  onClick={() => setActiveGame(game)}
-                  className={`shrink-0 whitespace-nowrap border-b-2 px-4 py-3 text-xs font-bold transition-colors ${
-                    activeGame === game
-                      ? "border-brand text-white"
-                      : "border-transparent text-text-muted hover:text-white"
-                  }`}
-                >
-                  {game}
-                </button>
-              ))}
-            </div>
+            {playerGames.length > 0 && (
+              <div className="flex items-center justify-between gap-3 border-b border-border-default px-2">
+                <div className="flex overflow-x-auto">
+                  {playerGames.map((game) => (
+                    <button
+                      key={game.slug}
+                      type="button"
+                      onClick={() => setActiveSlug(game.slug)}
+                      className={`shrink-0 whitespace-nowrap border-b-2 px-4 py-3 text-xs font-bold transition-colors ${
+                        activeGame?.slug === game.slug
+                          ? "border-brand text-white"
+                          : "border-transparent text-text-muted hover:text-white"
+                      }`}
+                    >
+                      {game.name}
+                    </button>
+                  ))}
+                </div>
+                {isOwner && (
+                  <Link
+                    href={editHref}
+                    className="shrink-0 pr-3 text-[10px] font-bold uppercase tracking-wide text-brand hover:underline"
+                  >
+                    Edit games
+                  </Link>
+                )}
+              </div>
+            )}
 
             <div className="p-5">
-              {activeStat ? (
-                <div className="flex flex-wrap items-center gap-6">
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="flex size-16 items-center justify-center rounded-full border border-border-default">
-                      {/* eslint-disable-next-line @next/next/no-img-element -- static badge icon, no benefit from next/image optimization */}
-                      <img
-                        src={activeStat.rank.icon}
-                        alt=""
-                        className="size-10"
-                      />
-                    </div>
-                    <div className="flex flex-col items-center gap-0.5">
-                      <span
-                        className={`text-[11px] font-bold uppercase tracking-wide ${activeStat.rank.colorClass}`}
-                      >
-                        {activeStat.rank.name} {activeStat.tier}
-                      </span>
-                      <span className="text-[10px] uppercase text-text-muted">
-                        {activeStat.lp} LP
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col gap-4">
-                    <div className="flex flex-col gap-0.5">
-                      <h3 className="text-base font-bold text-white">
-                        {profile.username}
-                      </h3>
-                      <p className="text-[11px] text-text-muted">
-                        <span className="font-bold text-white">
-                          {profile.region}
-                        </span>{" "}
-                        ·{" "}
-                        <span className="font-bold text-white">
-                          {activeStat.wins + activeStat.losses} matches
+              {!activeGame ? (
+                <EmptyState
+                  icon="/icons/lfg-page-valorant.svg"
+                  title="No games added yet"
+                  description={
+                    isOwner
+                      ? "Add the games you play, with your rank and the roles you take, so lobbies can find you."
+                      : `${profile.username} hasn't added any games yet.`
+                  }
+                  action={isOwner ? { label: "Add a game", href: editHref } : undefined}
+                  size="sm"
+                />
+              ) : (
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-wrap items-start gap-x-8 gap-y-4">
+                    <div className="flex flex-col gap-1">
+                      <span className={fieldLabel}>Rank</span>
+                      {activeGame.rank ? (
+                        <span className="text-sm font-bold text-white">
+                          {activeGame.rank}
                         </span>
-                      </p>
+                      ) : (
+                        <NotSetOrAdd isOwner={isOwner} href={editHref} />
+                      )}
                     </div>
-                    <div className="flex gap-8">
+
+                    <div className="flex flex-col gap-1.5">
+                      <span className={fieldLabel}>Roles</span>
+                      {activeGame.roles.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {activeGame.roles.map((role) => (
+                            <span
+                              key={role}
+                              className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-bold text-text-subtle"
+                            >
+                              {role}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <NotSetOrAdd isOwner={isOwner} href={editHref} />
+                      )}
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <span className={fieldLabel}>Region</span>
+                      {activeGame.region ? (
+                        <span className="text-xs text-white">
+                          {activeGame.region}
+                        </span>
+                      ) : (
+                        <NotSetOrAdd isOwner={isOwner} href={editHref} />
+                      )}
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <span className={fieldLabel}>In-game name</span>
+                      {activeGame.inGameName ? (
+                        <span className="text-xs text-white">
+                          {activeGame.inGameName}
+                        </span>
+                      ) : (
+                        <NotSetOrAdd isOwner={isOwner} href={editHref} />
+                      )}
+                    </div>
+
+                    {/* Win rate only exists on the mock profiles; nothing
+                        reads it from a game, so it is never shown as if a
+                        real account had been checked. */}
+                    {activeStat && (
                       <div className="flex flex-col gap-0.5">
                         <span className={fieldLabel}>Win rate</span>
                         <span className="text-xl font-bold text-brand">
@@ -423,31 +486,14 @@ export default function PlayerProfileView({
                           {activeStat.wins}W · {activeStat.losses}L
                         </span>
                       </div>
-                      <div className="flex flex-col gap-1.5">
-                        <span className={fieldLabel}>Main role</span>
-                        <div className="flex size-9 items-center justify-center rounded-lg border border-border-strong bg-bg-page">
-                          {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
-                          <img
-                            src={activeStat.mainRole.icon}
-                            alt={activeStat.mainRole.name}
-                            className="size-3.5"
-                          />
-                        </div>
-                      </div>
-                    </div>
+                    )}
                   </div>
+
+                  <p className="border-t border-border-subtle pt-3 text-[11px] text-text-muted">
+                    Entered by {isOwner ? "you" : profile.username} — ranks
+                    aren&apos;t synced from the game yet.
+                  </p>
                 </div>
-              ) : (
-                <EmptyState
-                  icon="/icons/lfg-page-valorant.svg"
-                  title={`No ${activeGame} profile yet`}
-                  description={
-                    isOwner
-                      ? "Rank, role and win rate sync from the game once that connection is built."
-                      : `${profile.username} hasn't added a rank or role for this game.`
-                  }
-                  size="sm"
-                />
               )}
             </div>
           </div>

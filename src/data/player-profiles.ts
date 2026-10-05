@@ -1,6 +1,7 @@
 import { lfgRanks, type LfgRank } from "./lfg-ranks";
 import { lfgRoles, type LfgRole } from "./lfg-roles";
 import { lfgTeams } from "./lfg-teams";
+import type { UserGame } from "@/lib/user-games";
 
 // Canonical self-declared personality tags — the vocabulary the matchmaking
 // engine's Attribute Matching Ratio (Persamaan 3.4) actually compares against.
@@ -62,6 +63,12 @@ export interface PlayerProfile {
     availability: string;
   };
   connections: ConnectedAccount[];
+  /**
+   * The games this player added, from `user_game_mapping`. Absent on the
+   * mock profiles, which still carry the richer (but invented) `gameStats`
+   * instead — the profile screen falls back to those.
+   */
+  games?: UserGame[];
   gameStats: GameStat[];
   recentTeams: TeamHistoryEntry[];
   memberSince: string;

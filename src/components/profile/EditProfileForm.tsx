@@ -27,6 +27,7 @@ import {
   processAvatar,
 } from "@/lib/avatar";
 import { saveDateOfBirth, type ProfileRow } from "@/lib/profiles";
+import { saveUserGames, type UserGame } from "@/lib/user-games";
 import {
   DEFAULT_TIMEZONE,
   MAX_PERSONALITY_TAGS,
@@ -43,6 +44,7 @@ import {
   labelClass,
   validateDossier,
 } from "./DossierFields";
+import GamesEditor from "./GamesEditor";
 
 const MAX_TAGS = MAX_PERSONALITY_TAGS;
 const playstyleScale = [1, 2, 3, 4, 5];
@@ -61,6 +63,7 @@ export default function EditProfileForm({
   row,
   userId,
   dateOfBirth: initialDateOfBirth,
+  games: initialGames,
 }: {
   profile: PlayerProfile;
   /** Raw columns — the view model only carries display strings. */
@@ -68,6 +71,8 @@ export default function EditProfileForm({
   userId: string;
   /** "YYYY-MM-DD" or "" — private, only ever loaded for the owner. */
   dateOfBirth: string;
+  /** Rows from `user_game_mapping`, as loaded. */
+  games: UserGame[];
 }) {
   const router = useRouter();
   const { toast } = useNotifications();
@@ -94,6 +99,7 @@ export default function EditProfileForm({
     profile.playstyle
   );
   const [tags, setTags] = useState<string[]>([...profile.personalityTags]);
+  const [games, setGames] = useState<UserGame[]>(initialGames);
   const [handles, setHandles] = useState(() =>
     Object.fromEntries(
       profile.connections.map((account) => [account.provider, account.handle])
@@ -127,6 +133,7 @@ export default function EditProfileForm({
     dateOfBirth?: string;
     schedule?: string;
     tags?: string;
+    games?: string;
     form?: string;
   }>({});
 
@@ -271,6 +278,13 @@ export default function EditProfileForm({
           ? { username: "That username is already taken." }
           : { form: "Couldn't save your changes. Try again." }
       );
+      return;
+    }
+
+    const gamesError = await saveUserGames(supabase, userId, games, initialGames);
+    if (gamesError) {
+      setSaving(false);
+      setErrors({ games: gamesError });
       return;
     }
 
@@ -458,6 +472,17 @@ export default function EditProfileForm({
                 <p className="text-text-muted">Pick up to {MAX_TAGS}.</p>
               )}
             </div>
+          </Card>
+
+          <Card title="Games you play">
+            <p className="text-[11px] text-text-muted">
+              Rank and role are what you type here — nothing is read from the
+              game, so keep it honest and teammates can trust it.
+            </p>
+            <GamesEditor games={games} onChange={setGames} />
+            {errors.games && (
+              <p className="text-[11px] text-danger">{errors.games}</p>
+            )}
           </Card>
 
           <Card title="Connected accounts">

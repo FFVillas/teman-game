@@ -7,6 +7,8 @@ import { sanitizeNextPath } from "@/lib/auth-redirect";
 import { useNotifications } from "@/contexts/NotificationContext";
 import { createClient } from "@/lib/supabase/client";
 import { saveDateOfBirth } from "@/lib/profiles";
+import { saveUserGames, type UserGame } from "@/lib/user-games";
+import { gameByName } from "@/data/games";
 import {
   DEFAULT_TIMEZONE,
   MAX_PERSONALITY_TAGS,
@@ -111,10 +113,9 @@ export default function OnboardingFlow() {
   }
 
   async function finish() {
-    // selectedGames/gameDetails/connected have nowhere to go yet —
-    // user_game_mapping and connected_accounts don't exist until the
-    // Lobby slice lands (see docs/thesis-spec.md). Everything else has a
-    // real column, so it's written here.
+    // `connected` still has nowhere to go — connected_accounts doesn't
+    // exist yet (see docs/thesis-spec.md). Everything else has a real
+    // column now, including the games (user_game_mapping).
     const supabase = createClient();
     const { data } = await supabase.auth.getUser();
     if (data.user) {
@@ -136,6 +137,32 @@ export default function OnboardingFlow() {
           timezone: hasSchedule ? about.schedule.timezone : null,
         })
         .eq("id", data.user.id);
+
+      // The games picked in step 1, with whatever rank/role was filled in
+      // for each. Typed in by the player: nothing is read from the game.
+      const chosenGames: UserGame[] = selectedGames
+        .map((name) => {
+          const game = gameByName(name);
+          if (!game) return null;
+          const details = gameDetails[name];
+          return {
+            slug: game.slug,
+            name: game.name,
+            inGameName: details?.username ?? "",
+            region: details?.region ?? "",
+            rank: details?.rank ?? "",
+            roles: (details?.role ?? "")
+              .split(",")
+              .map((role) => role.trim())
+              .filter(Boolean)
+              .slice(0, 6),
+          };
+        })
+        .filter((game): game is UserGame => game !== null);
+
+      if (chosenGames.length > 0) {
+        await saveUserGames(supabase, data.user.id, chosenGames, []);
+      }
 
       // Private, so it lives in its own table (see the dossier migration).
       // Skipped entirely when the step was left blank.
