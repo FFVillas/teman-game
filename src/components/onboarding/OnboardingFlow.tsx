@@ -6,8 +6,15 @@ import Logo from "@/components/Logo";
 import { sanitizeNextPath } from "@/lib/auth-redirect";
 import { useNotifications } from "@/contexts/NotificationContext";
 import { createClient } from "@/lib/supabase/client";
-import { MAX_PERSONALITY_TAGS } from "@/data/profile-options";
+import { saveDateOfBirth } from "@/lib/profiles";
+import {
+  DEFAULT_TIMEZONE,
+  MAX_PERSONALITY_TAGS,
+} from "@/data/profile-options";
+import { emptyDateParts, joinDate } from "@/lib/age";
+import { validateDossier } from "@/components/profile/DossierFields";
 import GamesStep from "./GamesStep";
+import AboutYouStep, { type AboutYou } from "./AboutYouStep";
 import RankRoleStep, {
   emptyGameProfile,
   type GameProfile,
@@ -15,13 +22,21 @@ import RankRoleStep, {
 import PlaystyleStep from "./PlaystyleStep";
 import ConnectStep, { type ConnectedProvider } from "./ConnectStep";
 
-type StepId = "games" | "rank" | "playstyle" | "connect";
+type StepId = "games" | "rank" | "about" | "playstyle" | "connect";
 
 const STEP_LABEL: Record<StepId, string> = {
   games: "Games",
   rank: "Rank & role",
+  about: "About you",
   playstyle: "Playstyle",
   connect: "Accounts",
+};
+
+const emptyAboutYou: AboutYou = {
+  dobParts: emptyDateParts,
+  gender: "",
+  languages: [],
+  schedule: { days: [], start: "", end: "", timezone: DEFAULT_TIMEZONE },
 };
 
 export default function OnboardingFlow() {
@@ -32,6 +47,11 @@ export default function OnboardingFlow() {
 
   const [selectedGames, setSelectedGames] = useState<string[]>([]);
   const [gameDetails, setGameDetails] = useState<Record<string, GameProfile>>({});
+  const [about, setAbout] = useState<AboutYou>(emptyAboutYou);
+  const [aboutErrors, setAboutErrors] = useState<{
+    dateOfBirth?: string;
+    schedule?: string;
+  }>({});
   const [playstyle, setPlaystyle] = useState(3);
   const [personalityTags, setPersonalityTags] = useState<string[]>([]);
   const [connected, setConnected] = useState<Set<ConnectedProvider>>(new Set());
@@ -42,8 +62,8 @@ export default function OnboardingFlow() {
   const steps: StepId[] = useMemo(
     () =>
       selectedGames.length > 0
-        ? ["games", "rank", "playstyle", "connect"]
-        : ["games", "playstyle", "connect"],
+        ? ["games", "rank", "about", "playstyle", "connect"]
+        : ["games", "about", "playstyle", "connect"],
     [selectedGames.length],
   );
   const step = steps[stepIndex];
@@ -64,6 +84,11 @@ export default function OnboardingFlow() {
       const resolved = typeof patch === "function" ? patch(current) : patch;
       return { ...prev, [game]: { ...current, ...resolved } };
     });
+  }
+
+  function updateAbout(patch: Partial<AboutYou>) {
+    setAboutErrors({});
+    setAbout((prev) => ({ ...prev, ...patch }));
   }
 
   function toggleTag(tag: string) {
@@ -88,27 +113,73 @@ export default function OnboardingFlow() {
   async function finish() {
     // selectedGames/gameDetails/connected have nowhere to go yet —
     // user_game_mapping and connected_accounts don't exist until the
-    // Lobby slice lands (see docs/thesis-spec.md). playstyle and
-    // personality_tags DO have real columns on profiles already, so
-    // those are the only two actually written here.
+    // Lobby slice lands (see docs/thesis-spec.md). Everything else has a
+    // real column, so it's written here.
     const supabase = createClient();
     const { data } = await supabase.auth.getUser();
     if (data.user) {
+      const hasSchedule =
+        about.schedule.days.length > 0 || Boolean(about.schedule.start);
+
       await supabase
         .from("profiles")
-        .update({ playstyle, personality_tags: personalityTags })
+        .update({
+          playstyle,
+          personality_tags: personalityTags,
+          gender: about.gender || null,
+          languages: about.languages,
+          play_days: about.schedule.days,
+          play_start: about.schedule.start || null,
+          play_end: about.schedule.end || null,
+          // Only recorded once there's a schedule, so the default offset
+          // isn't stored as if it had been chosen.
+          timezone: hasSchedule ? about.schedule.timezone : null,
+        })
         .eq("id", data.user.id);
+
+      // Private, so it lives in its own table (see the dossier migration).
+      // Skipped entirely when the step was left blank.
+      const dateOfBirth = joinDate(about.dobParts);
+      if (dateOfBirth) {
+        const dobError = await saveDateOfBirth(
+          supabase,
+          data.user.id,
+          dateOfBirth
+        );
+        // Onboarding is skippable, so a failure here shouldn't trap anyone
+        // on the step — it's reported and the rest of the profile is saved.
+        if (dobError) {
+          setAboutErrors({ dateOfBirth: dobError });
+          setStepIndex(steps.indexOf("about"));
+          return;
+        }
+      }
     }
 
     toast({
       tone: "success",
       title: "You're all set",
-      body: "Playstyle and personality are saved to your profile — lobby matching uses these first. Game and rank sync comes with lobbies.",
+      body: "Your profile is saved — playstyle, personality and schedule are what lobby matching looks at first. Game and rank sync comes with lobbies.",
     });
     router.push(destination);
   }
 
   function handleContinue() {
+    // Partial dates and a half-filled play window would both be rejected by
+    // the database, so they're caught here with a readable message.
+    if (step === "about" || isLastStep) {
+      const found = validateDossier({
+        dobParts: about.dobParts,
+        schedule: about.schedule,
+      });
+      if (found.dateOfBirth || found.schedule) {
+        setAboutErrors(found);
+        // Skipping ahead from a later step shouldn't silently drop the fix.
+        if (step !== "about") setStepIndex(steps.indexOf("about"));
+        return;
+      }
+    }
+
     if (isLastStep) {
       finish();
       return;
@@ -160,6 +231,13 @@ export default function OnboardingFlow() {
               selectedGames={selectedGames}
               details={gameDetails}
               onUpdate={updateGameProfile}
+            />
+          )}
+          {step === "about" && (
+            <AboutYouStep
+              value={about}
+              onChange={updateAbout}
+              errors={aboutErrors}
             />
           )}
           {step === "playstyle" && (
