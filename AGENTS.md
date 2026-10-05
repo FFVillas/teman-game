@@ -358,6 +358,30 @@ auth routes, so `?next=` can't become an open redirect. Because the forms
 call `useSearchParams`, each page wraps its form in `<Suspense>` — that's
 what keeps `/login` and `/signup` statically prerendered.
 
+## Games on a profile
+
+`games` + `user_game_mapping` (migration `20261005000000_user_games.sql`)
+are the proposal's game slice. The profile's per-game tabs render **only
+the games that player added** — they used to be a hardcoded list of four
+titles — and the set is editable from the edit form (`GamesEditor`).
+
+Rank, role, region and in-game name are **typed in by the player**. There is
+no Riot/Moonton integration, so nothing is "detected", and the card says so.
+Where a game publishes a fixed ladder (Valorant, League, Mobile Legends)
+rank and role are dropdowns from `gameRankOptions` / `gameRoleOptions` in
+`src/data/games.ts`, so profiles stay comparable; CS2 and the battle
+royales take free text, because their ladders don't fit a fixed list.
+
+`src/lib/user-games.ts` owns the reads and writes. `fetchUserGames` returns
+`[]` on error rather than throwing, so a profile still renders if the
+migration hasn't been run. Saving diffs the set: update what stayed, insert
+what's new, delete what went — never `.upsert()` (see below).
+
+Mock profiles predate this and still carry `gameStats` with invented win
+rates; `gamesOf()` in `PlayerProfileView` reads them through the same shape
+so there's one rendering path. Win rate only shows when a `gameStat` exists,
+i.e. never for a real account.
+
 ## Supabase gotcha: upsert vs. column grants
 
 `profiles` and `profile_private` grant UPDATE on **specific columns**, never
