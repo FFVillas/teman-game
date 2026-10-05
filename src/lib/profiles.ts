@@ -92,6 +92,61 @@ export async function fetchOwnDateOfBirth(
 }
 
 /**
+ * Writes the signed-in user's date of birth ("YYYY-MM-DD", or null to clear
+ * it). Returns an error message to show, or null on success.
+ *
+ * Update-then-insert rather than a single `upsert`, which fails with 42501
+ * "permission denied for table profile_private". PostgREST compiles an
+ * upsert to `insert ... on conflict do update set user_id = ...,
+ * date_of_birth = ...`, and Postgres checks UPDATE privilege on every
+ * column in that SET list while planning — even when no conflict happens.
+ * The table deliberately grants UPDATE on `date_of_birth` only (the primary
+ * key is not meant to be writable), so the statement is rejected before it
+ * runs. Two statements that each stay inside the granted columns work
+ * instead, and the narrow grant stays as it is.
+ */
+export async function saveDateOfBirth(
+  supabase: SupabaseClient,
+  userId: string,
+  dateOfBirth: string | null,
+): Promise<string | null> {
+  const failed = "Couldn't save your date of birth. Try again.";
+
+  const { data, error } = await supabase
+    .from("profile_private")
+    .update({ date_of_birth: dateOfBirth })
+    .eq("user_id", userId)
+    .select("user_id");
+
+  if (error) return tooYoung(error) ?? failed;
+  // A row came back, so it existed and is now updated.
+  if (data && data.length > 0) return null;
+
+  const { error: insertError } = await supabase
+    .from("profile_private")
+    .insert({ user_id: userId, date_of_birth: dateOfBirth });
+
+  if (!insertError) return null;
+  // 23505 = the row appeared between the two statements (two tabs saving at
+  // once). The update is then the right call after all.
+  if (insertError.code === "23505") {
+    const { error: retryError } = await supabase
+      .from("profile_private")
+      .update({ date_of_birth: dateOfBirth })
+      .eq("user_id", userId);
+    return retryError ? (tooYoung(retryError) ?? failed) : null;
+  }
+  return tooYoung(insertError) ?? failed;
+}
+
+/** The 13+ database trigger raises check_violation with a readable message. */
+function tooYoung(error: { code?: string; message?: string }): string | null {
+  return error.code === "23514" || error.message?.includes("13 years")
+    ? "You must be at least 13 years old."
+    : null;
+}
+
+/**
  * Maps a real row onto the `PlayerProfile` shape the profile UI was built
  * against. Anything the database can't answer yet (linked accounts, per-game
  * rank/stats, match history, region) is left empty and renders as "Not set"

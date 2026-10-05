@@ -6,6 +6,8 @@ import type { PlayerProfile } from "@/data/player-profiles";
 import { matchesForSlug } from "@/data/match-history";
 import MatchHistoryList from "./MatchHistoryList";
 import BackLink from "@/components/BackLink";
+import { EmptyState, NotSetOrAdd } from "@/components/EmptyState";
+import { profileCompleteness } from "@/lib/profile-completeness";
 
 const gameTabs = [
   "Valorant",
@@ -73,6 +75,9 @@ export default function PlayerProfileView({
   const isOwner = Boolean(profile.isOwner);
   const matches = matchesForSlug(profile.slug);
   const recentMatches = matches.slice(0, 3);
+  const editHref = "/profile/me/edit";
+  const { percent, gaps } = profileCompleteness(profile);
+  const hasReviews = profile.reviewCount > 0;
 
   return (
     <div className="flex flex-col gap-4">
@@ -111,13 +116,21 @@ export default function PlayerProfileView({
               <h1 className="text-xl font-extrabold tracking-tight text-white sm:text-2xl">
                 {profile.username}
               </h1>
-              <div className="flex flex-wrap items-center gap-2">
-                <StarRating score={profile.ratingScore} />
-                <span className="text-[11px] text-text-muted">
-                  {profile.ratingScore.toFixed(1)} · {profile.reviewCount}{" "}
-                  reviews
+              {hasReviews ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <StarRating score={profile.ratingScore} />
+                  <span className="text-[11px] text-text-muted">
+                    {profile.ratingScore.toFixed(1)} · {profile.reviewCount}{" "}
+                    reviews
+                  </span>
+                </div>
+              ) : (
+                // A 0.0 with five grey stars reads as a terrible player, not
+                // as a new one — so an unrated account says so in words.
+                <span className="text-[11px] italic text-text-muted/70">
+                  No ratings yet · teammates rate you after a lobby
                 </span>
-              </div>
+              )}
             </div>
           </div>
 
@@ -161,35 +174,99 @@ export default function PlayerProfileView({
         </div>
 
         <div className="flex flex-col gap-6 p-5 sm:p-6">
+          {/*
+            Owner-only nudge. A brand-new account is mostly blank, and the
+            quickest way to make a profile real is to say exactly what is
+            missing and why it matters — rather than leaving the person to
+            guess which of the dimmed fields are worth filling in.
+          */}
+          {isOwner && gaps.length > 0 && (
+            <section className="flex flex-col gap-3 rounded-2xl border border-brand/25 bg-brand/[0.05] p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-col gap-1">
+                  <h2 className="text-sm font-bold text-white">
+                    Your profile is {percent}% complete
+                  </h2>
+                  <p className="text-[11px] text-text-muted">
+                    {gaps.length} thing{gaps.length === 1 ? "" : "s"} left.
+                    Lobby leaders read this page before they accept you.
+                  </p>
+                </div>
+                <Link
+                  href={editHref}
+                  className="flex h-9 shrink-0 items-center justify-center rounded-lg bg-brand px-4 text-xs font-bold text-white transition-opacity hover:opacity-90"
+                >
+                  Complete profile
+                </Link>
+              </div>
+
+              <div
+                className="h-1.5 overflow-hidden rounded-full bg-white/10"
+                role="progressbar"
+                aria-valuenow={percent}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label="Profile completeness"
+              >
+                <div
+                  className="h-full rounded-full bg-brand transition-[width]"
+                  style={{ width: `${percent}%` }}
+                />
+              </div>
+
+              <ul className="flex flex-wrap gap-1.5">
+                {gaps.map((gap) => (
+                  <li
+                    key={gap.key}
+                    title={gap.hint}
+                    className="rounded-full border border-border-default px-2.5 py-1 text-[10px] font-semibold text-text-muted"
+                  >
+                    {gap.label}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <div className="flex flex-col gap-4 rounded-2xl border border-border-default bg-bg-card-alt p-5">
               <h2 className={sectionHeading}>Player dossier</h2>
               <div className="grid grid-cols-2 gap-x-4 gap-y-4">
                 <div className="flex flex-col gap-1">
                   <span className={fieldLabel}>Age</span>
-                  <span className="text-xs text-white">
-                    {profile.dossier.age ? `${profile.dossier.age} years` : "Not set"}
-                  </span>
+                  {profile.dossier.age ? (
+                    <span className="text-xs text-white">
+                      {profile.dossier.age} years
+                    </span>
+                  ) : (
+                    <NotSetOrAdd isOwner={isOwner} href={editHref} />
+                  )}
                 </div>
                 <div className="flex flex-col gap-1">
                   <span className={fieldLabel}>Gender</span>
-                  <span className="text-xs text-white">
-                    {profile.dossier.gender || "Not set"}
-                  </span>
+                  {profile.dossier.gender ? (
+                    <span className="text-xs text-white">
+                      {profile.dossier.gender}
+                    </span>
+                  ) : (
+                    <NotSetOrAdd isOwner={isOwner} href={editHref} />
+                  )}
                 </div>
                 <div className="col-span-2 flex flex-col gap-1">
                   <span className={fieldLabel}>Playstyle</span>
-                  <span className="text-xs text-white">
-                    {profile.playstyle
-                      ? `${profile.playstyle}/5 · ${playstyleLabel[profile.playstyle - 1]}`
-                      : "Not set"}
-                  </span>
+                  {profile.playstyle ? (
+                    <span className="text-xs text-white">
+                      {profile.playstyle}/5 ·{" "}
+                      {playstyleLabel[profile.playstyle - 1]}
+                    </span>
+                  ) : (
+                    <NotSetOrAdd isOwner={isOwner} href={editHref} />
+                  )}
                 </div>
                 <div className="col-span-2 flex flex-col gap-1.5">
                   <span className={fieldLabel}>Personality</span>
                   <div className="flex flex-wrap gap-1.5">
                     {profile.personalityTags.length === 0 && (
-                      <span className="text-xs text-text-muted">Not set</span>
+                      <NotSetOrAdd isOwner={isOwner} href={editHref} />
                     )}
                     {profile.personalityTags.map((tag) => (
                       <span
@@ -203,9 +280,13 @@ export default function PlayerProfileView({
                 </div>
                 <div className="col-span-2 flex flex-col gap-1">
                   <span className={fieldLabel}>Languages</span>
-                  <span className="text-xs text-white">
-                    {profile.dossier.languages || "Not set"}
-                  </span>
+                  {profile.dossier.languages ? (
+                    <span className="text-xs text-white">
+                      {profile.dossier.languages}
+                    </span>
+                  ) : (
+                    <NotSetOrAdd isOwner={isOwner} href={editHref} />
+                  )}
                 </div>
                 <div className="col-span-2 flex items-center gap-2">
                   {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
@@ -214,9 +295,18 @@ export default function PlayerProfileView({
                     alt=""
                     className="size-3"
                   />
-                  <span className="text-xs text-white">
-                    {profile.dossier.availability || "Not set"}
-                  </span>
+                  {profile.dossier.availability ? (
+                    <span className="text-xs text-white">
+                      {profile.dossier.availability}
+                    </span>
+                  ) : (
+                    <NotSetOrAdd
+                      isOwner={isOwner}
+                      href={editHref}
+                      action="Add play hours"
+                      label="Play hours not set"
+                    />
+                  )}
                 </div>
               </div>
             </div>
@@ -225,9 +315,16 @@ export default function PlayerProfileView({
               <h2 className={sectionHeading}>Connections</h2>
               <div className="flex flex-col gap-2">
                 {profile.connections.length === 0 && (
-                  <p className="rounded-lg border border-dashed border-border-default p-4 text-center text-xs text-text-muted">
-                    No linked accounts yet.
-                  </p>
+                  <EmptyState
+                    icon="/icons/social-discord.svg"
+                    title="No linked accounts"
+                    description={
+                      isOwner
+                        ? "Linking Discord, Steam or Riot lets teammates reach you outside the app. Coming soon."
+                        : `${profile.username} hasn't linked Discord, Steam or Riot.`
+                    }
+                    size="sm"
+                  />
                 )}
                 {profile.connections.map((account) => (
                   <div
@@ -341,10 +438,16 @@ export default function PlayerProfileView({
                   </div>
                 </div>
               ) : (
-                <p className="text-xs text-text-muted">
-                  {profile.username} hasn&apos;t linked a profile for{" "}
-                  {activeGame} yet.
-                </p>
+                <EmptyState
+                  icon="/icons/lfg-page-valorant.svg"
+                  title={`No ${activeGame} profile yet`}
+                  description={
+                    isOwner
+                      ? "Rank, role and win rate sync from the game once that connection is built."
+                      : `${profile.username} hasn't added a rank or role for this game.`
+                  }
+                  size="sm"
+                />
               )}
             </div>
           </div>
@@ -374,7 +477,11 @@ export default function PlayerProfileView({
           <div className="flex items-center gap-2.5 text-[11px] italic text-text-muted">
             <span>Member since {profile.memberSince}</span>
             <span className="size-1 rounded-full bg-border-strong" />
-            <span>Last match: {profile.lastMatch}</span>
+            <span className={profile.lastMatch === "—" ? "opacity-60" : ""}>
+              {profile.lastMatch === "—"
+                ? "No matches yet"
+                : `Last match: ${profile.lastMatch}`}
+            </span>
           </div>
           {profile.region !== "—" && (
             <div className="flex items-center gap-1.5 text-[11px] text-text-muted">
