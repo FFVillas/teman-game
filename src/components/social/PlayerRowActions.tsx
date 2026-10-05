@@ -80,8 +80,21 @@ export default function PlayerRowActions({
             />
           </svg>
         ) : (
-          // eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization
-          <img src="/icons/social-add-friend.svg" alt="" className="size-3.5" />
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <circle cx="6.5" cy="5.5" r="2.75" stroke="currentColor" strokeWidth="1.3" />
+            <path
+              d="M1.5 15C1.5 12 3.75 9.75 6.5 9.75C9.25 9.75 11.5 12 11.5 15"
+              stroke="currentColor"
+              strokeWidth="1.3"
+              strokeLinecap="round"
+            />
+            <path
+              d="M13.25 5V9M11.25 7H15.25"
+              stroke="currentColor"
+              strokeWidth="1.3"
+              strokeLinecap="round"
+            />
+          </svg>
         )}
       </button>
     </div>
