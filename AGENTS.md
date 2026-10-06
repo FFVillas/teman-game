@@ -19,6 +19,11 @@ model, the target stack (PWA + Supabase + FCM), and — importantly — a
 table of what's specified but not yet built. The current code is a UI
 shell on mock data; assume a feature is absent unless you've checked.
 
+**Read [`docs/game-reference.md`](docs/game-reference.md) before touching
+games, ranks, roles or regions** — the researched ladders, role lists and
+per-game server lists, with confidence marks and an in-game verification
+checklist for each game.
+
 Two conventions that matter when extending it: the spec says **lobby**
 where the code says **team** (`LfgTeam`), and only Valorant is built out
 of the six games in scope.
@@ -64,7 +69,7 @@ src/components/profile/  profile UI (view, edit form, match history, report pane
 src/data/                static content (nav links, games, landing copy, footer links)
 src/data/lfg-*.ts        LFG mock data (teams, ranks, roles, lobby)
 src/data/social-*.ts     Social page mock data (friends, pending, discover, recent)
-src/data/player-profiles.ts, regions.ts  profile + signup-flow mock data
+src/data/player-profiles.ts  profile mock data; game-regions.ts has the per-game region choices
 public/games/            game cover images (landing page)
 public/lfg/covers/       LFG team cover images
 public/lfg/avatars/      LFG member avatar images — shared identity across the app
@@ -230,6 +235,15 @@ accounts and match history are **per game** and arrive with the Lobby slice,
 so they render as empty / "Not set". Usernames are 3–24 chars of
 `[A-Za-z0-9_.-]` (`src/lib/username.ts`) because they appear in URLs.
 
+**Profile pictures** live in the public Supabase Storage bucket `avatars`.
+`profiles.avatar_path` stores only the path (`<user id>/<timestamp>.jpg`, pinned
+by a CHECK to the owner's own folder) — never a URL, so a player can't point it
+at an arbitrary address; `avatarUrl()` in `src/lib/avatar.ts` builds the URL.
+The edit form crops to a square and shrinks to 256×256 JPEG in the browser
+before uploading (~20–40 KB), uploads on Save under a fresh file name, then
+deletes the previous file. Anything *player-uploaded* belongs in Storage;
+design assets stay in `public/`.
+
 Every *mock* player row still links to `/profile/<slug>`, but only a few have
 a full mock record. When no real user matches, `resolveProfile()` in
 `src/data/profile-lookup.ts` returns the mock record or builds a
@@ -243,6 +257,75 @@ real-then-mock lookup for both `/profile/<user>` and `/profile/<user>/report`.
 link never shows). The report form works for real players but **submitting
 saves nothing** — it only shows a toast until the `reports` migration is run
 and wired in.
+
+## Games, ranks, roles and regions
+
+The six in-scope games, their rank ladders and their roles are database data
+(`games`, `game_ranks`, `game_roles`; migration `20261003000200_games.sql`),
+read through `src/lib/games.ts` (`fetchGameCatalog`). **Read
+[`docs/game-reference.md`](docs/game-reference.md)** for the researched values,
+confidence marks and open questions before changing any of them.
+
+- A rank is a step on a flat ladder: `ordinal` 0 is the lowest and the
+  rank-distance penalty ΔR is `|a.ordinal − b.ordinal|`.
+- **Roles exist only for Valorant, League of Legends and Mobile Legends.** The
+  other three games have none, so the app never asks for one there
+  (`game.roles` is empty).
+- A player's choices are `user_game_mapping` (in-game name, region, rank) plus
+  `user_game_roles`. `saveGameSetup()` writes them: **update first, insert if
+  there was no row, never upsert.** An upsert needs UPDATE permission on the
+  key columns, and tables with column-level grants deliberately don't grant
+  those. (`profile_private` hit the same trap.)
+- Region choices per game are in `src/data/game-regions.ts`, stored as text.
+  Not a table yet; see the open decision in the reference doc.
+- Onboarding saves games on "Finish setup" and stays on the page with an error
+  if saving fails. "Skip for now" saves nothing, so a skipped setup doesn't
+  record default answers.
+- After onboarding, games are added, edited and removed in the **Games card on
+  `/profile/me/edit`**. Save applies removals first, then saves each remaining
+  game, and does all of that before the picture and the profile row so a
+  failure is a plain "try again". Linking real game accounts (Riot, etc.) is
+  not built; the "Connected accounts" card is still a placeholder.
+- **Every game has its own LFG page** at `/lfg/<slug>` and its own create form
+  at `/lfg/<slug>/create`. Valorant keeps its static route
+  (`app/lfg/valorant`) because it is the only game with lobby, news and chat
+  pages (all on mock data); the other five share `app/lfg/[game]`, where a
+  static folder beats the dynamic one. Those five have no lobbies yet, so the
+  list shows an empty state. Slugs come from `src/data/games.ts`, which also
+  drives the navbar links and the landing cards.
+- **Modes** per game are in `src/data/game-modes.ts` (group-play modes only,
+  each with a kind, a max party and a rotating flag; researched list in the
+  reference doc). The create form takes its mode list from there and caps the
+  group size at the chosen mode's max party.
+- The LFG search bar offers the game's own region and mode, and one **Rank**
+  dropdown: "Fits my rank" (default for a signed-in player with a rank), "All
+  ranks", or a tier (Silver, Gold…), each meaning "lobbies that accept it".
+  **The filters are not wired to the list yet.** The create form shows
+  "Seeking Roles" only for games that have roles. Only the lobby *leader* sets
+  a min–max range (form: "Rank Requirement", default "Any rank").
+- **A lobby card shows one rank fact: the leader's accepted range**, drawn in
+  the original rank-badge spot as icons plus divisions ("[icon] Bronze 1 –
+  [icon] Gold 3", "Ascendant 1 and up", or "Any rank"; `LfgTeam.rankRange`,
+  `RankRangeBadge`, `rankRangeEnds`). The range is still picked as whole tiers,
+  so the badge shows the lowest division of the first tier and the highest of
+  the last. Icons come from `src/data/rank-icons.ts`; tiers without art yet
+  get a small placeholder marker. The
+  leader's own rank (`LfgTeam.rank`) is not on the card; it only orders
+  results (`M_rank`). Whether the viewer can join *right now* is checked in
+  `RequestToJoinModal` (button disabled with a reason), because that depends
+  on who is already in the lobby.
+- **Rank logic is in `src/lib/ranks.ts`** (pure functions, no database):
+  tiers from a ladder, tier ranges to ordinal bounds, `joinableBounds` (which
+  ranks may still join given who is *already in the lobby* and the game's
+  party rule, `partyRuleFor`), `lobbyJoinBounds` (that plus the leader's
+  range) and `boundsAcceptTier` (what the Rank filter asks). Eligibility (a yes/no filter) is
+  kept separate from closeness (`M_rank`, which only orders). A lobby carries
+  an optional leader-set range, default "Any rank". The party rules are
+  approximations from guides; see the reference doc before changing them.
+- The old single region list (`regions.ts`: `SG2`, `NA East`, `EU West`) is
+  gone. The create-lobby form now uses the Valorant list from
+  `game-regions.ts`, with the labels as its values; once lobbies are real, the
+  stored value is the code (`AP`, not "Asia Pacific (AP)").
 
 ## Reporting and reviewing
 

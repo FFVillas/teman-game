@@ -10,6 +10,7 @@ import {
   profileFromRow,
 } from "@/lib/profiles";
 import { withNext } from "@/lib/auth-redirect";
+import { fetchGameCatalog, fetchPlayerGameSetups } from "@/lib/games";
 
 export const metadata: Metadata = {
   title: "Edit Profile — TemanGame",
@@ -30,6 +31,8 @@ export default async function EditProfilePage() {
 
   const profile = profileFromRow(row, { isOwner: true });
   const dateOfBirth = await fetchOwnDateOfBirth(supabase, user.id);
+  const catalog = await fetchGameCatalog(supabase);
+  const gameSetups = await fetchPlayerGameSetups(supabase, user.id, catalog);
 
   return (
     <>
@@ -41,6 +44,8 @@ export default async function EditProfilePage() {
             row={row}
             userId={user.id}
             dateOfBirth={dateOfBirth}
+            catalog={catalog}
+            gameSetups={gameSetups}
           />
         </div>
       </main>

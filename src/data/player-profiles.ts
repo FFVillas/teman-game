@@ -1,6 +1,7 @@
 import { lfgRanks, type LfgRank } from "./lfg-ranks";
 import { lfgRoles, type LfgRole } from "./lfg-roles";
 import { lfgTeams } from "./lfg-teams";
+import type { PlayerGameSetup } from "@/lib/games";
 
 // Canonical self-declared personality tags — the vocabulary the matchmaking
 // engine's Attribute Matching Ratio (Persamaan 3.4) actually compares against.
@@ -62,6 +63,11 @@ export interface PlayerProfile {
     availability: string;
   };
   connections: ConnectedAccount[];
+  /**
+   * What a real player saved per game (rank, region, roles). Present only on
+   * profiles read from the database; the mock profiles use `gameStats`.
+   */
+  gameSetups?: PlayerGameSetup[];
   gameStats: GameStat[];
   recentTeams: TeamHistoryEntry[];
   memberSince: string;
@@ -139,7 +145,7 @@ export const playerProfiles: Record<string, PlayerProfile> = {
     ],
     memberSince: "Oct 2022",
     lastMatch: "2h ago",
-    region: "SG2",
+    region: "AP",
   },
   fayaz_ilovelittle: {
     slug: "fayaz_ilovelittle",
@@ -205,7 +211,7 @@ export const playerProfiles: Record<string, PlayerProfile> = {
     ],
     memberSince: "Oct 2022",
     lastMatch: "2h ago",
-    region: "SG2",
+    region: "AP",
   },
   tenz: {
     slug: "tenz",
@@ -263,7 +269,7 @@ export const playerProfiles: Record<string, PlayerProfile> = {
     ],
     memberSince: "Mar 2021",
     lastMatch: "5h ago",
-    region: "SG2",
+    region: "AP",
   },
   ziza: {
     slug: "ziza",
@@ -321,7 +327,7 @@ export const playerProfiles: Record<string, PlayerProfile> = {
     ],
     memberSince: "Jan 2024",
     lastMatch: "3h ago",
-    region: "SG2",
+    region: "AP",
   },
   threshcan: {
     slug: "threshcan",
@@ -379,7 +385,7 @@ export const playerProfiles: Record<string, PlayerProfile> = {
     ],
     memberSince: "Jul 2023",
     lastMatch: "1h ago",
-    region: "SG2",
+    region: "AP",
   },
   kinoyyy: {
     // Seeded from their lobby record (activeLobby member "Kinoyyy" in
@@ -440,7 +446,7 @@ export const playerProfiles: Record<string, PlayerProfile> = {
     ],
     memberSince: "Nov 2023",
     lastMatch: "2h ago",
-    region: "SG2",
+    region: "AP",
   },
   nyawit: {
     // Seeded from their application record (activeLobby applicant "Nyawit"
@@ -500,7 +506,7 @@ export const playerProfiles: Record<string, PlayerProfile> = {
     ],
     memberSince: "Apr 2024",
     lastMatch: "12m ago",
-    region: "SG2",
+    region: "AP",
   },
   wokdetok: {
     // Seeded from their application record (activeLobby applicant "Wokdetok"
@@ -560,7 +566,7 @@ export const playerProfiles: Record<string, PlayerProfile> = {
     ],
     memberSince: "Feb 2025",
     lastMatch: "31m ago",
-    region: "SG2",
+    region: "AP",
   },
 };
 

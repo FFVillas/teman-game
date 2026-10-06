@@ -138,7 +138,7 @@ Two actors: **User** and **Admin** (moderation, sanctions, bans).
 
 ## Divergences from the proposal (bring these to your advisor)
 
-Real schema work started 2026-09-19. Three deliberate departures from the
+Real schema work started 2026-09-19. Four deliberate departures from the
 ERD as written — both decided in favor of standard practice over what
 the proposal originally specified. Not gaps: each is a considered
 substitution, argued below.
@@ -179,12 +179,41 @@ substitution, argued below.
    readable; everyone else only gets the derived age via `profile_age()`.
    A database trigger enforces the 13+ minimum. This is one more table
    than the proposal's ERD. **`region` is not on `profiles`** — it is per
-   game, so it will live on `user_game_mapping` in the Lobby slice.
+   game, so it lives on `user_game_mapping`. Profile pictures are files in
+   Supabase Storage (bucket `avatars`); `profiles.avatar_path` holds the path
+   rather than a URL, so the owner can't point it at an arbitrary external
+   address (`20261004000000_avatars.sql`).
+4. **Games slice (2026-10-03,
+   `supabase/migrations/20261003000200_games.sql`).** Three tables beyond
+   the proposal: `game_ranks` (every rank gets an `ordinal` position, so the
+   rank-distance penalty `M_rank` can compute ΔR as a subtraction),
+   `game_roles` and `user_game_roles`. The proposal's `user_game_mapping`
+   stores a single "favorite role" per game; onboarding lets a player pick
+   several, so roles are a join table instead. The proposal's `role` means
+   an account permission, so in-game roles are named `game_roles` to avoid
+   confusion. In-game roles exist only for games that define them (Valorant,
+   League of Legends, Mobile Legends); Counter-Strike 2, PUBG Mobile and Free
+   Fire have none, so `user_game_roles` has no rows there. All six in-scope
+   games are seeded; the ladders and roles were researched from web sources
+   (see `docs/game-reference.md`) and still need checking against the games.
+   Region is stored as text on `user_game_mapping` with the per-game choices
+   kept in the app, not as a table. Game modes (Classic, Ranked, ARAM…) are
+   likewise an app-side list for now; a lobby will need to point at a mode, at
+   which point a `game_modes` table (and possibly `game_regions`) is the
+   natural move, taking the table count to 20 or 21. When lobbies are stored,
+   a lobby will also need an **optional accepted rank range** (lowest and
+   highest rank the leader allows, both nullable) beside the leader's own rank
+   that the proposal's `M_rank` already uses; the range is an eligibility
+   filter, `M_rank` stays the ordering. This is two extra columns on `lobby`,
+   not a new table. Counter-Strike 2 models only its 18-rank Competitive
+   ladder, not the numeric Premier rating.
 
-Net effect: 13 → 17 distinct tables once the rest of the model is built
+Net effect: 13 → 19 distinct tables once the rest of the model is built
 (13 original, minus `user`/`role`/`user_role_mapping` reshaped into
-`profiles` + `admins`, plus `sanctions`/`sanction_reports`/`admin_actions`,
-plus the still-pending `game_ranks` addition noted below). If your
+`profiles` + `admins` = 12; plus `profile_private` = 13; plus
+`sanctions`/`sanction_reports`/`admin_actions` = 16; plus `game_ranks`,
+`game_roles` and `user_game_roles` = 19). An earlier version of this
+paragraph said 17 — that was a miscount. If your
 proposal can still be revised, this is the number and reasoning to bring
 to your advisor — if it can't, this doc is the record of what changed
 and why for your BAB 4 writeup.

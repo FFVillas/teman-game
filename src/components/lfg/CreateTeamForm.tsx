@@ -1,26 +1,33 @@
 "use client";
 
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { lfgRoles, type LfgRole } from "@/data/lfg-roles";
-import { lfgRanks } from "@/data/lfg-ranks";
+import { lfgRoles } from "@/data/lfg-roles";
 import { useNotifications } from "@/contexts/NotificationContext";
-import { regions, defaultRegion } from "@/data/regions";
+import { regionsFor } from "@/data/game-regions";
+import { modesFor } from "@/data/game-modes";
+import type { GameInfo } from "@/lib/games";
+import {
+  OPEN_BOUNDS,
+  boundsFromTierRange,
+  describeBounds,
+  lobbyJoinBounds,
+  ordinalFits,
+  partyRuleFor,
+  tiersOf,
+  type TierRange,
+} from "@/lib/ranks";
 import BackLink from "@/components/BackLink";
+import RankRangeFields from "./RankRangeFields";
 
-const gamemodeOptions = ["Competitive", "Casual", "Deathmatch", "Spike Rush"];
-const regionOptions = [...regions];
 const languageOptions = ["English", "Indonesian", "English / Indonesian"];
 const vibeTagOptions = ["Competitive", "Chill", "Tactical", "Grinding", "Voice Comms"];
-const seekingRoleOrder: LfgRole[] = [
-  lfgRoles.duelist,
-  lfgRoles.controller,
-  lfgRoles.sentinel,
-  lfgRoles.initiator,
-];
 
-const MAX_GROUP_SIZE = 5;
+/** Role icons exist for Valorant's four roles only; other games show text. */
+function roleIconFor(roleName: string): string | undefined {
+  return Object.values(lfgRoles).find((role) => role.name === roleName)?.icon;
+}
 
 const timeOptions = (() => {
   const times: string[] = [];
@@ -82,23 +89,76 @@ function SelectField({
   );
 }
 
-export default function CreateTeamForm() {
+export default function CreateTeamForm({
+  gameSlug,
+  gameName,
+  game,
+  leaderRank,
+}: {
+  /** `games.slug`; picks the game's modes, regions and where Save returns to. */
+  gameSlug: string;
+  gameName: string;
+  /** The game's ranks and roles from the database. Missing if it couldn't load. */
+  game?: GameInfo;
+  /** The signed-in leader's own rank in this game, e.g. "Gold 2"; "" if unknown. */
+  leaderRank?: string;
+}) {
   const router = useRouter();
   const { toast } = useNotifications();
+  const lobbiesHref = `/lfg/${gameSlug}`;
+
+  const modes = modesFor(gameSlug);
+  const modeLabels = modes.map((mode) => mode.label);
+  const roles = game?.roles ?? [];
+  // SelectField takes plain strings, so region labels are used as the values
+  // here. The form doesn't submit anywhere yet, which is fine until lobbies
+  // are real; then the stored value is the region's `value` (e.g. "AP").
+  const regionList = regionsFor(gameSlug);
+  const regionOptions = regionList.options.map((option) => option.label);
+  const defaultRegionLabel =
+    regionList.options.find((option) => option.value === regionList.default)
+      ?.label ?? regionOptions[0];
 
   const [teamName, setTeamName] = useState("");
-  const [gamemode, setGamemode] = useState(gamemodeOptions[0]);
-  const [rankKey, setRankKey] = useState("immortal");
+  const [modeLabel, setModeLabel] = useState(modeLabels[0] ?? "");
+  // The ranks this lobby accepts. Off by default: a full group often doesn't
+  // care about rank, and it's the leader's call whether to set a limit.
+  const [anyRank, setAnyRank] = useState(true);
+  const [rankRange, setRankRange] = useState<TierRange>({ from: "", to: "" });
   const [description, setDescription] = useState("");
   const [vibeTags, setVibeTags] = useState<string[]>(["Competitive"]);
 
-  const [region, setRegion] = useState<string>(defaultRegion);
-  const [groupSize, setGroupSize] = useState(3);
+  const [region, setRegion] = useState<string>(defaultRegionLabel);
+  // The mode decides how big a group can be (Wingman is 2, a squad is 4…).
+  const maxGroupSize =
+    modes.find((mode) => mode.label === modeLabel)?.maxParty ?? 5;
+  const [requestedGroupSize, setGroupSize] = useState(3);
+  const groupSize = Math.min(requestedGroupSize, maxGroupSize);
+
+  // Who could join, from two sources: the game's own rule about how far apart
+  // ranks in a party may be (applied to the people already in: just the
+  // leader for now), and the range the leader chose, if any. See lib/ranks.ts.
+  const tiers = useMemo(() => tiersOf(game?.ranks ?? []), [game]);
+  const activeMode = modes.find((mode) => mode.label === modeLabel);
+  const leaderOrdinal =
+    game?.ranks.find((rank) => rank.name === leaderRank)?.ordinal ?? null;
+  const gameRule = partyRuleFor(gameSlug, activeMode?.value ?? "", groupSize);
+  const chosenBounds = anyRank
+    ? OPEN_BOUNDS
+    : boundsFromTierRange(tiers, rankRange);
+  const joinBounds = lobbyJoinBounds(
+    gameRule,
+    tiers,
+    leaderOrdinal === null ? [] : [leaderOrdinal],
+    chosenBounds
+  );
+  const leaderOutsideRange =
+    leaderOrdinal !== null && !ordinalFits(leaderOrdinal, chosenBounds);
   const [language, setLanguage] = useState(languageOptions[0]);
   const [playtimeMode, setPlaytimeMode] = useState<"now" | "schedule">("now");
   const [scheduleStart, setScheduleStart] = useState("08:00 PM");
   const [scheduleEnd, setScheduleEnd] = useState("11:00 PM");
-  const [seekingRoles, setSeekingRoles] = useState<string[]>(["Duelist"]);
+  const [seekingRoles, setSeekingRoles] = useState<string[]>([]);
   const [anyRole, setAnyRole] = useState(false);
   const [micRequired, setMicRequired] = useState(true);
 
@@ -124,12 +184,12 @@ export default function CreateTeamForm() {
         ? `${teamName.trim()} is now open for applications.`
         : "Your lobby is now open for applications.",
     });
-    router.push("/lfg/valorant");
+    router.push(lobbiesHref);
   }
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <BackLink label="Back to lobbies" href="/lfg/valorant" />
+      <BackLink label="Back to lobbies" href={lobbiesHref} />
 
       <div className="overflow-hidden rounded-2xl border border-border-strong bg-bg-card-alt">
         <div className="flex flex-col gap-2 px-6 pb-6 pt-8 sm:px-10 sm:pt-10">
@@ -137,7 +197,7 @@ export default function CreateTeamForm() {
             Create a Team
           </h1>
           <p className="text-sm text-text-muted">
-            Recruit the perfect squad for your next match.
+            Recruit the perfect squad for your next {gameName} match.
           </p>
         </div>
 
@@ -147,7 +207,7 @@ export default function CreateTeamForm() {
               <input
                 value={teamName}
                 onChange={(event) => setTeamName(event.target.value)}
-                placeholder="e.g. Radiant Pushers"
+                placeholder="e.g. Midnight Squad"
                 className={inputClass}
               />
             </FormField>
@@ -155,33 +215,64 @@ export default function CreateTeamForm() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <FormField label="Gamemode Selection">
                 <SelectField
-                  value={gamemode}
-                  onChange={setGamemode}
-                  options={gamemodeOptions}
+                  value={modeLabel}
+                  onChange={setModeLabel}
+                  options={modeLabels}
                 />
               </FormField>
-              <FormField label="Rank Requirement">
-                <div className="relative">
-                  <select
-                    value={rankKey}
-                    onChange={(event) => setRankKey(event.target.value)}
-                    className={`${inputClass} appearance-none pr-9`}
-                  >
-                    <option value="any">Any Rank</option>
-                    {Object.entries(lfgRanks).map(([key, rank]) => (
-                      <option key={key} value={key}>
-                        {rank.name}
-                      </option>
-                    ))}
-                  </select>
-                  {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
-                  <img
-                    src="/icons/lfg-select-chevron.svg"
-                    alt=""
-                    className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 opacity-50"
-                  />
+              {tiers.length > 0 && (
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-text-muted">
+                      Rank Requirement
+                    </span>
+                    <label className="flex items-center gap-1.5 text-xs text-text-muted">
+                      <input
+                        type="checkbox"
+                        checked={anyRank}
+                        onChange={(event) => setAnyRank(event.target.checked)}
+                        className="size-4 rounded accent-brand"
+                      />
+                      Any rank
+                    </label>
+                  </div>
+
+                  {anyRank ? (
+                    <p className="rounded-lg border border-dashed border-border-strong px-4 py-3 text-sm text-text-muted">
+                      Anyone can ask to join.
+                    </p>
+                  ) : (
+                    <RankRangeFields
+                      size="md"
+                      labelPrefix="Accepted rank"
+                      tiers={tiers}
+                      value={rankRange}
+                      onChange={setRankRange}
+                    />
+                  )}
+
+                  {leaderOrdinal !== null && (
+                    <p className="text-xs leading-relaxed text-text-muted">
+                      Players who can join:{" "}
+                      <span className="font-semibold text-white">
+                        {describeBounds(tiers, joinBounds)}
+                      </span>
+                      {gameRule.kind !== "none" && (
+                        <>
+                          {" "}
+                          · {gameName} limits how far apart ranks in a group
+                          can be in this mode.
+                        </>
+                      )}
+                    </p>
+                  )}
+                  {leaderOutsideRange && (
+                    <p className="text-xs text-danger">
+                      Your own rank ({leaderRank}) is outside this range.
+                    </p>
+                  )}
                 </div>
-              </FormField>
+              )}
             </div>
 
             <FormField label="Objective / Description">
@@ -249,12 +340,12 @@ export default function CreateTeamForm() {
                     Group Size
                   </span>
                   <span className="text-xs font-bold text-white">
-                    {groupSize}/{MAX_GROUP_SIZE} Spots
+                    {groupSize}/{maxGroupSize} Spots
                   </span>
                 </div>
                 <div className="flex items-center justify-between rounded-lg border border-border-strong bg-bg-page py-1.5 pl-4 pr-1.5">
                   <div className="flex items-center gap-1.5">
-                    {Array.from({ length: MAX_GROUP_SIZE }).map((_, index) => (
+                    {Array.from({ length: maxGroupSize }).map((_, index) => (
                       <span
                         key={index}
                         className={`size-2 rounded-full ${
@@ -268,7 +359,7 @@ export default function CreateTeamForm() {
                       type="button"
                       aria-label="Decrease group size"
                       onClick={() =>
-                        setGroupSize((size) => Math.max(1, size - 1))
+                        setGroupSize(Math.max(1, groupSize - 1))
                       }
                       className="flex size-7 items-center justify-center rounded border border-border-strong bg-white/[0.06] transition-colors hover:bg-white/10"
                     >
@@ -283,9 +374,7 @@ export default function CreateTeamForm() {
                       type="button"
                       aria-label="Increase group size"
                       onClick={() =>
-                        setGroupSize((size) =>
-                          Math.min(MAX_GROUP_SIZE, size + 1)
-                        )
+                        setGroupSize(Math.min(maxGroupSize, groupSize + 1))
                       }
                       className="flex size-7 items-center justify-center rounded border border-border-strong bg-white/[0.06] transition-colors hover:bg-white/10"
                     >
@@ -404,49 +493,54 @@ export default function CreateTeamForm() {
                 )}
               </div>
 
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-text-muted">
-                    Seeking Roles
-                  </span>
-                  <label className="flex items-center gap-1.5 text-xs text-text-muted">
-                    <input
-                      type="checkbox"
-                      checked={anyRole}
-                      onChange={(event) => setAnyRole(event.target.checked)}
-                      className="size-4 rounded accent-brand"
-                    />
-                    Any Role
-                  </label>
+              {roles.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-text-muted">
+                      Seeking Roles
+                    </span>
+                    <label className="flex items-center gap-1.5 text-xs text-text-muted">
+                      <input
+                        type="checkbox"
+                        checked={anyRole}
+                        onChange={(event) => setAnyRole(event.target.checked)}
+                        className="size-4 rounded accent-brand"
+                      />
+                      Any Role
+                    </label>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {roles.map((role) => {
+                      const isSelected = seekingRoles.includes(role.name);
+                      const icon = roleIconFor(role.name);
+                      return (
+                        <button
+                          key={role.id}
+                          type="button"
+                          title={role.name}
+                          aria-pressed={isSelected}
+                          disabled={anyRole}
+                          onClick={() => toggleSeekingRole(role.name)}
+                          className={`flex items-center justify-center rounded-lg border transition-colors disabled:opacity-40 ${
+                            icon ? "size-10" : "px-3 py-2 text-xs font-semibold"
+                          } ${
+                            isSelected && !anyRole
+                              ? "border-white/20 bg-white/10 text-white"
+                              : "border-border-strong bg-bg-page text-text-muted"
+                          }`}
+                        >
+                          {icon ? (
+                            // eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization
+                            <img src={icon} alt={role.name} className="size-4" />
+                          ) : (
+                            role.name
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  {seekingRoleOrder.map((role) => {
-                    const isSelected = seekingRoles.includes(role.name);
-                    return (
-                      <button
-                        key={role.name}
-                        type="button"
-                        title={role.name}
-                        aria-pressed={isSelected}
-                        disabled={anyRole}
-                        onClick={() => toggleSeekingRole(role.name)}
-                        className={`flex size-10 items-center justify-center rounded-lg border transition-colors disabled:opacity-40 ${
-                          isSelected && !anyRole
-                            ? "border-white/20 bg-white/10"
-                            : "border-border-strong bg-bg-page"
-                        }`}
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
-                        <img
-                          src={role.icon}
-                          alt={role.name}
-                          className="size-4"
-                        />
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              )}
 
               <div className="flex items-center justify-between border-t border-border-strong pt-6">
                 <div className="flex items-center gap-3">
@@ -493,7 +587,7 @@ export default function CreateTeamForm() {
           </div>
           <div className="flex items-center gap-6">
             <Link
-              href="/lfg/valorant"
+              href={lobbiesHref}
               className="text-sm font-bold text-text-muted transition-colors hover:text-white"
             >
               Discard

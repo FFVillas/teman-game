@@ -6,6 +6,7 @@ import {
 } from "@/data/player-profiles";
 import { formatAvailability, trimSeconds } from "@/lib/availability";
 import { avatarUrl } from "@/lib/avatar";
+import type { PlayerGameSetup } from "@/lib/games";
 
 /** Columns of `public.profiles` the profile screens read, plus the derived age. */
 export interface ProfileRow {
@@ -99,7 +100,10 @@ export async function fetchOwnDateOfBirth(
  */
 export function profileFromRow(
   row: ProfileRow,
-  { isOwner }: { isOwner: boolean },
+  {
+    isOwner,
+    gameSetups,
+  }: { isOwner: boolean; gameSetups?: PlayerGameSetup[] },
 ): PlayerProfile {
   const knownTags = new Set<string>(personalityTagOptions);
 
@@ -127,6 +131,7 @@ export function profileFromRow(
       }),
     },
     connections: [],
+    gameSetups,
     gameStats: [],
     recentTeams: [],
     memberSince: new Date(row.created_at).toLocaleDateString("en-US", {

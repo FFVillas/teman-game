@@ -7,6 +7,8 @@ import { sanitizeNextPath } from "@/lib/auth-redirect";
 import { useNotifications } from "@/contexts/NotificationContext";
 import { createClient } from "@/lib/supabase/client";
 import { MAX_PERSONALITY_TAGS } from "@/data/profile-options";
+import { regionsFor } from "@/data/game-regions";
+import { saveGameSetup, type GameInfo } from "@/lib/games";
 import GamesStep from "./GamesStep";
 import RankRoleStep, {
   emptyGameProfile,
@@ -24,13 +26,16 @@ const STEP_LABEL: Record<StepId, string> = {
   connect: "Accounts",
 };
 
-export default function OnboardingFlow() {
+export default function OnboardingFlow({ catalog }: { catalog: GameInfo[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useNotifications();
   const destination = sanitizeNextPath(searchParams.get("next"));
 
+  // Game slugs, in the order they were picked. Details are keyed by slug too.
   const [selectedGames, setSelectedGames] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [gameDetails, setGameDetails] = useState<Record<string, GameProfile>>({});
   const [playstyle, setPlaystyle] = useState(3);
   const [personalityTags, setPersonalityTags] = useState<string[]>([]);
@@ -85,25 +90,65 @@ export default function OnboardingFlow() {
     });
   }
 
+  /** Leaving without saving anything, so a skipped setup records no answers. */
+  function skip() {
+    router.push(destination);
+  }
+
   async function finish() {
-    // selectedGames/gameDetails/connected have nowhere to go yet —
-    // user_game_mapping and connected_accounts don't exist until the
-    // Lobby slice lands (see docs/thesis-spec.md). playstyle and
-    // personality_tags DO have real columns on profiles already, so
-    // those are the only two actually written here.
+    setSaving(true);
+    setSaveError(null);
+
     const supabase = createClient();
     const { data } = await supabase.auth.getUser();
-    if (data.user) {
-      await supabase
-        .from("profiles")
-        .update({ playstyle, personality_tags: personalityTags })
-        .eq("id", data.user.id);
+    const userId = data.user?.id;
+    if (!userId) {
+      setSaving(false);
+      setSaveError("You're signed out. Log in again to save your setup.");
+      return;
+    }
+
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .update({ playstyle, personality_tags: personalityTags })
+      .eq("id", userId);
+    if (profileError) {
+      setSaving(false);
+      setSaveError("Couldn't save your setup. Check your connection and try again.");
+      return;
+    }
+
+    // One game at a time. Saving a game is safe to repeat (update, else
+    // insert, roles replaced as a set), so a retry after a partial failure
+    // simply redoes the lot. Connected accounts still have no table, so
+    // that step is not saved yet.
+    for (const slug of selectedGames) {
+      const game = catalog.find((g) => g.slug === slug);
+      if (!game) continue;
+      const details = gameDetails[slug] ?? emptyGameProfile;
+
+      const failure = await saveGameSetup(supabase, userId, {
+        gameId: game.id,
+        inGameName: details.username,
+        region: details.region || regionsFor(slug).default,
+        rankId: game.ranks.find((rank) => rank.name === details.rank)?.id ?? null,
+        roleIds: game.roles
+          .filter((role) => details.roles.includes(role.name))
+          .map((role) => role.id),
+      });
+      if (failure) {
+        setSaving(false);
+        setSaveError(
+          `Couldn't save your ${game.name} details. Check your connection and try again.`,
+        );
+        return;
+      }
     }
 
     toast({
       tone: "success",
       title: "You're all set",
-      body: "Playstyle and personality are saved to your profile — lobby matching uses these first. Game and rank sync comes with lobbies.",
+      body: "Your profile has been saved. You can change it any time.",
     });
     router.push(destination);
   }
@@ -128,7 +173,8 @@ export default function OnboardingFlow() {
 
       <button
         type="button"
-        onClick={finish}
+        onClick={skip}
+        disabled={saving}
         className="absolute right-4 top-4 text-xs font-semibold text-text-muted transition-colors hover:text-white sm:right-6 sm:top-6"
       >
         Skip for now
@@ -153,10 +199,15 @@ export default function OnboardingFlow() {
 
         <div className="rounded-2xl border border-border-strong bg-bg-card-alt p-6 sm:p-8">
           {step === "games" && (
-            <GamesStep selected={selectedGames} onToggle={toggleGame} />
+            <GamesStep
+              catalog={catalog}
+              selected={selectedGames}
+              onToggle={toggleGame}
+            />
           )}
           {step === "rank" && (
             <RankRoleStep
+              catalog={catalog}
               selectedGames={selectedGames}
               details={gameDetails}
               onUpdate={updateGameProfile}
@@ -172,6 +223,12 @@ export default function OnboardingFlow() {
           )}
           {step === "connect" && (
             <ConnectStep connected={connected} onToggle={toggleProvider} />
+          )}
+
+          {saveError && (
+            <p className="mt-6 text-xs text-danger" role="alert">
+              {saveError}
+            </p>
           )}
 
           <div className="mt-8 flex items-center justify-between border-t border-border-subtle pt-6">
@@ -190,9 +247,10 @@ export default function OnboardingFlow() {
             <button
               type="button"
               onClick={handleContinue}
-              className="flex h-10 items-center justify-center rounded-lg bg-brand px-6 text-xs font-bold text-white transition-opacity hover:opacity-90"
+              disabled={saving}
+              className="flex h-10 items-center justify-center rounded-lg bg-brand px-6 text-xs font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isLastStep ? "Finish setup" : "Continue"}
+              {saving ? "Saving…" : isLastStep ? "Finish setup" : "Continue"}
             </button>
           </div>
         </div>

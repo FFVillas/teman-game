@@ -45,6 +45,17 @@ import {
 } from "@/data/profile-options";
 import BackLink from "@/components/BackLink";
 import FormDropdown from "@/components/FormDropdown";
+import { regionsFor } from "@/data/game-regions";
+import {
+  removeGameSetup,
+  saveGameSetup,
+  type GameInfo,
+  type PlayerGameSetup,
+} from "@/lib/games";
+import {
+  emptyGameProfile,
+  type GameProfile,
+} from "@/components/onboarding/RankRoleStep";
 
 const MAX_TAGS = MAX_PERSONALITY_TAGS;
 const playstyleScale = [1, 2, 3, 4, 5];
@@ -188,6 +199,8 @@ export default function EditProfileForm({
   row,
   userId,
   dateOfBirth: initialDateOfBirth,
+  catalog,
+  gameSetups,
 }: {
   profile: PlayerProfile;
   /** Raw columns — the view model only carries display strings. */
@@ -195,6 +208,10 @@ export default function EditProfileForm({
   userId: string;
   /** "YYYY-MM-DD" or "" — private, only ever loaded for the owner. */
   dateOfBirth: string;
+  /** Every game that can be added, with its ranks and roles. */
+  catalog: GameInfo[];
+  /** The games this player already has set up. */
+  gameSetups: PlayerGameSetup[];
 }) {
   const router = useRouter();
   const { toast } = useNotifications();
@@ -244,6 +261,50 @@ export default function EditProfileForm({
     },
     [newAvatar]
   );
+
+  // The player's games, keyed by game slug, in the order they were added.
+  // A game that was saved before (`savedGameSlugs`) but is no longer in
+  // `gameOrder` has been taken off, and Save deletes it.
+  const [gameOrder, setGameOrder] = useState<string[]>(() =>
+    gameSetups.map((setup) => setup.gameSlug)
+  );
+  const [games, setGames] = useState<Record<string, GameProfile>>(() =>
+    Object.fromEntries(
+      gameSetups.map((setup) => [
+        setup.gameSlug,
+        {
+          username: setup.inGameName,
+          region: setup.regionValue,
+          rank: setup.rank,
+          roles: setup.roles,
+        },
+      ])
+    )
+  );
+  const savedGameSlugs = gameSetups.map((setup) => setup.gameSlug);
+
+  function addGame(slug: string) {
+    if (!slug || gameOrder.includes(slug)) return;
+    setGameOrder((prev) => [...prev, slug]);
+    setGames((prev) => ({ ...prev, [slug]: { ...emptyGameProfile } }));
+  }
+
+  function removeGame(slug: string) {
+    setGameOrder((prev) => prev.filter((s) => s !== slug));
+  }
+
+  function updateGame(
+    slug: string,
+    patch:
+      | Partial<GameProfile>
+      | ((current: GameProfile) => Partial<GameProfile>)
+  ) {
+    setGames((prev) => {
+      const current = prev[slug] ?? emptyGameProfile;
+      const resolved = typeof patch === "function" ? patch(current) : patch;
+      return { ...prev, [slug]: { ...current, ...resolved } };
+    });
+  }
 
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<{
@@ -345,15 +406,72 @@ export default function EditProfileForm({
     const supabase = createClient();
 
     // The date of birth is private, so it lives in its own table. Only
-    // written when it changed (it may have no row yet, hence upsert).
+    // written when it changed (it may have no row yet, hence update, then
+    // insert if nothing was updated).
     if (dateOfBirth !== initialDateOfBirth) {
-      const { error: dobError } = await supabase
+      const dobValue = dateOfBirth || null;
+
+      // Update first, insert only if there's no row yet. Not an upsert: that
+      // compiles to INSERT … ON CONFLICT DO UPDATE SET user_id = …, which
+      // needs UPDATE permission on `user_id`, and only `date_of_birth` is
+      // granted on purpose (nobody should be able to re-point the row).
+      const { data: updatedRows, error: updateError } = await supabase
         .from("profile_private")
-        .upsert({ user_id: userId, date_of_birth: dateOfBirth || null });
+        .update({ date_of_birth: dobValue })
+        .eq("user_id", userId)
+        .select("user_id");
+
+      let dobError = updateError;
+      if (!dobError && (updatedRows?.length ?? 0) === 0) {
+        const { error: insertError } = await supabase
+          .from("profile_private")
+          .insert({ user_id: userId, date_of_birth: dobValue });
+        dobError = insertError;
+      }
 
       if (dobError) {
         setSaving(false);
-        setErrors({ form: "Couldn't save your date of birth. Try again." });
+        // 23514 = check_violation, raised by the minimum-age trigger.
+        setErrors(
+          dobError.code === "23514"
+            ? { dateOfBirth: "You must be at least 13 years old." }
+            : { form: "Couldn't save your date of birth. Try again." }
+        );
+        return;
+      }
+    }
+
+    // Games come before the picture and the profile row on purpose. Saving a
+    // game is safe to repeat, so a failure here just means "try again", whereas
+    // doing it last could leave an uploaded picture orphaned on a retry.
+    for (const slug of savedGameSlugs.filter((s) => !gameOrder.includes(s))) {
+      const game = catalog.find((g) => g.slug === slug);
+      if (!game) continue;
+      const failure = await removeGameSetup(supabase, userId, game.id);
+      if (failure) {
+        setSaving(false);
+        setErrors({ form: `Couldn't remove ${game.name}. Try again.` });
+        return;
+      }
+    }
+
+    for (const slug of gameOrder) {
+      const game = catalog.find((g) => g.slug === slug);
+      if (!game) continue;
+      const details = games[slug] ?? emptyGameProfile;
+
+      const failure = await saveGameSetup(supabase, userId, {
+        gameId: game.id,
+        inGameName: details.username,
+        region: details.region || regionsFor(slug).default,
+        rankId: game.ranks.find((rank) => rank.name === details.rank)?.id ?? null,
+        roleIds: game.roles
+          .filter((role) => details.roles.includes(role.name))
+          .map((role) => role.id),
+      });
+      if (failure) {
+        setSaving(false);
+        setErrors({ form: `Couldn't save your ${game.name} details. Try again.` });
         return;
       }
     }
@@ -651,6 +769,131 @@ export default function EditProfileForm({
                 <p className="text-text-muted">Pick up to {MAX_TAGS}.</p>
               )}
             </div>
+          </Card>
+
+          <Card title="Games">
+            {catalog.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-border-default p-4 text-center text-xs text-text-muted">
+                Games can&apos;t be loaded right now. Try again later.
+              </p>
+            ) : (
+              <>
+                {gameOrder.length === 0 && (
+                  <p className="rounded-lg border border-dashed border-border-default p-4 text-center text-xs text-text-muted">
+                    No games added yet.
+                  </p>
+                )}
+
+                {gameOrder.map((slug) => {
+                  const game = catalog.find((g) => g.slug === slug);
+                  if (!game) return null;
+                  const details = games[slug] ?? emptyGameProfile;
+                  const regionList = regionsFor(slug);
+
+                  return (
+                    <div
+                      key={slug}
+                      className="flex flex-col gap-3 rounded-xl border border-border-default bg-bg-page p-4"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-xs font-bold text-white">
+                          {game.name}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removeGame(slug)}
+                          className="text-[11px] font-semibold text-text-muted transition-colors hover:text-danger"
+                        >
+                          Remove
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <Field label="In-game name">
+                          <input
+                            value={details.username}
+                            onChange={(event) =>
+                              updateGame(slug, { username: event.target.value })
+                            }
+                            maxLength={40}
+                            placeholder="e.g. Yonziii"
+                            className={controlClass}
+                          />
+                        </Field>
+                        <Field label="Region">
+                          <FormDropdown
+                            label={`${game.name} region`}
+                            value={details.region || regionList.default}
+                            onChange={(region) => updateGame(slug, { region })}
+                            options={regionList.options}
+                            allowEmpty={false}
+                          />
+                        </Field>
+                      </div>
+
+                      <Field label="Rank">
+                        <FormDropdown
+                          label={`${game.name} rank`}
+                          placeholder="Not sure yet"
+                          value={details.rank}
+                          onChange={(rank) => updateGame(slug, { rank })}
+                          options={game.ranks.map((rank) => ({
+                            value: rank.name,
+                            label: rank.name,
+                          }))}
+                        />
+                      </Field>
+
+                      {game.roles.length > 0 && (
+                        <Field label="Roles">
+                          <div className="flex flex-wrap gap-2">
+                            {game.roles.map((role) => {
+                              const isSelected = details.roles.includes(role.name);
+                              return (
+                                <button
+                                  key={role.id}
+                                  type="button"
+                                  onClick={() =>
+                                    updateGame(slug, (current) => ({
+                                      roles: current.roles.includes(role.name)
+                                        ? current.roles.filter(
+                                            (r) => r !== role.name
+                                          )
+                                        : [...current.roles, role.name],
+                                    }))
+                                  }
+                                  aria-pressed={isSelected}
+                                  className={`rounded-full border px-3 py-1.5 text-[11px] transition-colors ${
+                                    isSelected
+                                      ? "border-brand bg-brand/10 text-brand"
+                                      : "border-border-strong text-text-muted hover:border-white/30"
+                                  }`}
+                                >
+                                  {role.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </Field>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {catalog.some((g) => !gameOrder.includes(g.slug)) && (
+                  <FormDropdown
+                    label="Add a game"
+                    placeholder="Add a game…"
+                    allowEmpty={false}
+                    value=""
+                    onChange={addGame}
+                    options={catalog
+                      .filter((g) => !gameOrder.includes(g.slug))
+                      .map((g) => ({ value: g.slug, label: g.name }))}
+                  />
+                )}
+              </>
+            )}
           </Card>
 
           <Card title="Connected accounts">

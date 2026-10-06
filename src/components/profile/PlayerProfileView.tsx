@@ -67,7 +67,15 @@ export default function PlayerProfileView({
 }: {
   profile: PlayerProfile;
 }) {
-  const [activeGame, setActiveGame] = useState(gameTabs[0]);
+  // Real profiles carry `gameSetups` (what the player saved per game); the
+  // mock ones still use the fixed tab list and `gameStats`.
+  const gameSetups = profile.gameSetups;
+  const tabNames = gameSetups ? gameSetups.map((s) => s.gameName) : gameTabs;
+  const [selectedGame, setActiveGame] = useState(gameTabs[0]);
+  const activeGame = tabNames.includes(selectedGame)
+    ? selectedGame
+    : (tabNames[0] ?? "");
+  const activeSetup = gameSetups?.find((s) => s.gameName === activeGame);
   const activeStat = profile.gameStats.find((stat) => stat.game === activeGame);
 
   const isOwner = Boolean(profile.isOwner);
@@ -255,25 +263,71 @@ export default function PlayerProfileView({
           </div>
 
           <div className="flex flex-col overflow-hidden rounded-2xl border border-border-default bg-bg-card-alt">
-            <div className="flex overflow-x-auto border-b border-border-default px-2">
-              {gameTabs.map((game) => (
-                <button
-                  key={game}
-                  type="button"
-                  onClick={() => setActiveGame(game)}
-                  className={`shrink-0 whitespace-nowrap border-b-2 px-4 py-3 text-xs font-bold transition-colors ${
-                    activeGame === game
-                      ? "border-brand text-white"
-                      : "border-transparent text-text-muted hover:text-white"
-                  }`}
-                >
-                  {game}
-                </button>
-              ))}
-            </div>
+            {tabNames.length > 0 && (
+              <div className="flex overflow-x-auto border-b border-border-default px-2">
+                {tabNames.map((game) => (
+                  <button
+                    key={game}
+                    type="button"
+                    onClick={() => setActiveGame(game)}
+                    className={`shrink-0 whitespace-nowrap border-b-2 px-4 py-3 text-xs font-bold transition-colors ${
+                      activeGame === game
+                        ? "border-brand text-white"
+                        : "border-transparent text-text-muted hover:text-white"
+                    }`}
+                  >
+                    {game}
+                  </button>
+                ))}
+              </div>
+            )}
 
             <div className="p-5">
-              {activeStat ? (
+              {gameSetups ? (
+                activeSetup ? (
+                  <div className="flex flex-col gap-4">
+                    <div className="flex flex-wrap gap-x-10 gap-y-4">
+                      <div className="flex flex-col gap-1">
+                        <span className={fieldLabel}>Rank</span>
+                        <span className="text-sm font-bold text-white">
+                          {activeSetup.rank || "Not set"}
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <span className={fieldLabel}>Region</span>
+                        <span className="text-sm font-bold text-white">
+                          {activeSetup.region || "Not set"}
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <span className={fieldLabel}>In-game name</span>
+                        <span className="text-sm font-bold text-white">
+                          {activeSetup.inGameName || "Not set"}
+                        </span>
+                      </div>
+                    </div>
+                    {activeSetup.roles.length > 0 && (
+                      <div className="flex flex-col gap-1.5">
+                        <span className={fieldLabel}>Roles</span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {activeSetup.roles.map((role) => (
+                            <span
+                              key={role}
+                              className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-bold text-text-subtle"
+                            >
+                              {role}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-text-muted">
+                    {profile.username} hasn&apos;t added any games yet.
+                  </p>
+                )
+              ) : activeStat ? (
                 <div className="flex flex-wrap items-center gap-6">
                   <div className="flex flex-col items-center gap-2">
                     <div className="flex size-16 items-center justify-center rounded-full border border-border-default">

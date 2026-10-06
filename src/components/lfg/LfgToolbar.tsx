@@ -2,14 +2,16 @@ import Link from "next/link";
 import SortDropdown from "./SortDropdown";
 
 interface LfgToolbarProps {
+  /** `games.slug`; the create link goes to this game's form. */
+  gameSlug: string;
   resultCount: number;
 }
 
-export default function LfgToolbar({ resultCount }: LfgToolbarProps) {
+export default function LfgToolbar({ gameSlug, resultCount }: LfgToolbarProps) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 pt-6">
       <Link
-        href="/lfg/valorant/create"
+        href={`/lfg/${gameSlug}/create`}
         className="flex h-[34px] shrink-0 items-center justify-center rounded-lg bg-brand px-[14px] text-[12px] font-bold text-white transition-opacity hover:opacity-90"
       >
         + Create Team
