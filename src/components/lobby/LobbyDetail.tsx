@@ -138,8 +138,8 @@ export default function LobbyDetail({ lobby, initialRole }: LobbyDetailProps) {
       tone: "success",
       title: `${app.applicantName} joined your lobby`,
       body: `${app.role.name} · ${app.rank.name}`,
-      actorName: app.applicantName,
-      actorAvatar: app.avatar,
+      // actorId is a real profile id; the mock applicants don't have one,
+      // so the name stays in the title instead.
       href: `/lfg/${lobby.game}/lobby/${lobby.id}`,
     });
   }

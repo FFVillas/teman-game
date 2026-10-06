@@ -176,10 +176,25 @@ Two different things, deliberately:
   back to. It shows a toast *and* files an entry on `/notifications`,
   where it stays until read.
 
-`NotificationContext` seeds from `src/data/notifications.ts` and persists
-read state to `localStorage`, the same frontend-only pattern as
-`AuthContext`. Replace with FCM + a `notifications` table later; the
-provider is the seam.
+**Notifications are real rows** in `public.notifications`
+(`20261006000000_notifications.sql`); `src/lib/notifications.ts` reads and
+writes them and `NotificationContext` is the only caller. Toasts stay
+local — storing a four-second confirmation would be noise. `src/data/
+notifications.ts` now only holds the kinds, their styling, and which ones
+are actionable.
+
+Two limits worth knowing:
+
+- **Delivery is still "on page load".** Push (FCM + service worker, per the
+  proposal) and PWA are not built. A Supabase realtime subscription on this
+  table is the cheaper first step.
+- **The insert policy only allows rows addressed to yourself.** That covers
+  today's frontend-driven flows, but real cross-player notifications ("X
+  applied to your lobby") must be written server-side — a trigger on
+  `applications` or an edge function — once the Lobby slice exists.
+  Otherwise any account could spam anyone. The mock lobby flows therefore
+  file their notifications to the acting user, and the actor's name lives in
+  the title rather than in `actor_id`.
 
 `ToastHost` is mounted once in the root layout — don't add another.
 
@@ -360,22 +375,41 @@ what keeps `/login` and `/signup` statically prerendered.
 
 ## Games on a profile
 
-`games` + `user_game_mapping` (migration `20261005000000_user_games.sql`)
-are the proposal's game slice. The profile's per-game tabs render **only
-the games that player added** — they used to be a hardcoded list of four
-titles — and the set is editable from the edit form (`GamesEditor`).
+The game slice is **real** and lives in five tables a teammate created
+directly in the Supabase SQL editor:
 
-Rank, role, region and in-game name are **typed in by the player**. There is
-no Riot/Moonton integration, so nothing is "detected", and the card says so.
-Where a game publishes a fixed ladder (Valorant, League, Mobile Legends)
-rank and role are dropdowns from `gameRankOptions` / `gameRoleOptions` in
-`src/data/games.ts`, so profiles stay comparable; CS2 and the battle
-royales take free text, because their ladders don't fit a fixed list.
+```
+games(id, slug, name, platform, genre, sort_order)
+game_ranks(id, game_id, tier, name, ordinal)   -- full ladder per game
+game_roles(id, game_id, name)                  -- Valorant / LoL / MLBB only
+user_game_mapping(user_id, game_id, rank_id -> game_ranks, in_game_name,
+                  region, created_at)
+user_game_roles(user_id, game_id, role_id -> game_roles)
+```
 
-`src/lib/user-games.ts` owns the reads and writes. `fetchUserGames` returns
-`[]` on error rather than throwing, so a profile still renders if the
-migration hasn't been run. Saving diffs the set: update what stayed, insert
-what's new, delete what went — never `.upsert()` (see below).
+⚠️ **There is no migration file for these.** They exist in the database but
+not in `supabase/migrations/`, so a fresh project can't be rebuilt from the
+repo. Whoever ran that SQL should paste it in as a timestamped migration.
+
+`game_ranks.ordinal` is the thing to care about: it's a full ordered ladder
+(Valorant 25 sub-ranks, LoL 31, CS2 18, MLBB 30, PUBG 34, Free Fire 20), so
+ΔR for the rank penalty `M_rank` (Persamaan 3.5) is a real subtraction, not
+an approximation. `src/lib/recommendation.ts` still has its own hardcoded
+Valorant ladder for the mock lobby data — switch it to these ordinals when
+the lobby slice goes real.
+
+`src/lib/user-games.ts` owns all of it: `fetchGameCatalogue` (games + ranks
++ roles), `fetchUserGames`, and `saveUserGames`, which diffs the set —
+insert what's new, update what stayed, delete what went, same for the roles
+join table. Never `.upsert()` (see below). Reads fail soft to `[]` so a
+profile still renders if a query breaks.
+
+The profile's per-game tabs render **only the games that player added**
+(they used to be a hardcoded list of four), and the set is editable in the
+edit form via `GamesEditor`. Rank and roles are picked from the database's
+vocabulary; `GamesEditor` hides the role picker for games with no roles
+defined. Nothing is synced from Riot/Moonton, and the card says so — a
+rank nobody can verify shouldn't look verified.
 
 Mock profiles predate this and still carry `gameStats` with invented win
 rates; `gamesOf()` in `PlayerProfileView` reads them through the same shape

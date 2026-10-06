@@ -1,14 +1,18 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Logo from "@/components/Logo";
 import { sanitizeNextPath } from "@/lib/auth-redirect";
 import { useNotifications } from "@/contexts/NotificationContext";
 import { createClient } from "@/lib/supabase/client";
 import { saveDateOfBirth } from "@/lib/profiles";
-import { saveUserGames, type UserGame } from "@/lib/user-games";
-import { gameByName } from "@/data/games";
+import {
+  fetchGameCatalogue,
+  saveUserGames,
+  type CatalogueGame,
+  type UserGame,
+} from "@/lib/user-games";
 import {
   DEFAULT_TIMEZONE,
   MAX_PERSONALITY_TAGS,
@@ -46,6 +50,19 @@ export default function OnboardingFlow() {
   const searchParams = useSearchParams();
   const { toast } = useNotifications();
   const destination = sanitizeNextPath(searchParams.get("next"));
+
+  // Games, ranks and roles come from the database so onboarding writes ids
+  // the rest of the app (and the matching score) can read back.
+  const [catalogue, setCatalogue] = useState<CatalogueGame[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    fetchGameCatalogue(createClient()).then((data) => {
+      if (!cancelled) setCatalogue(data);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const [selectedGames, setSelectedGames] = useState<string[]>([]);
   const [gameDetails, setGameDetails] = useState<Record<string, GameProfile>>({});
@@ -138,27 +155,29 @@ export default function OnboardingFlow() {
         })
         .eq("id", data.user.id);
 
-      // The games picked in step 1, with whatever rank/role was filled in
-      // for each. Typed in by the player: nothing is read from the game.
-      const chosenGames: UserGame[] = selectedGames
-        .map((name) => {
-          const game = gameByName(name);
-          if (!game) return null;
-          const details = gameDetails[name];
-          return {
-            slug: game.slug,
-            name: game.name,
+      // The games picked in step 1, with the rank and roles chosen for
+      // each. Both are catalogue ids, so the profile and the matching score
+      // read exactly what was picked.
+      const chosenGames: UserGame[] = selectedGames.flatMap((name) => {
+        const entry = catalogue.find((item) => item.name === name);
+        if (!entry) return [];
+        const details = gameDetails[name];
+        const rank = entry.ranks.find((option) => option.id === details?.rankId);
+        return [
+          {
+            gameId: entry.id,
+            slug: entry.slug,
+            name: entry.name,
             inGameName: details?.username ?? "",
             region: details?.region ?? "",
-            rank: details?.rank ?? "",
-            roles: (details?.role ?? "")
-              .split(",")
-              .map((role) => role.trim())
-              .filter(Boolean)
-              .slice(0, 6),
-          };
-        })
-        .filter((game): game is UserGame => game !== null);
+            rankId: rank?.id ?? null,
+            rankName: rank?.name ?? "",
+            rankOrdinal: rank?.ordinal ?? null,
+            roleIds: details?.roleIds ?? [],
+            roleNames: [],
+          },
+        ];
+      });
 
       if (chosenGames.length > 0) {
         await saveUserGames(supabase, data.user.id, chosenGames, []);
@@ -255,6 +274,7 @@ export default function OnboardingFlow() {
           )}
           {step === "rank" && (
             <RankRoleStep
+              catalogue={catalogue}
               selectedGames={selectedGames}
               details={gameDetails}
               onUpdate={updateGameProfile}

@@ -17,24 +17,12 @@ import {
 
 const DAY = 24 * 60 * 60 * 1000;
 
+// Shared with the notification list — same wording everywhere.
+export { formatAgo } from "./relative-time";
+
 // ---------------------------------------------------------------------------
 // Time
 // ---------------------------------------------------------------------------
-
-export function formatAgo(iso: string, now = Date.now()): string {
-  const diff = now - new Date(iso).getTime();
-  const future = diff < 0;
-  const abs = Math.abs(diff);
-  const minutes = Math.round(abs / 60_000);
-
-  let label: string;
-  if (minutes < 1) return "just now";
-  if (minutes < 60) label = `${minutes}m`;
-  else if (minutes < 60 * 24) label = `${Math.round(minutes / 60)}h`;
-  else label = `${Math.round(minutes / (60 * 24))}d`;
-
-  return future ? `in ${label}` : `${label} ago`;
-}
 
 export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", {

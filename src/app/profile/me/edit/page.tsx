@@ -9,7 +9,7 @@ import {
   fetchProfileById,
   profileFromRow,
 } from "@/lib/profiles";
-import { fetchUserGames } from "@/lib/user-games";
+import { fetchGameCatalogue, fetchUserGames } from "@/lib/user-games";
 import { withNext } from "@/lib/auth-redirect";
 
 export const metadata: Metadata = {
@@ -29,9 +29,10 @@ export default async function EditProfilePage() {
   const row = await fetchProfileById(supabase, user.id);
   if (!row) notFound();
 
-  const [dateOfBirth, games] = await Promise.all([
+  const [dateOfBirth, games, catalogue] = await Promise.all([
     fetchOwnDateOfBirth(supabase, user.id),
     fetchUserGames(supabase, user.id),
+    fetchGameCatalogue(supabase),
   ]);
   const profile = profileFromRow(row, { isOwner: true, games });
 
@@ -46,6 +47,7 @@ export default async function EditProfilePage() {
             userId={user.id}
             dateOfBirth={dateOfBirth}
             games={games}
+            catalogue={catalogue}
           />
         </div>
       </main>

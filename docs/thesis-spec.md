@@ -181,6 +181,19 @@ substitution, argued below.
    than the proposal's ERD. **`region` is not on `profiles`** — it is per
    game, so it will live on `user_game_mapping` in the Lobby slice.
 
+4. **Game catalogue + notifications (2026-10-05/06).** The game slice
+   lives in five tables — `games`, `game_ranks` (the full ordered ladder
+   per title, which is what `ΔR` in Persamaan 3.5 actually measures),
+   `game_roles`, `user_game_mapping` and `user_game_roles`. The ERD has
+   `game` and `user_game_mapping` but not the three lookup/join tables.
+   **No migration file exists for these yet** — they were applied directly
+   in the SQL editor. Separately, `notifications`
+   (`20261006000000_notifications.sql`) holds requirement 5 of §3.2.4
+   ("Sistem Notifikasi Real-time") and the notify steps in the p.59
+   sequence diagrams; the ERD has no entity for them, so this is a sixth
+   table beyond the original 13. Frame it as detailing a behaviour the
+   proposal already specifies.
+
 Net effect: 13 → 17 distinct tables once the rest of the model is built
 (13 original, minus `user`/`role`/`user_role_mapping` reshaped into
 `profiles` + `admins`, plus `sanctions`/`sanction_reports`/`admin_actions`,
@@ -211,10 +224,11 @@ the code is at UI-shell stage while the spec describes the full system.
 | 6 games | only `lfg/valorant`; all 6 `nav-links.ts` entries point there |
 | Lobbies ranked by `S_total` | "Recommended Teams" is a static label; `lfgTeams` renders in array order. The formula **is** implemented (`lib/recommendation.ts`) and drives the leader's Invite players panel; the lobby list and the applicants' `matchScore` don't use it yet |
 | Reputation (stars, sanctions, tags) | no reputation field on `LfgTeam` |
-| `game` + `user_game_mapping` | **built** (`20261005000000_user_games.sql`) — profile tabs, onboarding and the edit form all read/write it. Rank and role are self-reported; no game API integration |
+| `game` + `user_game_mapping` | **built** — `games`, `game_ranks`, `game_roles`, `user_game_mapping`, `user_game_roles` exist in Supabase (no migration file yet). Profile tabs, onboarding and the edit form read/write them. Rank and role are self-reported; no game API integration |
 | Playstyle 1–5 Likert | closest is free-text `vibeTags` in the create form |
 | Personality tags | not modeled |
-| PWA (service worker, manifest, FCM) | none present |
+| PWA (service worker, manifest, FCM) | none present — notifications exist as rows and are read on page load, but nothing is pushed |
+| Notifications (§3.2.4 req. 5) | table + UI built; cross-player inserts still need a server-side trigger, since RLS only allows self-addressed rows |
 | Supabase + Auth + RLS | `profiles` table + RLS live (Account slice). Everything else still `// TODO` + `router.push` |
 | Admin moderation (reports, sanctions, bans) | `admins` + `is_admin()` live (see divergences above); `reports`/`sanctions`/`sanction_reports`/`admin_actions` written but not run — deferred until the report feature is built. `/admin` console itself still runs on mock data; `AdminGate` is still a client-side check, not yet wired to real auth/RLS; players aren't notified of sanctions yet |
 | Rank/role/region filtering | `LfgToolbar` has a hardcoded `resultCount={128}`; `SortDropdown` not wired |

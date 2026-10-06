@@ -66,13 +66,19 @@ function StarRating({ score }: { score: number }) {
  */
 function gamesOf(profile: PlayerProfile): UserGame[] {
   if (profile.games) return profile.games;
-  return profile.gameStats.map((stat) => ({
+  return profile.gameStats.map((stat, index) => ({
+    // Mock rows have no catalogue id \u2014 a negative index is unique within
+    // this list, which is all the tab keys need.
+    gameId: -(index + 1),
     slug: gameByName(stat.game)?.slug ?? stat.game,
     name: stat.game,
     inGameName: "",
     region: profile.region === "\u2014" ? "" : profile.region,
-    rank: [stat.rank.name, stat.tier].filter(Boolean).join(" "),
-    roles: [stat.mainRole.name],
+    rankId: null,
+    rankName: [stat.rank.name, stat.tier].filter(Boolean).join(" "),
+    rankOrdinal: null,
+    roleIds: [],
+    roleNames: [stat.mainRole.name],
   }));
 }
 
@@ -88,6 +94,7 @@ export default function PlayerProfileView({
   const [activeSlug, setActiveSlug] = useState(playerGames[0]?.slug ?? "");
   const activeGame =
     playerGames.find((game) => game.slug === activeSlug) ?? playerGames[0];
+  const activeRoles = activeGame?.roleNames.filter(Boolean) ?? [];
   const activeStat = profile.gameStats.find(
     (stat) => stat.game === activeGame?.name,
   );
@@ -377,7 +384,7 @@ export default function PlayerProfileView({
                 <div className="flex overflow-x-auto">
                   {playerGames.map((game) => (
                     <button
-                      key={game.slug}
+                      key={game.gameId}
                       type="button"
                       onClick={() => setActiveSlug(game.slug)}
                       className={`shrink-0 whitespace-nowrap border-b-2 px-4 py-3 text-xs font-bold transition-colors ${
@@ -419,9 +426,9 @@ export default function PlayerProfileView({
                   <div className="flex flex-wrap items-start gap-x-8 gap-y-4">
                     <div className="flex flex-col gap-1">
                       <span className={fieldLabel}>Rank</span>
-                      {activeGame.rank ? (
+                      {activeGame.rankName ? (
                         <span className="text-sm font-bold text-white">
-                          {activeGame.rank}
+                          {activeGame.rankName}
                         </span>
                       ) : (
                         <NotSetOrAdd isOwner={isOwner} href={editHref} />
@@ -430,9 +437,9 @@ export default function PlayerProfileView({
 
                     <div className="flex flex-col gap-1.5">
                       <span className={fieldLabel}>Roles</span>
-                      {activeGame.roles.length > 0 ? (
+                      {activeRoles.length > 0 ? (
                         <div className="flex flex-wrap gap-1.5">
-                          {activeGame.roles.map((role) => (
+                          {activeRoles.map((role) => (
                             <span
                               key={role}
                               className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-bold text-text-subtle"

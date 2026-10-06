@@ -1,88 +1,150 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { gameBySlug } from "@/data/games";
 
 /**
- * A player's profile for one game — `user_game_mapping` joined to `games`.
+ * The games on a player's profile — `user_game_mapping`, `user_game_roles`
+ * and the `games` / `game_ranks` / `game_roles` catalogue.
  *
- * Everything here is self-reported. There's no Riot/Moonton integration, so
- * the UI says "as entered by the player" rather than dressing it up as
- * synced data.
+ * The catalogue is the database's, not the app's: every title's full rank
+ * ladder lives in `game_ranks` with an `ordinal`, which is exactly what the
+ * rank-distance penalty `M_rank` (Persamaan 3.5) needs, and `game_roles`
+ * holds each game's role vocabulary. Nothing here is hardcoded in the app,
+ * so adding a game or a season's ranks is a database change only.
+ *
+ * Rank and role are what the player picked — there's no Riot/Moonton API,
+ * so nothing is verified and the UI never implies it is.
  */
+
+export interface GameRank {
+  id: number;
+  name: string;
+  ordinal: number;
+}
+
+export interface GameRole {
+  id: number;
+  name: string;
+}
+
+export interface CatalogueGame {
+  id: number;
+  slug: string;
+  name: string;
+  ranks: GameRank[];
+  roles: GameRole[];
+}
+
 export interface UserGame {
-  /** `games.slug`, the id the app uses everywhere. */
+  gameId: number;
   slug: string;
   name: string;
   inGameName: string;
   region: string;
-  rank: string;
-  roles: string[];
+  /** `game_ranks.id`, or null when they haven't picked one. */
+  rankId: number | null;
+  rankName: string;
+  /** From `game_ranks.ordinal` — the ΔR input for the matching score. */
+  rankOrdinal: number | null;
+  roleIds: number[];
+  roleNames: string[];
+}
+
+/**
+ * Every game with its ranks and roles, ordered the way they should appear.
+ * Returns [] if the query fails so a profile still renders.
+ */
+export async function fetchGameCatalogue(
+  supabase: SupabaseClient,
+): Promise<CatalogueGame[]> {
+  const [games, ranks, roles] = await Promise.all([
+    supabase.from("games").select("id, slug, name").order("sort_order"),
+    supabase.from("game_ranks").select("id, game_id, name, ordinal").order("ordinal"),
+    supabase.from("game_roles").select("id, game_id, name").order("id"),
+  ]);
+
+  if (games.error || !games.data) return [];
+
+  return games.data.map((game) => ({
+    id: game.id as number,
+    slug: game.slug as string,
+    name: game.name as string,
+    ranks: (ranks.data ?? [])
+      .filter((rank) => rank.game_id === game.id)
+      .map((rank) => ({
+        id: rank.id as number,
+        name: rank.name as string,
+        ordinal: rank.ordinal as number,
+      })),
+    roles: (roles.data ?? [])
+      .filter((role) => role.game_id === game.id)
+      .map((role) => ({ id: role.id as number, name: role.name as string })),
+  }));
 }
 
 interface MappingRow {
   game_id: number;
   in_game_name: string | null;
   region: string | null;
-  rank: string | null;
-  roles: string[] | null;
-  games: { slug: string; name: string } | { slug: string; name: string }[] | null;
-}
-
-function rowToUserGame(row: MappingRow): UserGame | null {
-  const game = Array.isArray(row.games) ? row.games[0] : row.games;
-  if (!game) return null;
-  return {
-    slug: game.slug,
-    name: game.name,
-    inGameName: row.in_game_name ?? "",
-    region: row.region ?? "",
-    rank: row.rank ?? "",
-    roles: row.roles ?? [],
-  };
+  rank_id: number | null;
+  games: { slug: string; name: string } | null;
+  game_ranks: { name: string; ordinal: number } | null;
 }
 
 /**
- * Every game on a player's profile, in catalogue order so the tabs don't
- * reshuffle between visits.
- *
- * Returns [] rather than throwing when the query fails — the most likely
- * failure is the migration not having been run yet, and a profile page that
- * still renders (minus its game tabs) beats one that 500s.
+ * A player's games, in catalogue order so the profile tabs don't reshuffle.
+ * Roles come from the join table in a second query — PostgREST can't embed
+ * two levels deep through a composite key here.
  */
 export async function fetchUserGames(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<UserGame[]> {
-  const { data, error } = await supabase
-    .from("user_game_mapping")
-    .select("game_id, in_game_name, region, rank, roles, games (slug, name)")
-    .eq("user_id", userId)
-    .order("game_id");
+  const [mappings, roles] = await Promise.all([
+    supabase
+      .from("user_game_mapping")
+      .select(
+        "game_id, in_game_name, region, rank_id, games (slug, name), game_ranks (name, ordinal)",
+      )
+      .eq("user_id", userId)
+      .order("game_id"),
+    supabase
+      .from("user_game_roles")
+      .select("game_id, role_id, game_roles (name)")
+      .eq("user_id", userId),
+  ]);
 
-  if (error || !data) return [];
-  return (data as MappingRow[])
-    .map(rowToUserGame)
-    .filter((game): game is UserGame => game !== null);
-}
+  if (mappings.error || !mappings.data) return [];
 
-/** Catalogue id for a slug, from the database rather than hardcoded. */
-async function gameIds(
-  supabase: SupabaseClient,
-): Promise<Record<string, number>> {
-  const { data } = await supabase.from("games").select("id, slug");
-  return Object.fromEntries(
-    (data ?? []).map((row) => [row.slug as string, row.id as number]),
-  );
+  return (mappings.data as unknown as MappingRow[])
+    .filter((row) => row.games)
+    .map((row) => {
+      const mine = (roles.data ?? []).filter(
+        (role) => role.game_id === row.game_id,
+      );
+      return {
+        gameId: row.game_id,
+        slug: row.games!.slug,
+        name: row.games!.name,
+        inGameName: row.in_game_name ?? "",
+        region: row.region ?? "",
+        rankId: row.rank_id,
+        rankName: row.game_ranks?.name ?? "",
+        rankOrdinal: row.game_ranks?.ordinal ?? null,
+        roleIds: mine.map((role) => role.role_id as number),
+        roleNames: mine.map(
+          (role) =>
+            (role.game_roles as unknown as { name: string } | null)?.name ?? "",
+        ),
+      };
+    });
 }
 
 /**
- * Saves the edited set of games: updates the ones that stayed, inserts the
- * new ones, deletes the removed ones.
+ * Saves the edited set: games added, changed and removed, plus each game's
+ * roles in the join table.
  *
- * Deliberately not `.upsert()`. The table grants UPDATE on the editable
- * columns only (not on the two key columns), and PostgREST compiles an
- * upsert to `on conflict do update set <every column sent>` — which needs
- * UPDATE on the keys and fails with 42501 permission denied. Three explicit
- * statements each stay inside what's granted.
+ * Deliberately not `.upsert()` — see the note in AGENTS.md. Column-level
+ * grants make PostgREST's `on conflict do update` fail with 42501 even when
+ * nothing conflicts, so inserts and updates are issued separately.
  */
 export async function saveUserGames(
   supabase: SupabaseClient,
@@ -91,60 +153,89 @@ export async function saveUserGames(
   previous: UserGame[],
 ): Promise<string | null> {
   const failed = "Couldn't save your games. Try again.";
-  const ids = await gameIds(supabase);
+  const before = new Map(previous.map((game) => [game.gameId, game]));
+  const keep = new Set(next.map((game) => game.gameId));
 
-  const before = new Set(previous.map((game) => game.slug));
-  const after = new Set(next.map((game) => game.slug));
+  const removed = previous
+    .filter((game) => !keep.has(game.gameId))
+    .map((game) => game.gameId);
 
-  const removed = previous.filter((game) => !after.has(game.slug));
   if (removed.length > 0) {
-    const { error } = await supabase
+    // Roles first: they reference the mapping's game for this user.
+    const roleDelete = await supabase
+      .from("user_game_roles")
+      .delete()
+      .eq("user_id", userId)
+      .in("game_id", removed);
+    if (roleDelete.error) return failed;
+
+    const mappingDelete = await supabase
       .from("user_game_mapping")
       .delete()
       .eq("user_id", userId)
-      .in(
-        "game_id",
-        removed.map((game) => ids[game.slug]).filter(Boolean),
-      );
-    if (error) return failed;
+      .in("game_id", removed);
+    if (mappingDelete.error) return failed;
   }
 
   for (const game of next) {
-    const gameId = ids[game.slug];
-    // A slug with no catalogue row can only come from stale client state.
-    if (!gameId) continue;
-
     const values = {
       in_game_name: game.inGameName.trim() || null,
       region: game.region || null,
-      rank: game.rank.trim() || null,
-      roles: game.roles,
+      rank_id: game.rankId,
     };
 
-    const { error } = before.has(game.slug)
+    const { error } = before.has(game.gameId)
       ? await supabase
           .from("user_game_mapping")
           .update(values)
           .eq("user_id", userId)
-          .eq("game_id", gameId)
+          .eq("game_id", game.gameId)
       : await supabase
           .from("user_game_mapping")
-          .insert({ user_id: userId, game_id: gameId, ...values });
-
+          .insert({ user_id: userId, game_id: game.gameId, ...values });
     if (error) return failed;
+
+    const previousRoles = before.get(game.gameId)?.roleIds ?? [];
+    const added = game.roleIds.filter((id) => !previousRoles.includes(id));
+    const dropped = previousRoles.filter((id) => !game.roleIds.includes(id));
+
+    if (dropped.length > 0) {
+      const { error: dropError } = await supabase
+        .from("user_game_roles")
+        .delete()
+        .eq("user_id", userId)
+        .eq("game_id", game.gameId)
+        .in("role_id", dropped);
+      if (dropError) return failed;
+    }
+
+    if (added.length > 0) {
+      const { error: addError } = await supabase.from("user_game_roles").insert(
+        added.map((roleId) => ({
+          user_id: userId,
+          game_id: game.gameId,
+          role_id: roleId,
+        })),
+      );
+      if (addError) return failed;
+    }
   }
 
   return null;
 }
 
 /** A blank entry for a game the player just added. */
-export function emptyUserGame(slug: string): UserGame {
+export function emptyUserGame(game: CatalogueGame): UserGame {
   return {
-    slug,
-    name: gameBySlug(slug)?.name ?? slug,
+    gameId: game.id,
+    slug: game.slug,
+    name: game.name,
     inGameName: "",
     region: "",
-    rank: "",
-    roles: [],
+    rankId: null,
+    rankName: "",
+    rankOrdinal: null,
+    roleIds: [],
+    roleNames: [],
   };
 }

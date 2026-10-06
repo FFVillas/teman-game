@@ -27,7 +27,11 @@ import {
   processAvatar,
 } from "@/lib/avatar";
 import { saveDateOfBirth, type ProfileRow } from "@/lib/profiles";
-import { saveUserGames, type UserGame } from "@/lib/user-games";
+import {
+  saveUserGames,
+  type CatalogueGame,
+  type UserGame,
+} from "@/lib/user-games";
 import {
   DEFAULT_TIMEZONE,
   MAX_PERSONALITY_TAGS,
@@ -64,6 +68,7 @@ export default function EditProfileForm({
   userId,
   dateOfBirth: initialDateOfBirth,
   games: initialGames,
+  catalogue,
 }: {
   profile: PlayerProfile;
   /** Raw columns — the view model only carries display strings. */
@@ -73,6 +78,8 @@ export default function EditProfileForm({
   dateOfBirth: string;
   /** Rows from `user_game_mapping`, as loaded. */
   games: UserGame[];
+  /** Games, ranks and roles as the database defines them. */
+  catalogue: CatalogueGame[];
 }) {
   const router = useRouter();
   const { toast } = useNotifications();
@@ -479,7 +486,11 @@ export default function EditProfileForm({
               Rank and role are what you type here — nothing is read from the
               game, so keep it honest and teammates can trust it.
             </p>
-            <GamesEditor games={games} onChange={setGames} />
+            <GamesEditor
+              games={games}
+              catalogue={catalogue}
+              onChange={setGames}
+            />
             {errors.games && (
               <p className="text-[11px] text-danger">{errors.games}</p>
             )}
