@@ -1,5 +1,6 @@
 "use client";
 
+import UserAvatar from "@/components/UserAvatar";
 import { useState } from "react";
 import { CURRENT_USER_ID, unreadCountFor, type Conversation } from "@/data/lfg-messages";
 import {
@@ -137,11 +138,11 @@ export default function ConversationList({
                 active ? "bg-white/10" : "hover:bg-white/5"
               }`}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization */}
-              <img
+              <UserAvatar
                 src={conversation.participant.avatar}
-                alt=""
-                className="size-9 shrink-0 rounded-full object-cover"
+                name={conversation.participant.name}
+                className="size-9"
+                textClassName="text-xs"
               />
               <div className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate text-[13px] font-bold text-white">

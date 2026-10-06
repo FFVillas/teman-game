@@ -1,5 +1,6 @@
 "use client";
 
+import UserAvatar from "@/components/UserAvatar";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { currentUser as mockCurrentUser } from "@/data/social-friends";
@@ -44,11 +45,11 @@ export default function MessageThread({
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="flex items-center gap-3 border-b border-border-default px-6 py-4">
-        {/* eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization */}
-        <img
+        <UserAvatar
           src={conversation.participant.avatar}
-          alt=""
-          className="size-9 rounded-full object-cover"
+          name={conversation.participant.name}
+          className="size-9"
+          textClassName="text-xs"
         />
         <span className="text-sm font-bold text-white">
           {conversation.participant.name}
@@ -70,11 +71,11 @@ export default function MessageThread({
               key={message.id}
               className={`flex items-end gap-2 ${isMine ? "flex-row-reverse" : ""}`}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization */}
-              <img
+              <UserAvatar
                 src={isMine ? currentUser.avatar : conversation.participant.avatar}
-                alt=""
-                className="size-7 shrink-0 rounded-full object-cover"
+                name={isMine ? currentUser.name : conversation.participant.name}
+                className="size-7"
+                textClassName="text-[10px]"
               />
               <div
                 className={`flex max-w-[78%] flex-col gap-1 ${isMine ? "items-end" : ""}`}

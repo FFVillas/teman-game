@@ -19,9 +19,11 @@ export default function NotificationBell() {
       className="relative flex size-8 items-center justify-center rounded-lg opacity-70 transition-opacity hover:opacity-100"
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
-      <img src="/icons/nav-bell.svg" alt="" className="h-4 w-auto" />
+      <img src="/icons/nav-bell.svg" alt="" className="h-5 w-auto" />
       {unreadCount > 0 && (
-        <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-brand px-1 text-[9px] font-bold text-white">
+        // Same treatment as the messages badge: it sits on the bell, not
+        // beside it, so the two read as one pattern.
+        <span className="absolute right-0 top-0 flex h-3.5 min-w-3.5 items-center justify-center rounded-full border border-bg-nav bg-brand px-1 text-[9px] font-bold text-white">
           {unreadCount > 9 ? "9+" : unreadCount}
         </span>
       )}
