@@ -29,39 +29,17 @@ function ScheduledRow({ lobby }: { lobby: Lobby }) {
   );
 }
 
-function InviteRow({ lobby }: { lobby: Lobby }) {
-  const leader = lobby.members.find((member) => member.isLeader);
-  return (
-    <Link
-      href={lobbyHref(lobby)}
-      className="flex items-center gap-3 rounded-lg border border-brand/30 bg-brand/[0.05] px-3 py-2.5 transition-colors hover:border-brand/60"
-    >
-      {leader && (
-        // eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization
-        <img src={leader.avatar} alt="" className="size-5 rounded-full object-cover" />
-      )}
-      <span className="min-w-0 flex-1 truncate text-xs text-text-subtle">
-        <span className="font-bold text-white">{leader?.name}</span> invited
-        you to <span className="font-bold text-white">{lobby.name}</span>
-      </span>
-      <span className="shrink-0 text-[11px] font-semibold text-brand">
-        View invite
-      </span>
-    </Link>
-  );
-}
+/** A player can hold at most this many scheduled lobbies at once. */
+const MAX_SCHEDULED = 4;
 
 interface ActiveLobbyBannerProps {
   lobby: Lobby;
   scheduled?: Lobby[];
-  /** Lobbies you've been invited to but haven't answered. */
-  invites?: Lobby[];
 }
 
 export default function ActiveLobbyBanner({
   lobby,
   scheduled = [],
-  invites = [],
 }: ActiveLobbyBannerProps) {
   // Drives the crown and the "N requests" badge — only the leader sees those.
   const isLeader = lobby.leaderId === CURRENT_PLAYER_ID;
@@ -170,26 +148,13 @@ export default function ActiveLobbyBanner({
         </div>
       </Link>
 
-      {invites.length > 0 && (
-        <div className="flex flex-col gap-2">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
-            Invitations
-          </span>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {invites.map((invite) => (
-              <InviteRow key={invite.id} lobby={invite} />
-            ))}
-          </div>
-        </div>
-      )}
-
       {scheduled.length > 0 && (
         <div className="flex flex-col gap-2">
           <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
             Scheduled
           </span>
           <div className="grid gap-2 sm:grid-cols-2">
-            {scheduled.map((lobby) => (
+            {scheduled.slice(0, MAX_SCHEDULED).map((lobby) => (
               <ScheduledRow key={lobby.id} lobby={lobby} />
             ))}
           </div>

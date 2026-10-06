@@ -8,11 +8,7 @@ import LfgTeamGrid from "@/components/lfg/LfgTeamGrid";
 import LfgNews from "@/components/lfg/LfgNews";
 import ActiveLobbyBanner from "@/components/lfg/ActiveLobbyBanner";
 import { lfgTeams } from "@/data/lfg-teams";
-import {
-  activeLobby,
-  invitedLobbies,
-  scheduledLobbies,
-} from "@/data/lfg-lobby";
+import { activeLobby, scheduledLobbies } from "@/data/lfg-lobby";
 import { createClient } from "@/lib/supabase/server";
 import { fetchGameCatalog, fetchMyRankName } from "@/lib/games";
 
@@ -42,11 +38,7 @@ export default async function LfgValorantPage() {
             description="Browse available lobbies and professional teams looking for players. Filter by rank, role, and region to find your perfect match."
           />
 
-          <ActiveLobbyBanner
-            lobby={activeLobby}
-            scheduled={scheduledLobbies}
-            invites={invitedLobbies}
-          />
+          <ActiveLobbyBanner lobby={activeLobby} scheduled={scheduledLobbies} />
 
           <LfgSearchBar gameSlug="valorant" game={game} myRank={myRank} />
 

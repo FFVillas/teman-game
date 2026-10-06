@@ -9,6 +9,14 @@ import {
   type AppNotification,
 } from "@/data/notifications";
 import { EmptyState } from "@/components/EmptyState";
+import { currentPlayerMember, lobbyById } from "@/data/lfg-lobby";
+import { updateLobbySession } from "@/lib/lobby-session";
+
+/** `/lfg/<game>/lobby/<id>` → `<id>`, so an accepted invite notification can
+ *  update that lobby's own session without a dedicated id field. */
+function lobbyIdFromHref(href?: string): string | undefined {
+  return href?.match(/\/lobby\/([^/?]+)/)?.[1];
+}
 
 const toneSolid: Record<string, string> = {
   brand: "border-brand bg-brand",
@@ -80,6 +88,32 @@ function Row({ notification }: { notification: AppNotification }) {
   function handleResolve(resolution: "accepted" | "declined") {
     // TODO: PATCH the underlying application / invite row.
     resolve(notification.id, resolution);
+
+    // Accepting a lobby invite here is the only way to accept it now (the
+    // lobby page's own banner just reflects this session instead of
+    // offering a second accept button) — so put the player on the roster
+    // the same way LobbyDetail's handleAcceptInvite does.
+    if (resolution === "accepted" && notification.kind === "lobby_invite") {
+      const lobby = lobbyById(lobbyIdFromHref(notification.href) ?? "");
+      if (lobby) {
+        updateLobbySession(lobby, (prev) => ({
+          ...prev,
+          roleOverride: "member",
+          messages: [
+            ...prev.messages,
+            {
+              id: `sys-${Date.now()}`,
+              authorId: "system",
+              authorName: "System",
+              body: `${currentPlayerMember.name} joined the lobby`,
+              sentAt: "now",
+              isSystem: true,
+            },
+          ],
+        }));
+      }
+    }
+
     toast({
       tone: resolution === "accepted" ? "success" : "info",
       title:
@@ -181,7 +215,7 @@ function Row({ notification }: { notification: AppNotification }) {
           className={`mt-1 shrink-0 rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${
             notification.resolution === "accepted"
               ? "bg-success/10 text-success"
-              : "bg-white/5 text-text-muted"
+              : "bg-danger/10 text-danger"
           }`}
         >
           {notification.resolution}
