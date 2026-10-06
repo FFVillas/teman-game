@@ -3,7 +3,7 @@
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { lfgRoles } from "@/data/lfg-roles";
+import { roleIconFor } from "@/data/role-icons";
 import { useNotifications } from "@/contexts/NotificationContext";
 import { regionsFor } from "@/data/game-regions";
 import { modesFor } from "@/data/game-modes";
@@ -23,11 +23,6 @@ import RankRangeFields from "./RankRangeFields";
 
 const languageOptions = ["English", "Indonesian", "English / Indonesian"];
 const vibeTagOptions = ["Competitive", "Chill", "Tactical", "Grinding", "Voice Comms"];
-
-/** Role icons exist for Valorant's four roles only; other games show text. */
-function roleIconFor(roleName: string): string | undefined {
-  return Object.values(lfgRoles).find((role) => role.name === roleName)?.icon;
-}
 
 const timeOptions = (() => {
   const times: string[] = [];
@@ -512,7 +507,7 @@ export default function CreateTeamForm({
                   <div className="flex flex-wrap gap-2">
                     {roles.map((role) => {
                       const isSelected = seekingRoles.includes(role.name);
-                      const icon = roleIconFor(role.name);
+                      const icon = roleIconFor(gameSlug, role.name);
                       return (
                         <button
                           key={role.id}

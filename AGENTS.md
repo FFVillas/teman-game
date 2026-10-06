@@ -24,6 +24,11 @@ games, ranks, roles or regions** — the researched ladders, role lists and
 per-game server lists, with confidence marks and an in-game verification
 checklist for each game.
 
+**Every place the build departs from the proposal is logged in
+[`docs/thesis-divergences.md`](docs/thesis-divergences.md).** Add a row there
+whenever you add a table, change a rule or drop something the proposal
+specifies.
+
 Two conventions that matter when extending it: the spec says **lobby**
 where the code says **team** (`LfgTeam`), and only Valorant is built out
 of the six games in scope.
@@ -71,7 +76,11 @@ src/data/lfg-*.ts        LFG mock data (teams, ranks, roles, lobby)
 src/data/social-*.ts     Social page mock data (friends, pending, discover, recent)
 src/data/player-profiles.ts  profile mock data; game-regions.ts has the per-game region choices
 public/games/            game cover images (landing page)
-public/lfg/covers/       LFG team cover images
+public/lfg/covers/<game>/  LFG lobby cover images (N.webp)
+public/ranks/<game>/     rank badges: Valorant per division (gold-3.webp), LoL per tier
+public/roles/<game>/     role icons (see src/data/role-icons.ts)
+inbox/                   git-ignored drop folder for raw downloads; compress + rename into public/
+                         (sources and rights: docs/image-credits.md)
 public/lfg/avatars/      LFG member avatar images — shared identity across the app
                          (e.g. avatar-1.jpg = "Yonziii" everywhere: LFG teams, Social, Navbar)
 public/icons/            SVG/PNG icons

@@ -7,22 +7,22 @@ export interface LfgRank {
 export const lfgRanks = {
   immortal: {
     name: "Immortal",
-    icon: "/icons/rank-immortal.png",
+    icon: "/ranks/valorant/immortal-2.webp",
     colorClass: "text-[#ae3671]",
   },
   radiant: {
     name: "Radiant",
-    icon: "/icons/rank-radiant.png",
+    icon: "/ranks/valorant/radiant.webp",
     colorClass: "text-[#ffffb4]",
   },
   silver: {
     name: "Silver",
-    icon: "/icons/rank-silver.png",
+    icon: "/ranks/valorant/silver-2.webp",
     colorClass: "text-[#d8dddb]",
   },
   ascendant: {
     name: "Ascendant",
-    icon: "/icons/rank-ascendant.png",
+    icon: "/ranks/valorant/ascendant-2.webp",
     colorClass: "text-[#3ab87c]",
   },
 } satisfies Record<string, LfgRank>;

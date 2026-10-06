@@ -138,6 +138,10 @@ Two actors: **User** and **Admin** (moderation, sanctions, bans).
 
 ## Divergences from the proposal (bring these to your advisor)
 
+The running index of all divergences, including behaviour and rules, is
+[`thesis-divergences.md`](thesis-divergences.md). The arguments for the
+data-model ones are below.
+
 Real schema work started 2026-09-19. Four deliberate departures from the
 ERD as written — both decided in favor of standard practice over what
 the proposal originally specified. Not gaps: each is a considered

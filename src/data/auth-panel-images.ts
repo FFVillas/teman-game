@@ -9,7 +9,7 @@
  * site, so it's worth being more careful about sourcing.
  */
 export const authPanelImages: string[] = [
-  "/auth/panel-valorant.png",
-  "/auth/panel-mlbb.png",
-  "/auth/panel-lol.jpg",
+  "/auth/panel-valorant.webp",
+  "/auth/panel-mlbb.webp",
+  "/auth/panel-lol.webp",
 ];

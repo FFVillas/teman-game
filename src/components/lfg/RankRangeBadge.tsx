@@ -13,18 +13,18 @@ function Point({
   text: string;
   icon: string;
 }) {
-  const art = rankIconFor(gameSlug, rank.tier);
+  const art = rankIconFor(gameSlug, rank);
   return (
     <span className="flex items-center gap-1">
       {art ? (
         // eslint-disable-next-line @next/next/no-img-element -- static badge icon, no benefit from next/image optimization
-        <img src={art.icon} alt="" className={icon} />
+        <img src={art} alt="" className={icon} />
       ) : (
         <span aria-hidden className={`${icon} flex items-center justify-center`}>
           <span className="size-1.5 rotate-45 rounded-[1px] bg-white/40" />
         </span>
       )}
-      <span className={`${text} font-bold ${art?.colorClass ?? "text-white/80"}`}>
+      <span className={`${text} font-bold text-white/90`}>
         {rank.name}
       </span>
     </span>
