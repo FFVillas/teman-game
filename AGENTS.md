@@ -181,10 +181,25 @@ Two different things, deliberately:
   back to. It shows a toast *and* files an entry on `/notifications`,
   where it stays until read.
 
-`NotificationContext` seeds from `src/data/notifications.ts` and persists
-read state to `localStorage`, the same frontend-only pattern as
-`AuthContext`. Replace with FCM + a `notifications` table later; the
-provider is the seam.
+**Notifications are real rows** in `public.notifications`
+(`20261006000000_notifications.sql`); `src/lib/notifications.ts` reads and
+writes them and `NotificationContext` is the only caller. Toasts stay
+local — storing a four-second confirmation would be noise. `src/data/
+notifications.ts` now only holds the kinds, their styling, and which ones
+are actionable.
+
+Two limits worth knowing:
+
+- **Delivery is still "on page load".** Push (FCM + service worker, per the
+  proposal) and PWA are not built. A Supabase realtime subscription on this
+  table is the cheaper first step.
+- **The insert policy only allows rows addressed to yourself.** That covers
+  today's frontend-driven flows, but real cross-player notifications ("X
+  applied to your lobby") must be written server-side — a trigger on
+  `applications` or an edge function — once the Lobby slice exists.
+  Otherwise any account could spam anyone. The mock lobby flows therefore
+  file their notifications to the acting user, and the actor's name lives in
+  the title rather than in `actor_id`.
 
 `ToastHost` is mounted once in the root layout — don't add another.
 
