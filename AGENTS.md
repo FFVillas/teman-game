@@ -407,6 +407,23 @@ expands its hit area over the row. Two things that will bite you:
   doesn't also follow the row link. Never nest them inside the anchor —
   that's invalid HTML.
 
+## Navbar and avatars
+
+The right side of the navbar carries only things with live state: the
+active-lobby chip, the notification bell and messages (both with unread
+counts), then the account chip. **Social lives in the account menu**
+(`src/data/user-menu.ts`), not as its own icon — it's somewhere you go, not
+something you monitor, and four icons next to the chip read as clutter.
+Messages use a single speech bubble (`/icons/nav-chat.svg`); the old
+two-bubble icon competed with the bell.
+
+Use **`<UserAvatar src name />`** for any person whose picture may be
+missing — which is every real account, since `avatar_path` starts null and
+`avatarUrl()` returns "". An `<img src="">` makes the browser re-request the
+current page (React warns about it), so an empty source has to render the
+initial tile instead. Mock data always has an avatar, so the plain `<img>`
+in those components is fine.
+
 ## Back navigation
 
 `BackLink` is the shared back control. It's **sticky under the 60px

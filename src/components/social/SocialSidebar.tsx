@@ -1,5 +1,6 @@
 "use client";
 
+import UserAvatar from "@/components/UserAvatar";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
@@ -68,12 +69,7 @@ export default function SocialSidebar() {
       </nav>
 
       <div className="mt-auto flex items-center gap-3 border-t border-border-subtle p-4">
-        {/* eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization */}
-        <img
-          src={displayUser.avatar}
-          alt=""
-          className="size-10 rounded-full object-cover"
-        />
+        <UserAvatar src={displayUser.avatar} name={displayUser.name} />
         <div className="flex flex-1 flex-col">
           <span className="text-sm font-bold text-white">{displayUser.name}</span>
         </div>
