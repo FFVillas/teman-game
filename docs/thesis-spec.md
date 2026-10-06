@@ -240,6 +240,7 @@ the code is at UI-shell stage while the spec describes the full system.
 | 6 games | only `lfg/valorant`; all 6 `nav-links.ts` entries point there |
 | Lobbies ranked by `S_total` | "Recommended Teams" is a static label; `lfgTeams` renders in array order. The formula **is** implemented (`lib/recommendation.ts`) and drives the leader's Invite players panel; the lobby list and the applicants' `matchScore` don't use it yet |
 | Reputation (stars, sanctions, tags) | no reputation field on `LfgTeam` |
+| `game` + `user_game_mapping` | **built** (`20261003000200_games.sql`, with `game_ranks`, `game_roles`, `user_game_roles`) — profile tabs, onboarding and the edit form all read/write it. Rank and role are self-reported picks from the ladder; no game API integration |
 | Playstyle 1–5 Likert | closest is free-text `vibeTags` in the create form |
 | Personality tags | not modeled |
 | PWA (service worker, manifest, FCM) | none present |

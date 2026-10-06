@@ -219,6 +219,39 @@ and having it in two places invites them drifting apart.
   `/account-restricted` (rule + dates only, never the internal note or
   reporter). Demo: `carrypotter@mail.com`, `lagswitch@mail.com`.
 
+## Empty states
+
+A new account is mostly blank, so emptiness is a design surface, not an
+edge case. Two rules, both in `src/components/EmptyState.tsx`:
+
+- **A missing value is dimmer than a real one** (`NotSet`, `NotSetOrAdd`) —
+  never a plausible-looking stand-in. On a product selling trustworthy
+  player data, filler that reads like an answer is the worst default. When
+  the viewer owns the profile, the blank is the action ("Add"); visitors
+  just see it's unset.
+- **An empty section says what belongs there** (`EmptyState`: dashed
+  border, dimmed icon, one line of why) and offers the fix only to whoever
+  can make it.
+
+Two specific calls: an unrated player shows "No ratings yet" instead of 0.0
+with five grey stars (which reads as *bad*, not *new*), and the owner gets a
+completeness prompt — percentage, progress bar, and the named gaps — driven
+by `src/lib/profile-completeness.ts`.
+
+## Onboarding
+
+Steps: games → rank & role (skipped when no game is picked) → **about you**
+→ playstyle → accounts. `AboutYouStep` collects date of birth, gender,
+languages and play hours; it shares its inputs and validation with the edit
+form through `components/profile/DossierFields.tsx`, so the two can't drift.
+
+Everything is optional and the whole flow is skippable. `finish()` writes
+playstyle, tags, gender, languages and the play window to `profiles`, and
+the date of birth to `profile_private` (private — only the derived age is
+public). Each picked game is saved through `saveGameSetup()` (see "Games,
+ranks, roles and regions"). Linked accounts have nowhere to go until
+`connected_accounts` exists.
+
 ## Profiles for everyone
 
 `/profile/me`, `/profile/me/edit` and `/profile/<username>` read the real
@@ -408,6 +441,44 @@ it. `sanitizeNextPath` rejects absolute URLs, protocol-relative paths and
 auth routes, so `?next=` can't become an open redirect. Because the forms
 call `useSearchParams`, each page wraps its form in `<Suspense>` — that's
 what keeps `/login` and `/signup` statically prerendered.
+
+## Games on a profile
+
+The profile's per-game tabs render **only the games that player added**
+(they used to be a hardcoded list of four titles), and the set is edited from
+the edit form (`GamesEditor`, which reads the catalog from the database).
+The data layer is the one described in "Games, ranks, roles and regions"
+above: `games`, `game_ranks`, `game_roles`, `user_game_mapping` and
+`user_game_roles`, read and written through `src/lib/games.ts`.
+
+Rank, role, region and in-game name are **picked by the player**. There is no
+Riot/Moonton integration, so nothing is "detected", and the card says so.
+Rank is a row of `game_ranks` (a position on the ladder), never typed text,
+so ranks can be compared and the rank-distance penalty can be computed.
+
+A teammate once built a parallel version (`user_games.sql`, rank as free
+text, `src/lib/user-games.ts`). It was never applied to the shared database
+and was dropped in favour of this schema; the UI from that work
+(`GamesEditor`, `DossierFields`, `AboutYouStep`) was kept and connected
+to this data layer.
+
+Mock profiles predate this and still carry `gameStats` with invented win
+rates; `gamesOf()` in `PlayerProfileView` reads them through the same shape
+so there's one rendering path. Win rate only shows when a `gameStat` exists,
+i.e. never for a real account.
+
+## Supabase gotcha: upsert vs. column grants
+
+`profiles` and `profile_private` grant UPDATE on **specific columns**, never
+the whole table. That breaks `.upsert()`: PostgREST compiles it to
+`insert ... on conflict do update set <every column you passed>`, and
+Postgres checks UPDATE privilege on all of them while planning — even when
+no conflict happens. The result is `42501 permission denied for table ...`
+on what looks like a plain insert.
+
+Write update-then-insert instead (`saveDateOfBirth()` in `src/lib/profiles.ts`
+is the worked example, including the 23505 retry). Don't "fix" it by widening
+the grant to the primary key.
 
 ## Mock data → real backend
 

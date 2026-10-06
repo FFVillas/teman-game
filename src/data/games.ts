@@ -38,3 +38,11 @@ export function gameBySlug(slug: string): Game | undefined {
 export function gameCoverFor(name: string): string {
   return games.find((game) => game.name === name)?.image ?? "";
 }
+
+/** The six in scope, i.e. everything except the "more soon" placeholder. */
+export const playableGames = games.filter((game) => !game.comingSoon);
+
+/** A game by its display name (the profile mock data refers to games by name). */
+export function gameByName(name: string): Game | undefined {
+  return games.find((game) => game.name === name && !game.comingSoon);
+}

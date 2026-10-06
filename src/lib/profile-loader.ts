@@ -20,12 +20,12 @@ export const loadProfile = cache(
     const row = await fetchProfileByUsername(supabase, username);
 
     if (row) {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      const gameSetups = await fetchPlayerGames(supabase, row.id);
+      const [{ data: auth }, gameSetups] = await Promise.all([
+        supabase.auth.getUser(),
+        fetchPlayerGames(supabase, row.id),
+      ]);
       return profileFromRow(row, {
-        isOwner: user?.id === row.id,
+        isOwner: auth.user?.id === row.id,
         gameSetups,
       });
     }

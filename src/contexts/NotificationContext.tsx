@@ -51,7 +51,8 @@ const NotificationContext = createContext<NotificationContextValue | undefined>(
 );
 
 const STORAGE_KEY = "temangame:notifications";
-const TOAST_MS = 4500;
+/** Also drives the toast's countdown bar — see ToastHost. */
+export const TOAST_MS = 4500;
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] =

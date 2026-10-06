@@ -30,8 +30,10 @@ export default async function EditProfilePage() {
   if (!row) notFound();
 
   const profile = profileFromRow(row, { isOwner: true });
-  const dateOfBirth = await fetchOwnDateOfBirth(supabase, user.id);
-  const catalog = await fetchGameCatalog(supabase);
+  const [dateOfBirth, catalog] = await Promise.all([
+    fetchOwnDateOfBirth(supabase, user.id),
+    fetchGameCatalog(supabase),
+  ]);
   const gameSetups = await fetchPlayerGameSetups(supabase, user.id, catalog);
 
   return (

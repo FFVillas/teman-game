@@ -6,10 +6,14 @@ import Logo from "@/components/Logo";
 import { sanitizeNextPath } from "@/lib/auth-redirect";
 import { useNotifications } from "@/contexts/NotificationContext";
 import { createClient } from "@/lib/supabase/client";
-import { MAX_PERSONALITY_TAGS } from "@/data/profile-options";
+import { DEFAULT_TIMEZONE, MAX_PERSONALITY_TAGS } from "@/data/profile-options";
 import { regionsFor } from "@/data/game-regions";
 import { saveGameSetup, type GameInfo } from "@/lib/games";
+import { saveDateOfBirth } from "@/lib/profiles";
+import { emptyDateParts, joinDate } from "@/lib/age";
+import { validateDossier } from "@/components/profile/DossierFields";
 import GamesStep from "./GamesStep";
+import AboutYouStep, { type AboutYou } from "./AboutYouStep";
 import RankRoleStep, {
   emptyGameProfile,
   type GameProfile,
@@ -17,13 +21,21 @@ import RankRoleStep, {
 import PlaystyleStep from "./PlaystyleStep";
 import ConnectStep, { type ConnectedProvider } from "./ConnectStep";
 
-type StepId = "games" | "rank" | "playstyle" | "connect";
+type StepId = "games" | "rank" | "about" | "playstyle" | "connect";
 
 const STEP_LABEL: Record<StepId, string> = {
   games: "Games",
   rank: "Rank & role",
+  about: "About you",
   playstyle: "Playstyle",
   connect: "Accounts",
+};
+
+const emptyAboutYou: AboutYou = {
+  dobParts: emptyDateParts,
+  gender: "",
+  languages: [],
+  schedule: { days: [], start: "", end: "", timezone: DEFAULT_TIMEZONE },
 };
 
 export default function OnboardingFlow({ catalog }: { catalog: GameInfo[] }) {
@@ -37,6 +49,11 @@ export default function OnboardingFlow({ catalog }: { catalog: GameInfo[] }) {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [gameDetails, setGameDetails] = useState<Record<string, GameProfile>>({});
+  const [about, setAbout] = useState<AboutYou>(emptyAboutYou);
+  const [aboutErrors, setAboutErrors] = useState<{
+    dateOfBirth?: string;
+    schedule?: string;
+  }>({});
   const [playstyle, setPlaystyle] = useState(3);
   const [personalityTags, setPersonalityTags] = useState<string[]>([]);
   const [connected, setConnected] = useState<Set<ConnectedProvider>>(new Set());
@@ -47,8 +64,8 @@ export default function OnboardingFlow({ catalog }: { catalog: GameInfo[] }) {
   const steps: StepId[] = useMemo(
     () =>
       selectedGames.length > 0
-        ? ["games", "rank", "playstyle", "connect"]
-        : ["games", "playstyle", "connect"],
+        ? ["games", "rank", "about", "playstyle", "connect"]
+        : ["games", "about", "playstyle", "connect"],
     [selectedGames.length],
   );
   const step = steps[stepIndex];
@@ -69,6 +86,11 @@ export default function OnboardingFlow({ catalog }: { catalog: GameInfo[] }) {
       const resolved = typeof patch === "function" ? patch(current) : patch;
       return { ...prev, [game]: { ...current, ...resolved } };
     });
+  }
+
+  function updateAbout(patch: Partial<AboutYou>) {
+    setAboutErrors({});
+    setAbout((prev) => ({ ...prev, ...patch }));
   }
 
   function toggleTag(tag: string) {
@@ -108,14 +130,42 @@ export default function OnboardingFlow({ catalog }: { catalog: GameInfo[] }) {
       return;
     }
 
+    const hasSchedule =
+      about.schedule.days.length > 0 || Boolean(about.schedule.start);
+
     const { error: profileError } = await supabase
       .from("profiles")
-      .update({ playstyle, personality_tags: personalityTags })
+      .update({
+        playstyle,
+        personality_tags: personalityTags,
+        gender: about.gender || null,
+        languages: about.languages,
+        play_days: about.schedule.days,
+        play_start: about.schedule.start || null,
+        play_end: about.schedule.end || null,
+        // Only recorded once there's a schedule, so the default offset
+        // isn't stored as if it had been chosen.
+        timezone: hasSchedule ? about.schedule.timezone : null,
+      })
       .eq("id", userId);
     if (profileError) {
       setSaving(false);
       setSaveError("Couldn't save your setup. Check your connection and try again.");
       return;
+    }
+
+    // Private, so it lives in its own table. Skipped entirely when the step
+    // was left blank. A failure sends the player back to the step that
+    // holds the field instead of losing the rest silently.
+    const dateOfBirth = joinDate(about.dobParts);
+    if (dateOfBirth) {
+      const dobError = await saveDateOfBirth(supabase, userId, dateOfBirth);
+      if (dobError) {
+        setSaving(false);
+        setAboutErrors({ dateOfBirth: dobError });
+        setStepIndex(steps.indexOf("about"));
+        return;
+      }
     }
 
     // One game at a time. Saving a game is safe to repeat (update, else
@@ -154,6 +204,21 @@ export default function OnboardingFlow({ catalog }: { catalog: GameInfo[] }) {
   }
 
   function handleContinue() {
+    // Partial dates and a half-filled play window would both be rejected by
+    // the database, so they're caught here with a readable message.
+    if (step === "about" || isLastStep) {
+      const found = validateDossier({
+        dobParts: about.dobParts,
+        schedule: about.schedule,
+      });
+      if (found.dateOfBirth || found.schedule) {
+        setAboutErrors(found);
+        // Skipping ahead from a later step shouldn't silently drop the fix.
+        if (step !== "about") setStepIndex(steps.indexOf("about"));
+        return;
+      }
+    }
+
     if (isLastStep) {
       finish();
       return;
@@ -211,6 +276,13 @@ export default function OnboardingFlow({ catalog }: { catalog: GameInfo[] }) {
               selectedGames={selectedGames}
               details={gameDetails}
               onUpdate={updateGameProfile}
+            />
+          )}
+          {step === "about" && (
+            <AboutYouStep
+              value={about}
+              onChange={updateAbout}
+              errors={aboutErrors}
             />
           )}
           {step === "playstyle" && (
