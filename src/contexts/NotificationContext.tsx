@@ -17,7 +17,9 @@ import {
   insertNotification,
   markAllNotificationsRead,
   markNotificationRead,
+  notifyUser,
   resolveNotification,
+  type CrossPlayerNotificationKind,
 } from "@/lib/notifications";
 
 export type ToastTone = "success" | "info" | "danger";
@@ -45,6 +47,20 @@ interface NotificationContextValue {
       kind: NotificationKind;
       /** A real profile id, when there is one. */
       actorId?: string;
+    }
+  ) => void;
+  /**
+   * Notifies a DIFFERENT player (invited them, applied to their lobby) —
+   * no local toast, since the caller already shows their own confirmation.
+   * Not wired into any lobby UI yet; see `notifyUser` in `@/lib/notifications`.
+   */
+  notifyPlayer: (
+    targetUserId: string,
+    input: {
+      kind: CrossPlayerNotificationKind;
+      title: string;
+      body?: string;
+      href?: string;
     }
   ) => void;
   dismissToast: (id: string) => void;
@@ -147,6 +163,14 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     [playerId, pushToast]
   );
 
+  const notifyPlayer = useCallback<NotificationContextValue["notifyPlayer"]>(
+    (targetUserId, input) => {
+      if (!playerId) return;
+      notifyUser(createClient(), targetUserId, input);
+    },
+    [playerId]
+  );
+
   // Optimistic: these rows belong to the caller, so there's no refusal worth
   // holding the UI for. A failed write just means the next load re-reads it.
   const markRead = useCallback((id: string) => {
@@ -184,6 +208,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         resolve,
         toast: pushToast,
         notify,
+        notifyPlayer,
         toasts,
         dismissToast,
       }}

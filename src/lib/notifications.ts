@@ -66,13 +66,10 @@ export interface NewNotification {
 }
 
 /**
- * Files a notification for the signed-in user.
- *
- * The insert policy only allows rows addressed to yourself, so this covers
- * "something happened to me" while the app is still frontend-driven. Real
- * cross-player notifications ("X applied to your lobby") have to be written
- * server-side once the Lobby slice exists — a trigger on `applications`, or
- * an edge function — otherwise any account could spam anyone.
+ * Files a notification for the signed-in user — "something happened to me"
+ * (e.g. you accepted an applicant into your own lobby). The insert policy
+ * only allows rows addressed to yourself; to notify someone ELSE, use
+ * `notifyUser` below instead.
  */
 export async function insertNotification(
   supabase: SupabaseClient,
@@ -94,6 +91,40 @@ export async function insertNotification(
 
   if (error || !data) return null;
   return rowToNotification(data as unknown as NotificationRow);
+}
+
+/** Kinds `notify_user` (see 20261006010000_notify_user_rpc.sql) accepts. */
+export type CrossPlayerNotificationKind = "lobby_invite" | "join_request";
+
+/**
+ * Notifies a DIFFERENT player that the caller did something involving them —
+ * "X invited you to a lobby", "Y wants to join yours". A plain insert can't
+ * do this (the insert policy only allows rows addressed to yourself), so
+ * this goes through the `notify_user` security-definer function instead,
+ * which always records the real caller as `actor_id` and is rate-limited.
+ *
+ * Not wired into any lobby UI yet — the Lobby slice (`lobbies`,
+ * `applications`, `lobby_invites`) is still mock, so there's no real invite
+ * or join-request event to call this from. This is the mechanism ready for
+ * when that lands.
+ */
+export async function notifyUser(
+  supabase: SupabaseClient,
+  targetUserId: string,
+  input: {
+    kind: CrossPlayerNotificationKind;
+    title: string;
+    body?: string;
+    href?: string;
+  },
+): Promise<void> {
+  await supabase.rpc("notify_user", {
+    p_user_id: targetUserId,
+    p_kind: input.kind,
+    p_title: input.title,
+    p_body: input.body ?? null,
+    p_href: input.href ?? null,
+  });
 }
 
 export async function markNotificationRead(

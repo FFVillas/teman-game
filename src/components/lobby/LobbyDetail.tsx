@@ -21,6 +21,7 @@ import { useNotifications } from "@/contexts/NotificationContext";
 import BackLink from "@/components/BackLink";
 import {
   chatHref,
+  lobbyHref,
   useLobbySession,
   withPlayerMessage,
 } from "@/lib/lobby-session";
@@ -41,7 +42,7 @@ interface LobbyDetailProps {
  */
 export default function LobbyDetail({ lobby, initialRole }: LobbyDetailProps) {
   const router = useRouter();
-  const { toast, notify } = useNotifications();
+  const { toast, notify, notifyPlayer } = useNotifications();
 
   // Status, chat and an accepted invite are shared with the lobby's chat
   // page, so they live in the lobby session store rather than local state.
@@ -157,10 +158,19 @@ export default function LobbyDetail({ lobby, initialRole }: LobbyDetailProps) {
   }
 
   function handleInvite(candidate: LfgCandidate) {
-    // TODO: POST an invite row; the invitee gets a lobby_invite notification.
+    // TODO: POST an invite row once lobbies are real — candidate.id is a
+    // mock id today, so this silently no-ops (notify_user rejects an id
+    // that isn't a real profile). Swap in the real invitee id and it starts
+    // delivering as soon as the Lobby slice lands.
     // No toast — the button flips to "Invited" and the roster shows the
     // pending slot, so the result is already on screen.
     setInvites((prev) => [...prev, candidate]);
+    notifyPlayer(candidate.id, {
+      kind: "lobby_invite",
+      title: `${currentPlayerMember.name} invited you to a lobby`,
+      body: lobby.name,
+      href: lobbyHref(lobby),
+    });
   }
 
   function handleCancelInvite(candidateId: string) {
