@@ -9,7 +9,7 @@ export default function LfgHero({ gameIcon, gameName, description }: LfgHeroProp
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-2">
         {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
-        <img src={gameIcon} alt="" className="h-5 w-6" />
+        <img src={gameIcon} alt="" className="h-5 w-6 object-contain" />
         <h1 className="text-xl font-extrabold text-white sm:text-2xl">
           Find Your Next {gameName} Team
         </h1>

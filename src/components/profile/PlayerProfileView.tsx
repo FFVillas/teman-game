@@ -9,7 +9,7 @@ import BackLink from "@/components/BackLink";
 import { EmptyState, NotSetOrAdd } from "@/components/EmptyState";
 import { profileCompleteness } from "@/lib/profile-completeness";
 import { gameByName } from "@/data/games";
-import type { UserGame } from "@/lib/user-games";
+
 
 const playstyleLabel = [
   "Very casual",
@@ -60,12 +60,31 @@ function StarRating({ score }: { score: number }) {
 }
 
 /**
- * Mock profiles predate `user_game_mapping` and carry `gameStats` instead
+ * Real profiles carry `gameSetups` (what the player saved per game). Mock
+ * profiles predate `user_game_mapping` and carry `gameStats` instead
  * (with invented win rates). Reading them through the same shape keeps one
  * rendering path until the social/LFG mock rows read from the database too.
  */
-function gamesOf(profile: PlayerProfile): UserGame[] {
-  if (profile.games) return profile.games;
+interface ProfileGame {
+  slug: string;
+  name: string;
+  inGameName: string;
+  region: string;
+  rank: string;
+  roles: string[];
+}
+
+function gamesOf(profile: PlayerProfile): ProfileGame[] {
+  if (profile.gameSetups) {
+    return profile.gameSetups.map((setup) => ({
+      slug: setup.gameSlug,
+      name: setup.gameName,
+      inGameName: setup.inGameName,
+      region: setup.region,
+      rank: setup.rank,
+      roles: setup.roles,
+    }));
+  }
   return profile.gameStats.map((stat) => ({
     slug: gameByName(stat.game)?.slug ?? stat.game,
     name: stat.game,
@@ -490,7 +509,7 @@ export default function PlayerProfileView({
                   </div>
 
                   <p className="border-t border-border-subtle pt-3 text-[11px] text-text-muted">
-                    Entered by {isOwner ? "you" : profile.username} — ranks
+                    Entered by {isOwner ? "you" : profile.username}. Ranks
                     aren&apos;t synced from the game yet.
                   </p>
                 </div>

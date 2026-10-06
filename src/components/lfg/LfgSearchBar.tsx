@@ -1,11 +1,57 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import FormDropdown from "@/components/FormDropdown";
+import { regionsFor } from "@/data/game-regions";
+import { modesFor } from "@/data/game-modes";
+import type { GameInfo } from "@/lib/games";
+import { tiersOf } from "@/lib/ranks";
+
+const FITS_ME = "__me__";
+
 /**
  * The search/filter bar, split out of LfgHero so it can sit right above the
- * team list instead of at the very top of the page — keeps the title close
+ * team list instead of at the very top of the page. Keeps the title close
  * to the fold while putting search next to what it filters.
+ *
+ * Region, mode and rank come from the game being browsed, so each game's page
+ * offers its own choices (a Counter-Strike player is never asked for a
+ * Valorant rank). The filters are not wired to the list yet; that arrives
+ * with real lobbies.
+ *
+ * "Rank" is one dropdown with three kinds of value: "Fits my rank" (the
+ * default for a signed-in player with a rank), "All ranks", or a tier
+ * (Silver, Gold…). Each means "lobbies that would accept it": the leader's
+ * range and the game's party rule applied to who is already in
+ * (`boundsAcceptTier` in lib/ranks.ts). The leader's own rank is not a
+ * filter; it only orders the results.
  */
-export default function LfgSearchBar() {
+export default function LfgSearchBar({
+  gameSlug,
+  game,
+  myRank,
+}: {
+  gameSlug: string;
+  /** The game's ranks from the database. Missing if the catalog couldn't load. */
+  game?: GameInfo;
+  /** The signed-in viewer's rank in this game, e.g. "Gold 2"; "" if unknown. */
+  myRank?: string;
+}) {
+  const regions = regionsFor(gameSlug).options;
+  const modes = modesFor(gameSlug);
+  const tiers = useMemo(() => tiersOf(game?.ranks ?? []), [game]);
+
+  const [region, setRegion] = useState("");
+  const [mode, setMode] = useState("");
+  // "__me__" stands for the viewer's own rank; "" is "All ranks".
+  const [rankChoice, setRankChoice] = useState(myRank ? FITS_ME : "");
+
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-white/10 bg-bg-card-alt/80 p-4 backdrop-blur-md sm:flex-row sm:flex-wrap sm:items-end">
+    // `relative z-30` is load-bearing: backdrop-blur makes this bar its own
+    // stacking layer, so without it the dropdown menus (which hang below the
+    // bar) are painted *under* the lobby cards that come after it. The navbar
+    // is z-50, so it still sits above this.
+    <div className="relative z-30 flex flex-col gap-3 rounded-xl border border-white/10 bg-bg-card-alt/80 p-4 backdrop-blur-md sm:flex-row sm:flex-wrap sm:items-end">
       <div className="flex min-w-[220px] flex-1 flex-col gap-1.5">
         <label
           htmlFor="lfg-search"
@@ -29,38 +75,54 @@ export default function LfgSearchBar() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-1.5 sm:w-36">
-        <label
-          htmlFor="lfg-region"
-          className="text-[11px] font-semibold uppercase tracking-wider text-text-muted"
-        >
+      <div className="flex flex-col gap-1.5 sm:w-44">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
           Region
-        </label>
-        <div className="relative">
-          <select
-            id="lfg-region"
-            defaultValue="SG2"
-            className="h-10 w-full appearance-none rounded-lg border border-white/10 bg-[#0e1015] px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-brand"
-          >
-            <option value="SG2">SG2</option>
-          </select>
-          {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
-          <img
-            src="/icons/lfg-chevron-down.svg"
-            alt=""
-            className="pointer-events-none absolute right-3 top-1/2 size-3.5 -translate-y-1/2"
-          />
-        </div>
+        </span>
+        <FormDropdown
+          size="bar"
+          label="Region"
+          placeholder="All regions"
+          value={region}
+          onChange={setRegion}
+          options={regions}
+        />
       </div>
 
-      <button
-        type="button"
-        aria-label="More filters"
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-[#0e1015] transition-colors hover:border-white/20"
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
-        <img src="/icons/lfg-filter.svg" alt="" className="h-3.5 w-3.5" />
-      </button>
+      {modes.length > 0 && (
+        <div className="flex flex-col gap-1.5 sm:w-44">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+            Mode
+          </span>
+          <FormDropdown
+            size="bar"
+            label="Mode"
+            placeholder="All modes"
+            value={mode}
+            onChange={setMode}
+            options={modes.map((m) => ({ value: m.value, label: m.label }))}
+          />
+        </div>
+      )}
+
+      {tiers.length > 0 && (
+        <div className="flex flex-col gap-1.5 sm:w-44">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+            Rank
+          </span>
+          <FormDropdown
+            size="bar"
+            label="Rank"
+            placeholder="All ranks"
+            value={rankChoice}
+            onChange={setRankChoice}
+            options={[
+              ...(myRank ? [{ value: FITS_ME, label: "Fits my rank" }] : []),
+              ...tiers.map((tier) => ({ value: tier.name, label: tier.name })),
+            ]}
+          />
+        </div>
+      )}
 
       <button
         type="button"

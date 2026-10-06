@@ -156,6 +156,33 @@ body {
   background: rgba(22, 24, 29, 0.55);
 }
 
+/* Thin, rounded scrollbar for dropdown menus (FormDropdown), so a long list
+ * scrolls inside the panel without the chunky default bar. Chromium and
+ * Safari get the pseudo-element version; Firefox, which has no
+ * ::-webkit-scrollbar, gets the standard properties. They are kept apart
+ * because browsers that understand `scrollbar-width` ignore the
+ * ::-webkit-scrollbar rules once it is set. */
+.dropdown-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.dropdown-scroll::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 4px 0;
+}
+.dropdown-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+}
+.dropdown-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+@supports not selector(::-webkit-scrollbar) {
+  .dropdown-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+  }
+}
+
 /* Toasts: slide up into place, then a hairline bar counts down the time
  * left before they disappear on their own, so a toast that vanishes never
  * looks like something the page did at random. */

@@ -123,7 +123,7 @@ export const seedNotifications: AppNotification[] = [
     id: "n-5",
     kind: "friend_request",
     title: "Ziza sent you a friend request",
-    body: "Silver controller · SG2",
+    body: "Silver controller · AP",
     actorName: "Ziza",
     actorAvatar: "/lfg/avatars/avatar-7.jpg",
     href: "/social/pending",
