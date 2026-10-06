@@ -25,6 +25,12 @@ interface FormDropdownProps {
   allowEmpty?: boolean;
   invalid?: boolean;
   disabled?: boolean;
+  /**
+   * "sm" matches the compact profile form; "md" matches the auth/onboarding
+   * fields (AuthField); "bar" matches the LFG search bar (h-10, dark well).
+   * Each lines up with the controls around it on its own screen.
+   */
+  size?: "sm" | "md" | "bar";
 }
 
 /**
@@ -43,8 +49,30 @@ export default function FormDropdown({
   allowEmpty = true,
   invalid,
   disabled,
+  size = "sm",
 }: FormDropdownProps) {
+  const buttonSize =
+    size === "md"
+      ? "px-4 py-3 text-sm"
+      : size === "bar"
+        ? "h-10 px-3 text-sm"
+        : "px-3 py-2.5 text-xs";
+  // Rows are tall and roomy on purpose: a menu this size is something you
+  // scan and tap, and the check on the right needs a little breathing space.
+  const itemSize = size === "sm" ? "px-3 py-2.5 text-xs" : "px-3.5 py-3 text-sm";
+  const estimatedRowHeight = size === "sm" ? 38 : 46;
+  const buttonBackground = size === "bar" ? "bg-[#0e1015]" : "bg-bg-page";
+  const idleBorder =
+    size === "bar"
+      ? "border-white/10 focus:ring-brand"
+      : "border-border-strong focus:ring-brand";
   const [open, setOpen] = useState(false);
+  // Opens upward when there isn't room below (a field near the bottom of the
+  // page would otherwise have its menu cut off).
+  const [openUp, setOpenUp] = useState(false);
+  // The menu shrinks to the room it actually has, so on a short window it
+  // never runs off the screen.
+  const [menuMaxHeight, setMenuMaxHeight] = useState(320);
   const [highlighted, setHighlighted] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -76,6 +104,21 @@ export default function FormDropdown({
   function openMenu() {
     const selectedIndex = items.findIndex((item) => item.value === value);
     setHighlighted(selectedIndex >= 0 ? selectedIndex : 0);
+
+    const rect = rootRef.current?.getBoundingClientRect();
+    if (rect) {
+      // The menu is at most 20rem (320px) tall, or shorter for a short list.
+      const menuHeight = Math.min(320, items.length * estimatedRowHeight + 12);
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      // Down unless it doesn't fit there and there's more room above.
+      const goUp = spaceBelow < menuHeight + 8 && spaceAbove >= spaceBelow;
+      setOpenUp(goUp);
+      // 6px gap to the field plus a margin to the window edge, but never
+      // smaller than a few rows so the list stays usable.
+      const room = (goUp ? spaceAbove : spaceBelow) - 20;
+      setMenuMaxHeight(Math.round(Math.min(320, Math.max(140, room))));
+    }
     setOpen(true);
   }
 
@@ -121,10 +164,8 @@ export default function FormDropdown({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={open ? listId : undefined}
-        className={`flex w-full items-center justify-between gap-2 rounded-lg border bg-bg-page px-3 py-2.5 text-left text-xs focus:outline-none focus:ring-1 disabled:cursor-not-allowed disabled:opacity-50 ${
-          invalid
-            ? "border-danger focus:ring-danger"
-            : "border-border-strong focus:ring-brand"
+        className={`flex w-full items-center justify-between gap-2 rounded-lg border ${buttonBackground} ${buttonSize} text-left focus:outline-none focus:ring-1 disabled:cursor-not-allowed disabled:opacity-50 ${
+          invalid ? "border-danger focus:ring-danger" : idleBorder
         }`}
       >
         <span
@@ -145,7 +186,10 @@ export default function FormDropdown({
           id={listId}
           role="listbox"
           aria-label={label}
-          className="absolute left-0 top-[calc(100%+6px)] z-20 max-h-56 min-w-full overflow-y-auto overscroll-contain rounded-xl border border-white/10 bg-bg-card-alt py-1.5 shadow-xl shadow-black/40"
+          style={{ maxHeight: menuMaxHeight }}
+          className={`dropdown-scroll absolute left-0 z-20 min-w-full overflow-y-auto overscroll-contain rounded-xl border border-border-strong bg-bg-page p-1.5 shadow-xl shadow-black/40 ${
+            openUp ? "bottom-[calc(100%+6px)]" : "top-[calc(100%+6px)]"
+          }`}
         >
           {items.map((item, index) => {
             const isSelected = item.value === value && (item.value !== "" || !selected);
@@ -161,17 +205,33 @@ export default function FormDropdown({
                 tabIndex={-1}
                 onClick={() => choose(item.value)}
                 onMouseEnter={() => setHighlighted(index)}
-                className={`flex w-full items-center whitespace-nowrap px-3 py-2 text-left text-xs transition-colors ${
-                  index === highlighted ? "bg-white/5" : ""
+                className={`flex w-full items-center justify-between gap-3 whitespace-nowrap rounded-lg ${itemSize} text-left font-semibold transition-colors ${
+                  index === highlighted ? "bg-white/[0.07]" : ""
                 } ${
                   isSelected
-                    ? "font-semibold text-brand"
+                    ? "text-white"
                     : item.value === ""
                       ? "text-text-muted"
                       : "text-white/80"
                 }`}
               >
-                {item.label}
+                <span>{item.label}</span>
+                {isSelected && (
+                  <svg
+                    viewBox="0 0 20 20"
+                    aria-hidden="true"
+                    className="size-4 shrink-0 text-brand"
+                  >
+                    <path
+                      d="M5 10.5l3.5 3.5L15 7"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                )}
               </button>
             );
           })}

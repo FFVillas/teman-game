@@ -42,7 +42,7 @@ export const lfgCandidates: LfgCandidate[] = [
     tags: ["Shot Caller", "Positive Mental Attitude"],
     isOnline: true,
     micOn: true,
-    region: "SG2",
+    region: "AP",
   },
   {
     id: "c-healermain",
@@ -57,7 +57,7 @@ export const lfgCandidates: LfgCandidate[] = [
     tags: ["Positive Mental Attitude", "Flex Player"],
     isOnline: true,
     micOn: true,
-    region: "SG2",
+    region: "AP",
   },
   {
     id: "c-noscopegod",
@@ -72,7 +72,7 @@ export const lfgCandidates: LfgCandidate[] = [
     tags: ["Never Surrender"],
     isOnline: true,
     micOn: false,
-    region: "SG2",
+    region: "AP",
   },
   {
     id: "c-sneakybeaky",
@@ -87,7 +87,7 @@ export const lfgCandidates: LfgCandidate[] = [
     tags: ["Chill", "Flex Player"],
     isOnline: false,
     micOn: true,
-    region: "SG2",
+    region: "AP",
   },
   {
     id: "c-nightowl",
@@ -102,7 +102,7 @@ export const lfgCandidates: LfgCandidate[] = [
     tags: ["Shot Caller"],
     isOnline: false,
     micOn: true,
-    region: "SG2",
+    region: "AP",
   },
   {
     id: "c-quickscope",
@@ -117,7 +117,7 @@ export const lfgCandidates: LfgCandidate[] = [
     tags: ["Chill", "Positive Mental Attitude"],
     isOnline: true,
     micOn: true,
-    region: "SG2",
+    region: "AP",
   },
   {
     id: "c-ghostrecon",
@@ -132,7 +132,7 @@ export const lfgCandidates: LfgCandidate[] = [
     tags: ["Shot Caller", "Never Surrender"],
     isOnline: true,
     micOn: true,
-    region: "SG2",
+    region: "AP",
   },
   {
     id: "c-pixelpirate",
@@ -147,7 +147,7 @@ export const lfgCandidates: LfgCandidate[] = [
     tags: ["Flex Player"],
     isOnline: true,
     micOn: false,
-    region: "SG2",
+    region: "AP",
   },
   {
     id: "c-carrypotter",
@@ -162,7 +162,7 @@ export const lfgCandidates: LfgCandidate[] = [
     tags: ["Shot Caller"],
     isOnline: true,
     micOn: true,
-    region: "SG2",
+    region: "AP",
   },
   {
     id: "c-lagswitch",
@@ -177,7 +177,7 @@ export const lfgCandidates: LfgCandidate[] = [
     tags: ["Never Surrender"],
     isOnline: true,
     micOn: true,
-    region: "SG2",
+    region: "AP",
   },
 ];
 

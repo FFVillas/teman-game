@@ -13,6 +13,8 @@ import {
   invitedLobbies,
   scheduledLobbies,
 } from "@/data/lfg-lobby";
+import { createClient } from "@/lib/supabase/server";
+import { fetchGameCatalog, fetchMyRankName } from "@/lib/games";
 
 export const metadata: Metadata = {
   title: "Find Your Next Valorant Team — TemanGame",
@@ -20,7 +22,15 @@ export const metadata: Metadata = {
     "Browse available lobbies and professional teams looking for players. Filter by rank, role, and region to find your perfect match.",
 };
 
-export default function LfgValorantPage() {
+// Valorant keeps its own route because it is the one game with lobby, news
+// and chat pages built (all on mock data). The other five games share
+// `app/lfg/[game]/page.tsx`; a static folder wins over the dynamic one.
+export default async function LfgValorantPage() {
+  const supabase = await createClient();
+  const catalog = await fetchGameCatalog(supabase);
+  const game = catalog.find((g) => g.slug === "valorant");
+  const myRank = await fetchMyRankName(supabase, catalog, "valorant");
+
   return (
     <>
       <Navbar />
@@ -38,11 +48,17 @@ export default function LfgValorantPage() {
             invites={invitedLobbies}
           />
 
-          <LfgSearchBar />
+          <LfgSearchBar gameSlug="valorant" game={game} myRank={myRank} />
 
-          <LfgToolbar resultCount={128} />
+          <LfgToolbar gameSlug="valorant" resultCount={128} />
 
-          <LfgTeamGrid teams={lfgTeams} />
+          <LfgTeamGrid
+            teams={lfgTeams}
+            gameSlug="valorant"
+            gameName="Valorant"
+            game={game}
+            myRank={myRank}
+          />
 
           <LfgNews />
         </div>

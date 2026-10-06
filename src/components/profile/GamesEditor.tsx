@@ -2,65 +2,66 @@
 
 import FormDropdown from "@/components/FormDropdown";
 import { EmptyState } from "@/components/EmptyState";
-import { regions } from "@/data/regions";
+import { regionsFor } from "@/data/game-regions";
+import type { GameInfo } from "@/lib/games";
 import {
-  emptyUserGame,
-  type CatalogueGame,
-  type UserGame,
-} from "@/lib/user-games";
+  emptyGameProfile,
+  type GameProfile,
+} from "@/components/onboarding/RankRoleStep";
 import { Field, controlClass } from "./DossierFields";
+
+/** One game on the form: which game, plus what the player entered for it. */
+export interface GameDraft extends GameProfile {
+  slug: string;
+}
 
 /**
  * Add, edit and remove the games on a profile.
  *
- * Ranks and roles are the database's own vocabulary (`game_ranks` ordered by
- * `ordinal`, `game_roles`), so a Valorant rank is always one of the 25 real
- * sub-ranks rather than free text — which is what makes rank distance
- * comparable between two players. Games with no roles defined (CS2, the
- * battle royales) simply don't show a role picker.
- *
- * Everything is typed in by the player: there is no Riot/Moonton API behind
- * this, and a "detected" rank we can't verify would undermine the point of a
- * profile other people are meant to trust.
+ * Everything is picked by the player: there is no Riot/Moonton API behind
+ * this, so a "detected" rank would be a number we can't stand behind on a
+ * profile whose whole point is being checkable. Ranks, roles and regions
+ * come from the database catalog (`game_ranks`, `game_roles`) so every
+ * profile uses the same ladder and the rank can be compared as a position,
+ * not as typed text. A game with no roles (CS2, PUBG Mobile, Free Fire)
+ * never asks for one.
  */
 export default function GamesEditor({
+  catalog,
   games,
-  catalogue,
   onChange,
 }: {
-  games: UserGame[];
-  catalogue: CatalogueGame[];
-  onChange: (games: UserGame[]) => void;
+  catalog: GameInfo[];
+  games: GameDraft[];
+  onChange: (games: GameDraft[]) => void;
 }) {
-  const taken = new Set(games.map((game) => game.gameId));
-  const available = catalogue.filter((game) => !taken.has(game.id));
-
-  function update(gameId: number, patch: Partial<UserGame>) {
-    onChange(
-      games.map((game) =>
-        game.gameId === gameId ? { ...game, ...patch } : game
-      )
-    );
-  }
-
-  function toggleRole(gameId: number, roleId: number) {
-    const game = games.find((entry) => entry.gameId === gameId);
-    if (!game) return;
-    update(gameId, {
-      roleIds: game.roleIds.includes(roleId)
-        ? game.roleIds.filter((id) => id !== roleId)
-        : [...game.roleIds, roleId],
-    });
-  }
-
-  if (catalogue.length === 0) {
+  if (catalog.length === 0) {
     return (
       <EmptyState
-        title="Game list unavailable"
-        description="Couldn't load the game catalogue. Reload the page and try again."
+        title="Games can't be loaded"
+        description="Try again in a moment."
         size="sm"
       />
     );
+  }
+
+  const taken = new Set(games.map((game) => game.slug));
+  const available = catalog.filter((game) => !taken.has(game.slug));
+
+  function update(slug: string, patch: Partial<GameProfile>) {
+    onChange(
+      games.map((game) => (game.slug === slug ? { ...game, ...patch } : game)),
+    );
+  }
+
+  function toggleRole(slug: string, role: string) {
+    const game = games.find((entry) => entry.slug === slug);
+    if (!game) return;
+    update(slug, {
+      roles: game.roles.includes(role)
+        ? game.roles.filter((item) => item !== role)
+        : [...game.roles, role],
+    });
   }
 
   return (
@@ -73,12 +74,14 @@ export default function GamesEditor({
         />
       )}
 
-      {games.map((game) => {
-        const entry = catalogue.find((item) => item.id === game.gameId);
+      {games.map((draft) => {
+        const game = catalog.find((entry) => entry.slug === draft.slug);
+        if (!game) return null;
+        const regionList = regionsFor(game.slug);
 
         return (
           <section
-            key={game.gameId}
+            key={draft.slug}
             className="flex flex-col gap-3 rounded-xl border border-border-default bg-bg-page p-4"
           >
             <div className="flex items-center justify-between gap-3">
@@ -86,7 +89,7 @@ export default function GamesEditor({
               <button
                 type="button"
                 onClick={() =>
-                  onChange(games.filter((item) => item.gameId !== game.gameId))
+                  onChange(games.filter((entry) => entry.slug !== draft.slug))
                 }
                 className="text-[11px] font-semibold text-text-muted transition-colors hover:text-danger"
               >
@@ -97,10 +100,11 @@ export default function GamesEditor({
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="In-game name">
                 <input
-                  value={game.inGameName}
+                  value={draft.username}
                   onChange={(event) =>
-                    update(game.gameId, { inGameName: event.target.value })
+                    update(draft.slug, { username: event.target.value })
                   }
+                  maxLength={40}
                   placeholder={
                     game.slug === "valorant" ? "e.g. Yonziii#SG2" : "e.g. Yonziii"
                   }
@@ -111,13 +115,10 @@ export default function GamesEditor({
               <Field label="Region">
                 <FormDropdown
                   label={`${game.name} region`}
-                  placeholder="Not set"
-                  value={game.region}
-                  onChange={(region) => update(game.gameId, { region })}
-                  options={regions.map((region) => ({
-                    value: region,
-                    label: region,
-                  }))}
+                  value={draft.region || regionList.default}
+                  onChange={(region) => update(draft.slug, { region })}
+                  options={regionList.options}
+                  allowEmpty={false}
                 />
               </Field>
             </div>
@@ -125,35 +126,26 @@ export default function GamesEditor({
             <Field label="Rank">
               <FormDropdown
                 label={`${game.name} rank`}
-                placeholder="Not set"
-                value={game.rankId === null ? "" : String(game.rankId)}
-                onChange={(value) => {
-                  const rank = entry?.ranks.find(
-                    (option) => String(option.id) === value
-                  );
-                  update(game.gameId, {
-                    rankId: rank?.id ?? null,
-                    rankName: rank?.name ?? "",
-                    rankOrdinal: rank?.ordinal ?? null,
-                  });
-                }}
-                options={(entry?.ranks ?? []).map((rank) => ({
-                  value: String(rank.id),
+                placeholder="Not sure yet"
+                value={draft.rank}
+                onChange={(rank) => update(draft.slug, { rank })}
+                options={game.ranks.map((rank) => ({
+                  value: rank.name,
                   label: rank.name,
                 }))}
               />
             </Field>
 
-            {entry && entry.roles.length > 0 && (
+            {game.roles.length > 0 && (
               <Field label="Roles you play">
                 <div className="flex flex-wrap gap-1.5">
-                  {entry.roles.map((role) => {
-                    const isSelected = game.roleIds.includes(role.id);
+                  {game.roles.map((role) => {
+                    const isSelected = draft.roles.includes(role.name);
                     return (
                       <button
                         key={role.id}
                         type="button"
-                        onClick={() => toggleRole(game.gameId, role.id)}
+                        onClick={() => toggleRole(draft.slug, role.name)}
                         aria-pressed={isSelected}
                         className={`rounded-full border px-3 py-1.5 text-[11px] transition-colors ${
                           isSelected
@@ -179,12 +171,13 @@ export default function GamesEditor({
           placeholder="Add a game…"
           allowEmpty={false}
           value=""
-          onChange={(value) => {
-            const game = catalogue.find((item) => String(item.id) === value);
-            if (game) onChange([...games, emptyUserGame(game)]);
+          onChange={(slug) => {
+            if (slug) {
+              onChange([...games, { slug, ...emptyGameProfile }]);
+            }
           }}
           options={available.map((game) => ({
-            value: String(game.id),
+            value: game.slug,
             label: game.name,
           }))}
         />

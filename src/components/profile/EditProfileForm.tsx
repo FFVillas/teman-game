@@ -28,10 +28,13 @@ import {
 } from "@/lib/avatar";
 import { saveDateOfBirth, type ProfileRow } from "@/lib/profiles";
 import {
-  saveUserGames,
-  type CatalogueGame,
-  type UserGame,
-} from "@/lib/user-games";
+  removeGameSetup,
+  saveGameSetup,
+  type GameInfo,
+  type PlayerGameSetup,
+} from "@/lib/games";
+import { regionsFor } from "@/data/game-regions";
+import { emptyGameProfile } from "@/components/onboarding/RankRoleStep";
 import {
   DEFAULT_TIMEZONE,
   MAX_PERSONALITY_TAGS,
@@ -48,7 +51,7 @@ import {
   labelClass,
   validateDossier,
 } from "./DossierFields";
-import GamesEditor from "./GamesEditor";
+import GamesEditor, { type GameDraft } from "./GamesEditor";
 
 const MAX_TAGS = MAX_PERSONALITY_TAGS;
 const playstyleScale = [1, 2, 3, 4, 5];
@@ -67,8 +70,8 @@ export default function EditProfileForm({
   row,
   userId,
   dateOfBirth: initialDateOfBirth,
-  games: initialGames,
-  catalogue,
+  catalog,
+  gameSetups,
 }: {
   profile: PlayerProfile;
   /** Raw columns — the view model only carries display strings. */
@@ -76,10 +79,10 @@ export default function EditProfileForm({
   userId: string;
   /** "YYYY-MM-DD" or "" — private, only ever loaded for the owner. */
   dateOfBirth: string;
-  /** Rows from `user_game_mapping`, as loaded. */
-  games: UserGame[];
-  /** Games, ranks and roles as the database defines them. */
-  catalogue: CatalogueGame[];
+  /** Every game that can be added, with its ranks and roles. */
+  catalog: GameInfo[];
+  /** The games this player already has set up. */
+  gameSetups: PlayerGameSetup[];
 }) {
   const router = useRouter();
   const { toast } = useNotifications();
@@ -106,7 +109,19 @@ export default function EditProfileForm({
     profile.playstyle
   );
   const [tags, setTags] = useState<string[]>([...profile.personalityTags]);
-  const [games, setGames] = useState<UserGame[]>(initialGames);
+  // The games on the form, in the order they were added. A game that was
+  // saved before (`savedGameSlugs`) but is no longer in the list has been
+  // taken off, and Save deletes it.
+  const [games, setGames] = useState<GameDraft[]>(() =>
+    gameSetups.map((setup) => ({
+      slug: setup.gameSlug,
+      username: setup.inGameName,
+      region: setup.regionValue,
+      rank: setup.rank,
+      roles: setup.roles,
+    }))
+  );
+  const savedGameSlugs = gameSetups.map((setup) => setup.gameSlug);
   const [handles, setHandles] = useState(() =>
     Object.fromEntries(
       profile.connections.map((account) => [account.provider, account.handle])
@@ -211,7 +226,8 @@ export default function EditProfileForm({
     const supabase = createClient();
 
     // The date of birth is private, so it lives in its own table. Only
-    // written when it changed (it may have no row yet, hence upsert).
+    // written when it changed (it may have no row yet, hence update, then
+    // insert if nothing was updated).
     if (dateOfBirth !== initialDateOfBirth) {
       const dobError = await saveDateOfBirth(
         supabase,
@@ -222,6 +238,43 @@ export default function EditProfileForm({
       if (dobError) {
         setSaving(false);
         setErrors({ dateOfBirth: dobError });
+        return;
+      }
+    }
+
+    // Games come before the picture and the profile row on purpose. Saving a
+    // game is safe to repeat, so a failure here just means "try again",
+    // whereas doing it last could leave an uploaded picture orphaned on a
+    // retry.
+    const keptSlugs = games.map((game) => game.slug);
+    for (const slug of savedGameSlugs.filter((s) => !keptSlugs.includes(s))) {
+      const game = catalog.find((g) => g.slug === slug);
+      if (!game) continue;
+      const failure = await removeGameSetup(supabase, userId, game.id);
+      if (failure) {
+        setSaving(false);
+        setErrors({ games: `Couldn't remove ${game.name}. Try again.` });
+        return;
+      }
+    }
+
+    for (const draft of games) {
+      const game = catalog.find((g) => g.slug === draft.slug);
+      if (!game) continue;
+      const details = { ...emptyGameProfile, ...draft };
+
+      const failure = await saveGameSetup(supabase, userId, {
+        gameId: game.id,
+        inGameName: details.username,
+        region: details.region || regionsFor(draft.slug).default,
+        rankId: game.ranks.find((rank) => rank.name === details.rank)?.id ?? null,
+        roleIds: game.roles
+          .filter((role) => details.roles.includes(role.name))
+          .map((role) => role.id),
+      });
+      if (failure) {
+        setSaving(false);
+        setErrors({ games: `Couldn't save your ${game.name} details. Try again.` });
         return;
       }
     }
@@ -285,13 +338,6 @@ export default function EditProfileForm({
           ? { username: "That username is already taken." }
           : { form: "Couldn't save your changes. Try again." }
       );
-      return;
-    }
-
-    const gamesError = await saveUserGames(supabase, userId, games, initialGames);
-    if (gamesError) {
-      setSaving(false);
-      setErrors({ games: gamesError });
       return;
     }
 
@@ -483,14 +529,10 @@ export default function EditProfileForm({
 
           <Card title="Games you play">
             <p className="text-[11px] text-text-muted">
-              Rank and role are what you type here — nothing is read from the
+              Rank and role are what you pick here. Nothing is read from the
               game, so keep it honest and teammates can trust it.
             </p>
-            <GamesEditor
-              games={games}
-              catalogue={catalogue}
-              onChange={setGames}
-            />
+            <GamesEditor catalog={catalog} games={games} onChange={setGames} />
             {errors.games && (
               <p className="text-[11px] text-danger">{errors.games}</p>
             )}

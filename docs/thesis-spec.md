@@ -138,7 +138,7 @@ Two actors: **User** and **Admin** (moderation, sanctions, bans).
 
 ## Divergences from the proposal (bring these to your advisor)
 
-Real schema work started 2026-09-19. Three deliberate departures from the
+Real schema work started 2026-09-19. Four deliberate departures from the
 ERD as written — both decided in favor of standard practice over what
 the proposal originally specified. Not gaps: each is a considered
 substitution, argued below.
@@ -179,25 +179,52 @@ substitution, argued below.
    readable; everyone else only gets the derived age via `profile_age()`.
    A database trigger enforces the 13+ minimum. This is one more table
    than the proposal's ERD. **`region` is not on `profiles`** — it is per
-   game, so it will live on `user_game_mapping` in the Lobby slice.
+   game, so it lives on `user_game_mapping`. Profile pictures are files in
+   Supabase Storage (bucket `avatars`); `profiles.avatar_path` holds the path
+   rather than a URL, so the owner can't point it at an arbitrary external
+   address (`20261004000000_avatars.sql`).
+4. **Games slice (2026-10-03,
+   `supabase/migrations/20261003000200_games.sql`).** Three tables beyond
+   the proposal: `game_ranks` (every rank gets an `ordinal` position, so the
+   rank-distance penalty `M_rank` can compute ΔR as a subtraction),
+   `game_roles` and `user_game_roles`. The proposal's `user_game_mapping`
+   stores a single "favorite role" per game; onboarding lets a player pick
+   several, so roles are a join table instead. The proposal's `role` means
+   an account permission, so in-game roles are named `game_roles` to avoid
+   confusion. In-game roles exist only for games that define them (Valorant,
+   League of Legends, Mobile Legends); Counter-Strike 2, PUBG Mobile and Free
+   Fire have none, so `user_game_roles` has no rows there. All six in-scope
+   games are seeded; the ladders and roles were researched from web sources
+   (see `docs/game-reference.md`) and still need checking against the games.
+   Region is stored as text on `user_game_mapping` with the per-game choices
+   kept in the app, not as a table. Game modes (Classic, Ranked, ARAM…) are
+   likewise an app-side list for now; a lobby will need to point at a mode, at
+   which point a `game_modes` table (and possibly `game_regions`) is the
+   natural move, taking the table count to 20 or 21. When lobbies are stored,
+   a lobby will also need an **optional accepted rank range** (lowest and
+   highest rank the leader allows, both nullable) beside the leader's own rank
+   that the proposal's `M_rank` already uses; the range is an eligibility
+   filter, `M_rank` stays the ordering. This is two extra columns on `lobby`,
+   not a new table. Counter-Strike 2 models only its 18-rank Competitive
+   ladder, not the numeric Premier rating.
 
-4. **Game catalogue + notifications (2026-10-05/06).** The game slice
-   lives in five tables — `games`, `game_ranks` (the full ordered ladder
-   per title, which is what `ΔR` in Persamaan 3.5 actually measures),
-   `game_roles`, `user_game_mapping` and `user_game_roles`. The ERD has
-   `game` and `user_game_mapping` but not the three lookup/join tables.
-   **No migration file exists for these yet** — they were applied directly
-   in the SQL editor. Separately, `notifications`
-   (`20261006000000_notifications.sql`) holds requirement 5 of §3.2.4
-   ("Sistem Notifikasi Real-time") and the notify steps in the p.59
-   sequence diagrams; the ERD has no entity for them, so this is a sixth
-   table beyond the original 13. Frame it as detailing a behaviour the
-   proposal already specifies.
+5. **Notifications (2026-10-06,
+   `supabase/migrations/20261006000000_notifications.sql`).** One more table
+   beyond the ERD, which has no entity for notifications at all — yet
+   requirement 5 of §3.2.4 ("Sistem Notifikasi Real-time") and the sequence
+   diagrams on p.59 (apply → notify leader → decision → notify applicant)
+   both depend on them. Frame it like `sanctions`: detailing a behaviour the
+   proposal already specifies rather than inventing a feature. Current limit
+   worth stating in BAB 4: the insert policy only allows rows addressed to
+   yourself, so genuine cross-player notifications wait on a server-side
+   trigger that arrives with the Lobby slice.
 
-Net effect: 13 → 17 distinct tables once the rest of the model is built
+Net effect: 13 → 20 distinct tables once the rest of the model is built
 (13 original, minus `user`/`role`/`user_role_mapping` reshaped into
-`profiles` + `admins`, plus `sanctions`/`sanction_reports`/`admin_actions`,
-plus the still-pending `game_ranks` addition noted below). If your
+`profiles` + `admins` = 12; plus `profile_private` = 13; plus
+`sanctions`/`sanction_reports`/`admin_actions` = 16; plus `game_ranks`,
+`game_roles` and `user_game_roles` = 19). An earlier version of this
+paragraph said 17 — that was a miscount. If your
 proposal can still be revised, this is the number and reasoning to bring
 to your advisor — if it can't, this doc is the record of what changed
 and why for your BAB 4 writeup.
@@ -224,7 +251,7 @@ the code is at UI-shell stage while the spec describes the full system.
 | 6 games | only `lfg/valorant`; all 6 `nav-links.ts` entries point there |
 | Lobbies ranked by `S_total` | "Recommended Teams" is a static label; `lfgTeams` renders in array order. The formula **is** implemented (`lib/recommendation.ts`) and drives the leader's Invite players panel; the lobby list and the applicants' `matchScore` don't use it yet |
 | Reputation (stars, sanctions, tags) | no reputation field on `LfgTeam` |
-| `game` + `user_game_mapping` | **built** — `games`, `game_ranks`, `game_roles`, `user_game_mapping`, `user_game_roles` exist in Supabase (no migration file yet). Profile tabs, onboarding and the edit form read/write them. Rank and role are self-reported; no game API integration |
+| `game` + `user_game_mapping` | **built** (`20261003000200_games.sql`, with `game_ranks`, `game_roles`, `user_game_roles`) — profile tabs, onboarding and the edit form all read/write it. Rank and role are self-reported picks from the ladder; no game API integration |
 | Playstyle 1–5 Likert | closest is free-text `vibeTags` in the create form |
 | Personality tags | not modeled |
 | PWA (service worker, manifest, FCM) | none present — notifications exist as rows and are read on page load, but nothing is pushed |

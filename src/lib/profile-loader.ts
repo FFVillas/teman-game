@@ -3,7 +3,7 @@ import { resolveProfile } from "@/data/profile-lookup";
 import type { PlayerProfile } from "@/data/player-profiles";
 import { createClient } from "@/lib/supabase/server";
 import { fetchProfileByUsername, profileFromRow } from "@/lib/profiles";
-import { fetchUserGames } from "@/lib/user-games";
+import { fetchPlayerGames } from "@/lib/games";
 
 /**
  * Resolves `/profile/<username>` for a Server Component: a real player first,
@@ -20,13 +20,13 @@ export const loadProfile = cache(
     const row = await fetchProfileByUsername(supabase, username);
 
     if (row) {
-      const [{ data: auth }, games] = await Promise.all([
+      const [{ data: auth }, gameSetups] = await Promise.all([
         supabase.auth.getUser(),
-        fetchUserGames(supabase, row.id),
+        fetchPlayerGames(supabase, row.id),
       ]);
       return profileFromRow(row, {
         isOwner: auth.user?.id === row.id,
-        games,
+        gameSetups,
       });
     }
 

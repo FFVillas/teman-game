@@ -1,5 +1,6 @@
 import { lfgRanks, type LfgRank } from "./lfg-ranks";
 import { lfgRoles, type LfgRole } from "./lfg-roles";
+import type { TierRange } from "@/lib/ranks";
 
 export type LfgMode = "ranked" | "casual" | "tournament";
 
@@ -26,7 +27,13 @@ export interface LfgTeam {
   slotsFilled: number;
   slotsTotal: number;
   leaderName: string;
+  /** The leader's own rank. Orders results (M_rank); not shown on the card. */
   rank: LfgRank;
+  /**
+   * Ranks the leader accepts, as tier names (either end may be empty).
+   * Missing means any rank. This is the one rank thing the card shows.
+   */
+  rankRange?: TierRange;
   lookingFor: LfgRole[];
 }
 
@@ -38,7 +45,7 @@ export const lfgTeams: LfgTeam[] = [
     cover: "/lfg/covers/valorant-cover-1.jpg",
     mode: "ranked",
     status: { label: "Active Now", isLive: true },
-    region: "SG2",
+    region: "AP",
     languages: "ENG / IND",
     micRequired: true,
     bio: "Climbing to Radiant this act. We play clean, communicate a lot, and don't tilt after a bad round. Come ready to grind ranked together.",
@@ -52,6 +59,7 @@ export const lfgTeams: LfgTeam[] = [
     // Your own lobby (activeLobby in lfg-lobby.ts), led by the mock session.
     leaderName: "Fayaz_ILoveLittle",
     rank: lfgRanks.immortal,
+    rankRange: { from: "Ascendant", to: "" },
     lookingFor: [lfgRoles.duelist, lfgRoles.initiator],
   },
   {
@@ -61,7 +69,7 @@ export const lfgTeams: LfgTeam[] = [
     cover: "/lfg/covers/valorant-cover-4.jpg",
     mode: "casual",
     status: { label: "Active Now", isLive: true },
-    region: "SG2",
+    region: "AP",
     micRequired: true,
     bio: "Chill casual squad, no pressure. We just want good vibes, some laughs, and the occasional clutch. All ranks welcome.",
     members: [
@@ -81,7 +89,7 @@ export const lfgTeams: LfgTeam[] = [
     cover: "/lfg/covers/valorant-cover-2.jpg",
     mode: "ranked",
     status: { label: "Active Now", isLive: true },
-    region: "SG2",
+    region: "AP",
     bio: "Learning-focused team working our way up from Silver. Looking for a Controller main who's patient with callouts and open to VOD review.",
     members: [
       { id: "m1", avatar: "/lfg/avatars/avatar-6.jpg" },
@@ -93,6 +101,7 @@ export const lfgTeams: LfgTeam[] = [
     slotsTotal: 5,
     leaderName: "Ziza",
     rank: lfgRanks.silver,
+    rankRange: { from: "Bronze", to: "Gold" },
     lookingFor: [lfgRoles.controller],
   },
   {
@@ -102,7 +111,7 @@ export const lfgTeams: LfgTeam[] = [
     cover: "/lfg/covers/valorant-cover-3.jpg",
     mode: "tournament",
     status: { label: "21 May, 12:00 AM", isLive: false },
-    region: "SG2",
+    region: "AP",
     micRequired: true,
     bio: "Prepping for an upcoming community tournament. Need a full roster with flexible role players — scrims start this week.",
     members: [{ id: "m1", avatar: "/lfg/avatars/avatar-3.jpg" }],
@@ -110,6 +119,7 @@ export const lfgTeams: LfgTeam[] = [
     slotsTotal: 5,
     leaderName: "Threshcan",
     rank: lfgRanks.ascendant,
+    rankRange: { from: "Diamond", to: "" },
     lookingFor: [
       lfgRoles.duelist,
       lfgRoles.initiator,
@@ -124,7 +134,7 @@ export const lfgTeams: LfgTeam[] = [
     cover: "/lfg/covers/valorant-cover-4.jpg",
     mode: "casual",
     status: { label: "Active Now", isLive: true },
-    region: "SG2",
+    region: "AP",
     micRequired: true,
     bio: "Chill casual squad, no pressure. We just want good vibes, some laughs, and the occasional clutch. All ranks welcome.",
     members: [
@@ -144,7 +154,7 @@ export const lfgTeams: LfgTeam[] = [
     cover: "/lfg/covers/valorant-cover-1.jpg",
     mode: "ranked",
     status: { label: "Active Now", isLive: true },
-    region: "SG2",
+    region: "AP",
     micRequired: true,
     bio: "Competitive-minded and consistent — we queue most nights after 8PM SGT. Looking for teammates who take fights seriously but keep comms positive.",
     members: [
@@ -156,6 +166,7 @@ export const lfgTeams: LfgTeam[] = [
     slotsTotal: 5,
     leaderName: "Yonziii",
     rank: lfgRanks.immortal,
+    rankRange: { from: "Diamond", to: "Immortal" },
     lookingFor: [lfgRoles.duelist, lfgRoles.initiator],
   },
 ];

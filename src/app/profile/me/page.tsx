@@ -5,8 +5,8 @@ import Footer from "@/components/Footer";
 import PlayerProfileView from "@/components/profile/PlayerProfileView";
 import { createClient } from "@/lib/supabase/server";
 import { fetchProfileById, profileFromRow } from "@/lib/profiles";
-import { fetchUserGames } from "@/lib/user-games";
 import { withNext } from "@/lib/auth-redirect";
+import { fetchPlayerGames } from "@/lib/games";
 
 export const metadata: Metadata = {
   title: "My profile — TemanGame",
@@ -25,8 +25,10 @@ export default async function MyProfilePage() {
   const row = await fetchProfileById(supabase, user.id);
   if (!row) notFound();
 
-  const games = await fetchUserGames(supabase, user.id);
-  const profile = profileFromRow(row, { isOwner: true, games });
+  const profile = profileFromRow(row, {
+    isOwner: true,
+    gameSetups: await fetchPlayerGames(supabase, user.id),
+  });
 
   return (
     <>

@@ -11,6 +11,7 @@ const navItems = [
   { label: "Pending Requests", href: "/social/pending", icon: "/icons/social-inbox.svg", badge: pendingRequests.length },
   { label: "Discover Players", href: "/social/discover", icon: "/icons/social-compass.svg", badge: undefined },
   { label: "Recent Teammates", href: "/social/recent", icon: "/icons/social-recent-teammates.svg", badge: undefined },
+  { label: "Blocked", href: "/social/blocked", icon: "/icons/social-blocked.svg", badge: undefined },
 ];
 
 export default function SocialSidebar() {
@@ -76,14 +77,6 @@ export default function SocialSidebar() {
         <div className="flex flex-1 flex-col">
           <span className="text-sm font-bold text-white">{displayUser.name}</span>
         </div>
-        <button
-          type="button"
-          aria-label="Settings"
-          className="flex size-8 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-white/5 hover:text-white"
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
-          <img src="/icons/social-settings.svg" alt="" className="size-4" />
-        </button>
       </div>
     </aside>
   );

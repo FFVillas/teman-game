@@ -2,6 +2,8 @@ import Image from "next/image";
 import Link from "next/link";
 import type { LfgTeam } from "@/data/lfg-teams";
 import { findProfileByUsername } from "@/data/player-profiles";
+import type { GameInfo } from "@/lib/games";
+import RankRangeBadge from "./RankRangeBadge";
 
 export const modeStyles: Record<LfgTeam["mode"], { label: string; className: string }> = {
   ranked: {
@@ -21,9 +23,15 @@ export const modeStyles: Record<LfgTeam["mode"], { label: string; className: str
 interface LfgTeamCardProps {
   team: LfgTeam;
   onOpenDetails?: () => void;
+  /** The game's ladder, so the accepted range can show real divisions. */
+  game?: GameInfo;
 }
 
-export default function LfgTeamCard({ team, onOpenDetails }: LfgTeamCardProps) {
+export default function LfgTeamCard({
+  team,
+  onOpenDetails,
+  game,
+}: LfgTeamCardProps) {
   const mode = modeStyles[team.mode];
   const hasOpenSlots = team.slotsFilled < team.slotsTotal;
   const leaderProfile = findProfileByUsername(team.leaderName);
@@ -134,13 +142,13 @@ export default function LfgTeamCard({ team, onOpenDetails }: LfgTeamCardProps) {
                 <span className="text-white">{team.leaderName}</span>
               )}
             </p>
-            <div className="flex items-center gap-1">
-              {/* eslint-disable-next-line @next/next/no-img-element -- static badge icon, no benefit from next/image optimization */}
-              <img src={team.rank.icon} alt="" className="h-3.5 w-3.5" />
-              <span className={`text-[11px] font-bold ${team.rank.colorClass}`}>
-                {team.rank.name}
-              </span>
-            </div>
+            {/* The one rank thing a card shows: what the leader accepts. The
+                leader's own rank lives in the details, and only orders results. */}
+            <RankRangeBadge
+              range={team.rankRange}
+              ranks={game?.ranks}
+              gameSlug={team.game}
+            />
           </div>
         </div>
 

@@ -9,7 +9,7 @@ import BackLink from "@/components/BackLink";
 import { EmptyState, NotSetOrAdd } from "@/components/EmptyState";
 import { profileCompleteness } from "@/lib/profile-completeness";
 import { gameByName } from "@/data/games";
-import type { UserGame } from "@/lib/user-games";
+
 
 const playstyleLabel = [
   "Very casual",
@@ -60,25 +60,38 @@ function StarRating({ score }: { score: number }) {
 }
 
 /**
- * Mock profiles predate `user_game_mapping` and carry `gameStats` instead
+ * Real profiles carry `gameSetups` (what the player saved per game). Mock
+ * profiles predate `user_game_mapping` and carry `gameStats` instead
  * (with invented win rates). Reading them through the same shape keeps one
  * rendering path until the social/LFG mock rows read from the database too.
  */
-function gamesOf(profile: PlayerProfile): UserGame[] {
-  if (profile.games) return profile.games;
-  return profile.gameStats.map((stat, index) => ({
-    // Mock rows have no catalogue id \u2014 a negative index is unique within
-    // this list, which is all the tab keys need.
-    gameId: -(index + 1),
+interface ProfileGame {
+  slug: string;
+  name: string;
+  inGameName: string;
+  region: string;
+  rank: string;
+  roles: string[];
+}
+
+function gamesOf(profile: PlayerProfile): ProfileGame[] {
+  if (profile.gameSetups) {
+    return profile.gameSetups.map((setup) => ({
+      slug: setup.gameSlug,
+      name: setup.gameName,
+      inGameName: setup.inGameName,
+      region: setup.region,
+      rank: setup.rank,
+      roles: setup.roles,
+    }));
+  }
+  return profile.gameStats.map((stat) => ({
     slug: gameByName(stat.game)?.slug ?? stat.game,
     name: stat.game,
     inGameName: "",
     region: profile.region === "\u2014" ? "" : profile.region,
-    rankId: null,
-    rankName: [stat.rank.name, stat.tier].filter(Boolean).join(" "),
-    rankOrdinal: null,
-    roleIds: [],
-    roleNames: [stat.mainRole.name],
+    rank: [stat.rank.name, stat.tier].filter(Boolean).join(" "),
+    roles: [stat.mainRole.name],
   }));
 }
 
@@ -94,7 +107,6 @@ export default function PlayerProfileView({
   const [activeSlug, setActiveSlug] = useState(playerGames[0]?.slug ?? "");
   const activeGame =
     playerGames.find((game) => game.slug === activeSlug) ?? playerGames[0];
-  const activeRoles = activeGame?.roleNames.filter(Boolean) ?? [];
   const activeStat = profile.gameStats.find(
     (stat) => stat.game === activeGame?.name,
   );
@@ -384,7 +396,7 @@ export default function PlayerProfileView({
                 <div className="flex overflow-x-auto">
                   {playerGames.map((game) => (
                     <button
-                      key={game.gameId}
+                      key={game.slug}
                       type="button"
                       onClick={() => setActiveSlug(game.slug)}
                       className={`shrink-0 whitespace-nowrap border-b-2 px-4 py-3 text-xs font-bold transition-colors ${
@@ -426,9 +438,9 @@ export default function PlayerProfileView({
                   <div className="flex flex-wrap items-start gap-x-8 gap-y-4">
                     <div className="flex flex-col gap-1">
                       <span className={fieldLabel}>Rank</span>
-                      {activeGame.rankName ? (
+                      {activeGame.rank ? (
                         <span className="text-sm font-bold text-white">
-                          {activeGame.rankName}
+                          {activeGame.rank}
                         </span>
                       ) : (
                         <NotSetOrAdd isOwner={isOwner} href={editHref} />
@@ -437,9 +449,9 @@ export default function PlayerProfileView({
 
                     <div className="flex flex-col gap-1.5">
                       <span className={fieldLabel}>Roles</span>
-                      {activeRoles.length > 0 ? (
+                      {activeGame.roles.length > 0 ? (
                         <div className="flex flex-wrap gap-1.5">
-                          {activeRoles.map((role) => (
+                          {activeGame.roles.map((role) => (
                             <span
                               key={role}
                               className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-bold text-text-subtle"
@@ -497,7 +509,7 @@ export default function PlayerProfileView({
                   </div>
 
                   <p className="border-t border-border-subtle pt-3 text-[11px] text-text-muted">
-                    Entered by {isOwner ? "you" : profile.username} — ranks
+                    Entered by {isOwner ? "you" : profile.username}. Ranks
                     aren&apos;t synced from the game yet.
                   </p>
                 </div>

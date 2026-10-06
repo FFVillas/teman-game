@@ -9,8 +9,8 @@ import {
   fetchProfileById,
   profileFromRow,
 } from "@/lib/profiles";
-import { fetchGameCatalogue, fetchUserGames } from "@/lib/user-games";
 import { withNext } from "@/lib/auth-redirect";
+import { fetchGameCatalog, fetchPlayerGameSetups } from "@/lib/games";
 
 export const metadata: Metadata = {
   title: "Edit Profile — TemanGame",
@@ -29,12 +29,12 @@ export default async function EditProfilePage() {
   const row = await fetchProfileById(supabase, user.id);
   if (!row) notFound();
 
-  const [dateOfBirth, games, catalogue] = await Promise.all([
+  const profile = profileFromRow(row, { isOwner: true });
+  const [dateOfBirth, catalog] = await Promise.all([
     fetchOwnDateOfBirth(supabase, user.id),
-    fetchUserGames(supabase, user.id),
-    fetchGameCatalogue(supabase),
+    fetchGameCatalog(supabase),
   ]);
-  const profile = profileFromRow(row, { isOwner: true, games });
+  const gameSetups = await fetchPlayerGameSetups(supabase, user.id, catalog);
 
   return (
     <>
@@ -46,8 +46,8 @@ export default async function EditProfilePage() {
             row={row}
             userId={user.id}
             dateOfBirth={dateOfBirth}
-            games={games}
-            catalogue={catalogue}
+            catalog={catalog}
+            gameSetups={gameSetups}
           />
         </div>
       </main>

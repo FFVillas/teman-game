@@ -1,22 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Logo from "@/components/Logo";
 import { sanitizeNextPath } from "@/lib/auth-redirect";
 import { useNotifications } from "@/contexts/NotificationContext";
 import { createClient } from "@/lib/supabase/client";
+import { DEFAULT_TIMEZONE, MAX_PERSONALITY_TAGS } from "@/data/profile-options";
+import { regionsFor } from "@/data/game-regions";
+import { saveGameSetup, type GameInfo } from "@/lib/games";
 import { saveDateOfBirth } from "@/lib/profiles";
-import {
-  fetchGameCatalogue,
-  saveUserGames,
-  type CatalogueGame,
-  type UserGame,
-} from "@/lib/user-games";
-import {
-  DEFAULT_TIMEZONE,
-  MAX_PERSONALITY_TAGS,
-} from "@/data/profile-options";
 import { emptyDateParts, joinDate } from "@/lib/age";
 import { validateDossier } from "@/components/profile/DossierFields";
 import GamesStep from "./GamesStep";
@@ -45,26 +38,16 @@ const emptyAboutYou: AboutYou = {
   schedule: { days: [], start: "", end: "", timezone: DEFAULT_TIMEZONE },
 };
 
-export default function OnboardingFlow() {
+export default function OnboardingFlow({ catalog }: { catalog: GameInfo[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useNotifications();
   const destination = sanitizeNextPath(searchParams.get("next"));
 
-  // Games, ranks and roles come from the database so onboarding writes ids
-  // the rest of the app (and the matching score) can read back.
-  const [catalogue, setCatalogue] = useState<CatalogueGame[]>([]);
-  useEffect(() => {
-    let cancelled = false;
-    fetchGameCatalogue(createClient()).then((data) => {
-      if (!cancelled) setCatalogue(data);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
+  // Game slugs, in the order they were picked. Details are keyed by slug too.
   const [selectedGames, setSelectedGames] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [gameDetails, setGameDetails] = useState<Record<string, GameProfile>>({});
   const [about, setAbout] = useState<AboutYou>(emptyAboutYou);
   const [aboutErrors, setAboutErrors] = useState<{
@@ -129,83 +112,93 @@ export default function OnboardingFlow() {
     });
   }
 
+  /** Leaving without saving anything, so a skipped setup records no answers. */
+  function skip() {
+    router.push(destination);
+  }
+
   async function finish() {
-    // `connected` still has nowhere to go — connected_accounts doesn't
-    // exist yet (see docs/thesis-spec.md). Everything else has a real
-    // column now, including the games (user_game_mapping).
+    setSaving(true);
+    setSaveError(null);
+
     const supabase = createClient();
     const { data } = await supabase.auth.getUser();
-    if (data.user) {
-      const hasSchedule =
-        about.schedule.days.length > 0 || Boolean(about.schedule.start);
+    const userId = data.user?.id;
+    if (!userId) {
+      setSaving(false);
+      setSaveError("You're signed out. Log in again to save your setup.");
+      return;
+    }
 
-      await supabase
-        .from("profiles")
-        .update({
-          playstyle,
-          personality_tags: personalityTags,
-          gender: about.gender || null,
-          languages: about.languages,
-          play_days: about.schedule.days,
-          play_start: about.schedule.start || null,
-          play_end: about.schedule.end || null,
-          // Only recorded once there's a schedule, so the default offset
-          // isn't stored as if it had been chosen.
-          timezone: hasSchedule ? about.schedule.timezone : null,
-        })
-        .eq("id", data.user.id);
+    const hasSchedule =
+      about.schedule.days.length > 0 || Boolean(about.schedule.start);
 
-      // The games picked in step 1, with the rank and roles chosen for
-      // each. Both are catalogue ids, so the profile and the matching score
-      // read exactly what was picked.
-      const chosenGames: UserGame[] = selectedGames.flatMap((name) => {
-        const entry = catalogue.find((item) => item.name === name);
-        if (!entry) return [];
-        const details = gameDetails[name];
-        const rank = entry.ranks.find((option) => option.id === details?.rankId);
-        return [
-          {
-            gameId: entry.id,
-            slug: entry.slug,
-            name: entry.name,
-            inGameName: details?.username ?? "",
-            region: details?.region ?? "",
-            rankId: rank?.id ?? null,
-            rankName: rank?.name ?? "",
-            rankOrdinal: rank?.ordinal ?? null,
-            roleIds: details?.roleIds ?? [],
-            roleNames: [],
-          },
-        ];
-      });
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .update({
+        playstyle,
+        personality_tags: personalityTags,
+        gender: about.gender || null,
+        languages: about.languages,
+        play_days: about.schedule.days,
+        play_start: about.schedule.start || null,
+        play_end: about.schedule.end || null,
+        // Only recorded once there's a schedule, so the default offset
+        // isn't stored as if it had been chosen.
+        timezone: hasSchedule ? about.schedule.timezone : null,
+      })
+      .eq("id", userId);
+    if (profileError) {
+      setSaving(false);
+      setSaveError("Couldn't save your setup. Check your connection and try again.");
+      return;
+    }
 
-      if (chosenGames.length > 0) {
-        await saveUserGames(supabase, data.user.id, chosenGames, []);
+    // Private, so it lives in its own table. Skipped entirely when the step
+    // was left blank. A failure sends the player back to the step that
+    // holds the field instead of losing the rest silently.
+    const dateOfBirth = joinDate(about.dobParts);
+    if (dateOfBirth) {
+      const dobError = await saveDateOfBirth(supabase, userId, dateOfBirth);
+      if (dobError) {
+        setSaving(false);
+        setAboutErrors({ dateOfBirth: dobError });
+        setStepIndex(steps.indexOf("about"));
+        return;
       }
+    }
 
-      // Private, so it lives in its own table (see the dossier migration).
-      // Skipped entirely when the step was left blank.
-      const dateOfBirth = joinDate(about.dobParts);
-      if (dateOfBirth) {
-        const dobError = await saveDateOfBirth(
-          supabase,
-          data.user.id,
-          dateOfBirth
+    // One game at a time. Saving a game is safe to repeat (update, else
+    // insert, roles replaced as a set), so a retry after a partial failure
+    // simply redoes the lot. Connected accounts still have no table, so
+    // that step is not saved yet.
+    for (const slug of selectedGames) {
+      const game = catalog.find((g) => g.slug === slug);
+      if (!game) continue;
+      const details = gameDetails[slug] ?? emptyGameProfile;
+
+      const failure = await saveGameSetup(supabase, userId, {
+        gameId: game.id,
+        inGameName: details.username,
+        region: details.region || regionsFor(slug).default,
+        rankId: game.ranks.find((rank) => rank.name === details.rank)?.id ?? null,
+        roleIds: game.roles
+          .filter((role) => details.roles.includes(role.name))
+          .map((role) => role.id),
+      });
+      if (failure) {
+        setSaving(false);
+        setSaveError(
+          `Couldn't save your ${game.name} details. Check your connection and try again.`,
         );
-        // Onboarding is skippable, so a failure here shouldn't trap anyone
-        // on the step — it's reported and the rest of the profile is saved.
-        if (dobError) {
-          setAboutErrors({ dateOfBirth: dobError });
-          setStepIndex(steps.indexOf("about"));
-          return;
-        }
+        return;
       }
     }
 
     toast({
       tone: "success",
       title: "You're all set",
-      body: "Your profile is saved — playstyle, personality and schedule are what lobby matching looks at first. Game and rank sync comes with lobbies.",
+      body: "Your profile has been saved. You can change it any time.",
     });
     router.push(destination);
   }
@@ -245,7 +238,8 @@ export default function OnboardingFlow() {
 
       <button
         type="button"
-        onClick={finish}
+        onClick={skip}
+        disabled={saving}
         className="absolute right-4 top-4 text-xs font-semibold text-text-muted transition-colors hover:text-white sm:right-6 sm:top-6"
       >
         Skip for now
@@ -270,11 +264,15 @@ export default function OnboardingFlow() {
 
         <div className="rounded-2xl border border-border-strong bg-bg-card-alt p-6 sm:p-8">
           {step === "games" && (
-            <GamesStep selected={selectedGames} onToggle={toggleGame} />
+            <GamesStep
+              catalog={catalog}
+              selected={selectedGames}
+              onToggle={toggleGame}
+            />
           )}
           {step === "rank" && (
             <RankRoleStep
-              catalogue={catalogue}
+              catalog={catalog}
               selectedGames={selectedGames}
               details={gameDetails}
               onUpdate={updateGameProfile}
@@ -299,6 +297,12 @@ export default function OnboardingFlow() {
             <ConnectStep connected={connected} onToggle={toggleProvider} />
           )}
 
+          {saveError && (
+            <p className="mt-6 text-xs text-danger" role="alert">
+              {saveError}
+            </p>
+          )}
+
           <div className="mt-8 flex items-center justify-between border-t border-border-subtle pt-6">
             {stepIndex > 0 ? (
               <button
@@ -315,9 +319,10 @@ export default function OnboardingFlow() {
             <button
               type="button"
               onClick={handleContinue}
-              className="flex h-10 items-center justify-center rounded-lg bg-brand px-6 text-xs font-bold text-white transition-opacity hover:opacity-90"
+              disabled={saving}
+              className="flex h-10 items-center justify-center rounded-lg bg-brand px-6 text-xs font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isLastStep ? "Finish setup" : "Continue"}
+              {saving ? "Saving…" : isLastStep ? "Finish setup" : "Continue"}
             </button>
           </div>
         </div>

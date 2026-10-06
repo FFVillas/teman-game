@@ -6,17 +6,15 @@ import FriendCard from "./FriendCard";
 import GameFilterDropdown from "./GameFilterDropdown";
 import { onlineFriends, offlineFriends } from "@/data/social-friends";
 
-type Tab = "online" | "all" | "blocked";
+type Tab = "online" | "all";
 
 const tabs: { id: Tab; label: string }[] = [
   { id: "online", label: "Online" },
   { id: "all", label: "All" },
-  { id: "blocked", label: "Blocked" },
 ];
 
 export default function SocialFriendsPanel() {
   const [activeTab, setActiveTab] = useState<Tab>("online");
-  const showFriends = activeTab === "online" || activeTab === "all";
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -74,37 +72,27 @@ export default function SocialFriendsPanel() {
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-8 overflow-y-auto p-6">
-        {showFriends && (
-          <>
-            <section className="flex flex-col gap-3">
-              <h2 className="text-[11px] font-bold uppercase tracking-wider text-text-muted">
-                Online — {onlineFriends.length}
-              </h2>
-              <div className="grid grid-cols-1 gap-1 sm:grid-cols-1 lg:grid-cols-2">
-                {onlineFriends.map((friend) => (
-                  <FriendCard key={friend.id} friend={friend} />
-                ))}
-              </div>
-            </section>
-
-            <section className="flex flex-col gap-3">
-              <h2 className="text-[11px] font-bold uppercase tracking-wider text-text-muted">
-                Offline — {offlineFriends.length}
-              </h2>
-              <div className="grid grid-cols-1 gap-1 sm:grid-cols-1 lg:grid-cols-2">
-                {offlineFriends.map((friend) => (
-                  <FriendCard key={friend.id} friend={friend} />
-                ))}
-              </div>
-            </section>
-          </>
-        )}
-
-        {activeTab === "blocked" && (
-          <div className="flex flex-1 items-center justify-center py-16 text-sm text-text-muted">
-            No blocked players.
+        <section className="flex flex-col gap-3">
+          <h2 className="text-[11px] font-bold uppercase tracking-wider text-text-muted">
+            Online — {onlineFriends.length}
+          </h2>
+          <div className="grid grid-cols-1 gap-1 sm:grid-cols-1 lg:grid-cols-2">
+            {onlineFriends.map((friend) => (
+              <FriendCard key={friend.id} friend={friend} />
+            ))}
           </div>
-        )}
+        </section>
+
+        <section className="flex flex-col gap-3">
+          <h2 className="text-[11px] font-bold uppercase tracking-wider text-text-muted">
+            Offline — {offlineFriends.length}
+          </h2>
+          <div className="grid grid-cols-1 gap-1 sm:grid-cols-1 lg:grid-cols-2">
+            {offlineFriends.map((friend) => (
+              <FriendCard key={friend.id} friend={friend} />
+            ))}
+          </div>
+        </section>
       </div>
     </div>
   );

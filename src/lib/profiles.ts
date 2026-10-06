@@ -6,7 +6,7 @@ import {
 } from "@/data/player-profiles";
 import { formatAvailability, trimSeconds } from "@/lib/availability";
 import { avatarUrl } from "@/lib/avatar";
-import type { UserGame } from "@/lib/user-games";
+import type { PlayerGameSetup } from "@/lib/games";
 
 /** Columns of `public.profiles` the profile screens read, plus the derived age. */
 export interface ProfileRow {
@@ -155,7 +155,7 @@ function tooYoung(error: { code?: string; message?: string }): string | null {
  */
 export function profileFromRow(
   row: ProfileRow,
-  { isOwner, games = [] }: { isOwner: boolean; games?: UserGame[] },
+  { isOwner, gameSetups }: { isOwner: boolean; gameSetups?: PlayerGameSetup[] },
 ): PlayerProfile {
   const knownTags = new Set<string>(personalityTagOptions);
 
@@ -183,9 +183,9 @@ export function profileFromRow(
       }),
     },
     connections: [],
-    games,
+    gameSetups,
     // Win rate, LP and match counts need a game integration that doesn't
-    // exist — `games` carries what the player typed in instead.
+    // exist. `gameSetups` carries what the player typed in instead.
     gameStats: [],
     recentTeams: [],
     memberSince: new Date(row.created_at).toLocaleDateString("en-US", {

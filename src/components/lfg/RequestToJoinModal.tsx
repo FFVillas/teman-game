@@ -1,24 +1,42 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import type { LfgTeam } from "@/data/lfg-teams";
 import { lfgRoles, type LfgRole } from "@/data/lfg-roles";
 import { findProfileByUsername } from "@/data/player-profiles";
 import { modeStyles } from "./LfgTeamCard";
+import RankRangeBadge from "./RankRangeBadge";
 import { useNotifications } from "@/contexts/NotificationContext";
+import { modesFor } from "@/data/game-modes";
+import type { GameInfo } from "@/lib/games";
+import {
+  OPEN_BOUNDS,
+  boundsFromTierRange,
+  describeBounds,
+  lobbyJoinBounds,
+  ordinalFits,
+  partyRuleFor,
+  tiersOf,
+} from "@/lib/ranks";
 
 const allRoles: LfgRole[] = Object.values(lfgRoles);
 
 interface RequestToJoinModalProps {
   team: LfgTeam;
   onClose: () => void;
+  /** The game's ranks, to check whether the viewer's rank fits. */
+  game?: GameInfo;
+  /** The signed-in viewer's rank in this game, e.g. "Gold 2"; "" if unknown. */
+  myRank?: string;
 }
 
 export default function RequestToJoinModal({
   team,
   onClose,
+  game,
+  myRank,
 }: RequestToJoinModalProps) {
   const [selectedRole, setSelectedRole] = useState<LfgRole>(
     team.lookingFor[0] ?? allRoles[0]
@@ -44,8 +62,29 @@ export default function RequestToJoinModal({
   const emptySlots = Math.max(team.slotsTotal - team.members.length, 0);
   const leaderProfile = findProfileByUsername(team.leaderName);
 
+  // The card only shows the range the leader typed. Whether *you* can join
+  // right now is checked here, where it matters: the game's party rule applied
+  // to who is already in, plus that range (see lib/ranks.ts). Only the leader's
+  // rank is known for these mock lobbies, so that is who the rule is applied to.
+  const tiers = useMemo(() => tiersOf(game?.ranks ?? []), [game]);
+  const viewerOrdinal =
+    game?.ranks.find((rank) => rank.name === myRank)?.ordinal ?? null;
+  const leaderTier = tiers.find((tier) => tier.name === team.rank.name);
+  const modeValue =
+    modesFor(team.game).find((candidate) => candidate.kind === team.mode)
+      ?.value ?? "";
+  const joinBounds = lobbyJoinBounds(
+    partyRuleFor(team.game, modeValue, team.slotsTotal),
+    tiers,
+    leaderTier ? [leaderTier.firstOrdinal] : [],
+    team.rankRange ? boundsFromTierRange(tiers, team.rankRange) : OPEN_BOUNDS
+  );
+  // Unranked or signed-out viewers always pass: the game decides at queue time.
+  const rankFits = ordinalFits(viewerOrdinal, joinBounds);
+
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    if (!rankFits) return;
     // TODO: wire up to the join-request API once it exists.
     toast({
       tone: "success",
@@ -149,9 +188,24 @@ export default function RequestToJoinModal({
                   />
                 </section>
 
+                {!rankFits && (
+                  <p
+                    role="alert"
+                    className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-xs leading-relaxed text-danger"
+                  >
+                    Your rank ({myRank}) doesn&apos;t fit this lobby right now.
+                    It currently accepts{" "}
+                    <span className="font-semibold">
+                      {describeBounds(tiers, joinBounds)}
+                    </span>
+                    .
+                  </p>
+                )}
+
                 <button
                   type="submit"
-                  className="flex h-11 items-center justify-center gap-2 rounded-xl bg-brand text-[13px] font-bold text-white transition-opacity hover:opacity-90"
+                  disabled={!rankFits}
+                  className="flex h-11 items-center justify-center gap-2 rounded-xl bg-brand text-[13px] font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
                   <img
@@ -303,8 +357,13 @@ export default function RequestToJoinModal({
                           Mic Required
                         </span>
                       )}
-                      <span className="rounded-full bg-brand/10 px-2 py-0.5 text-[9px] font-semibold text-brand">
-                        {team.rank.name}+ Only
+                      <span className="rounded-full bg-brand/10 px-2 py-0.5">
+                        <RankRangeBadge
+                          range={team.rankRange}
+                          ranks={game?.ranks}
+                          gameSlug={team.game}
+                          size="sm"
+                        />
                       </span>
                     </div>
                   </div>
