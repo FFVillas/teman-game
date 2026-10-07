@@ -2,10 +2,7 @@ import {
   playerProfiles,
   type PlayerProfile,
 } from "./player-profiles";
-import { onlineFriends, offlineFriends } from "./social-friends";
-import { discoverPlayers } from "./social-discover";
 import { recentTeammates } from "./social-recent";
-import { pendingRequests } from "./social-pending";
 
 /**
  * Every player row in the app links to a profile, but only a handful of
@@ -40,12 +37,7 @@ function remember(name: string, avatar: string) {
   directory[slug] = { name, avatar };
 }
 
-for (const friend of [...onlineFriends, ...offlineFriends]) {
-  remember(friend.name, friend.avatar);
-}
-for (const player of discoverPlayers) remember(player.name, player.avatar);
 for (const teammate of recentTeammates) remember(teammate.name, teammate.avatar);
-for (const request of pendingRequests) remember(request.name, request.avatar);
 
 /**
  * A profile we can render without inventing stats. Everything unknown reads

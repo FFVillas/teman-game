@@ -1,7 +1,40 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import PlayerCard from "./PlayerCard";
-import { discoverPlayers } from "@/data/social-discover";
+import { EmptyState } from "@/components/EmptyState";
+import { useAuth } from "@/contexts/AuthContext";
+import { createClient } from "@/lib/supabase/client";
+import { fetchDiscoverCandidates, type SocialProfile } from "@/lib/social";
 
 export default function DiscoverPlayersPanel() {
+  const { user, isReady } = useAuth();
+  const [players, setPlayers] = useState<SocialProfile[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState("");
+
+  useEffect(() => {
+    if (!isReady) return;
+    let cancelled = false;
+    const supabase = createClient();
+    // Debounced: a query fires per keystroke otherwise.
+    const timer = setTimeout(() => {
+      const load = user
+        ? fetchDiscoverCandidates(supabase, user.id, query)
+        : Promise.resolve<SocialProfile[]>([]);
+      load.then((rows) => {
+        if (!cancelled) {
+          setPlayers(rows);
+          setLoading(false);
+        }
+      });
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [isReady, user, query]);
+
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="flex items-center gap-2 border-b border-border-default px-6 py-4">
@@ -23,20 +56,38 @@ export default function DiscoverPlayersPanel() {
           />
           <input
             type="text"
-            placeholder="Search by name or game"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search by username"
             className="h-10 w-full rounded-lg border border-border-default bg-bg-page pl-9 pr-3 text-sm text-white placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-brand"
           />
         </div>
       </div>
 
       <div className="grid min-h-0 flex-1 auto-rows-min grid-cols-1 gap-1 overflow-y-auto p-6 pt-2 sm:grid-cols-1 lg:grid-cols-2">
-        {discoverPlayers.map((player) => (
+        {!loading && players.length === 0 && (
+          <div className="sm:col-span-1 lg:col-span-2">
+            <EmptyState
+              icon="/icons/social-compass.svg"
+              title={query ? "No players found" : "Nobody new to discover yet"}
+              description={
+                query
+                  ? "Try a different username."
+                  : "Once more players sign up, they'll show up here."
+              }
+            />
+          </div>
+        )}
+        {players.map((player) => (
           <PlayerCard
             key={player.id}
             id={player.id}
             avatar={player.avatar}
-            name={player.name}
-            context={`${player.game} · ${player.rank}`}
+            name={player.username}
+            real
+            onBlocked={() =>
+              setPlayers((prev) => prev.filter((p) => p.id !== player.id))
+            }
           />
         ))}
       </div>
