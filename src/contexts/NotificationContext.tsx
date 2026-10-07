@@ -12,6 +12,7 @@ import {
 import { useAuth } from "./AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import type { AppNotification, NotificationKind } from "@/data/notifications";
+import { useRealtimeInserts } from "@/lib/realtime";
 import {
   fetchNotifications,
   insertNotification,
@@ -116,6 +117,19 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       cancelled = true;
     };
   }, [isReady, playerId]);
+
+  // A notification written by someone else (or by another tab) lands here
+  // without a reload. `notify()` already adds its own row locally, so the
+  // id check stops it appearing twice.
+  useRealtimeInserts<{ id: string }>({
+    table: "notifications",
+    filter: playerId ? `user_id=eq.${playerId}` : undefined,
+    enabled: Boolean(playerId),
+    onInsert: () => {
+      if (!playerId) return;
+      fetchNotifications(createClient()).then((rows) => setNotifications(rows));
+    },
+  });
 
   const dismissToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import ConversationList, { type LobbyChatEntry } from "./ConversationList";
 import MessageThread from "./MessageThread";
@@ -16,6 +16,7 @@ import {
 } from "@/data/lfg-lobby";
 import { useLobbySessions } from "@/lib/lobby-session";
 import { CURRENT_USER_ID, type Conversation } from "@/data/lfg-messages";
+import { useRealtimeInserts } from "@/lib/realtime";
 import {
   fetchConversations,
   fetchThread,
@@ -37,8 +38,15 @@ export default function MessagesView() {
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
+  // Read inside the realtime callback, which is created once per
+  // subscription and would otherwise capture a stale `activeId`.
+  const activeIdRef = useRef<string | null>(null);
   /** Set when ?user= points at somebody who isn't a real account. */
   const [missingTarget, setMissingTarget] = useState<string | null>(null);
+
+  useEffect(() => {
+    activeIdRef.current = activeId;
+  }, [activeId]);
 
   const lobbyParam = searchParams.get("lobby");
   const userParam = searchParams.get("user");
@@ -146,6 +154,40 @@ export default function MessagesView() {
         }),
     [sessionFor],
   );
+
+  // Incoming messages only: your own sends are already on screen, so there
+  // is nothing to listen for there.
+  useRealtimeInserts<{ id: string; sender_id: string }>({
+    table: "direct_messages",
+    filter: meId ? `receiver_id=eq.${meId}` : undefined,
+    enabled: Boolean(meId),
+    onInsert: (row) => {
+      if (!meId) return;
+      const conversationId = `dm:${row.sender_id}`;
+      const supabase = createClient();
+
+      // Re-read rather than patching the row in: the sender may be someone
+      // with no conversation yet, and this keeps one code path for both.
+      fetchConversations(supabase, meId).then(async (threads) => {
+        let next = threads;
+        if (activeIdRef.current === conversationId) {
+          const [messages] = await Promise.all([
+            fetchThread(supabase, meId, row.sender_id),
+            markThreadRead(supabase, meId, row.sender_id),
+          ]);
+          next = threads.map((thread) =>
+            thread.id === conversationId
+              ? {
+                  ...thread,
+                  messages: messages.map((m) => ({ ...m, read: true })),
+                }
+              : thread,
+          );
+        }
+        setConversations(next);
+      });
+    },
+  });
 
   const active = conversations.find((c) => c.id === activeId) ?? null;
   const activeLobbyChat = lobbyChats.find((entry) => entry.key === activeId);
