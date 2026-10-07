@@ -11,6 +11,7 @@ import NavAuthButtons from "./NavAuthButtons";
 import NotificationBell from "./NotificationBell";
 import { createClient } from "@/lib/supabase/client";
 import { fetchUnreadMessageCount } from "@/lib/direct-messages";
+import { useRealtimeInserts } from "@/lib/realtime";
 
 export default function Navbar() {
   const { user, isAdmin } = useAuth();
@@ -33,6 +34,14 @@ export default function Navbar() {
       cancelled = true;
     };
   }, [playerId]);
+
+  // Keeps the badge honest while the tab is open.
+  useRealtimeInserts<{ id: string }>({
+    table: "direct_messages",
+    filter: playerId ? `receiver_id=eq.${playerId}` : undefined,
+    enabled: Boolean(playerId),
+    onInsert: () => setUnreadMessages((count) => count + 1),
+  });
 
   return (
     <header className="sticky top-0 z-50 flex h-[60px] w-full items-center justify-center border-b border-border-subtle bg-bg-nav px-6">
