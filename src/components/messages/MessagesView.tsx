@@ -1,90 +1,127 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import ConversationList, { type LobbyChatEntry } from "./ConversationList";
 import MessageThread from "./MessageThread";
 import LobbyChatThread from "./LobbyChatThread";
+import { EmptyState } from "@/components/EmptyState";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNotifications } from "@/contexts/NotificationContext";
+import { createClient } from "@/lib/supabase/client";
 import {
   CURRENT_PLAYER_ID,
   allLobbies,
   viewerRoleIn,
 } from "@/data/lfg-lobby";
 import { useLobbySessions } from "@/lib/lobby-session";
+import { CURRENT_USER_ID, type Conversation } from "@/data/lfg-messages";
 import {
-  conversations as initialConversations,
-  CURRENT_USER_ID,
-  type Conversation,
-} from "@/data/lfg-messages";
-
-function markRead(conversation: Conversation): Conversation {
-  return {
-    ...conversation,
-    messages: conversation.messages.map((message) => ({
-      ...message,
-      read: true,
-    })),
-  };
-}
+  fetchConversations,
+  fetchThread,
+  findMessageTarget,
+  markThreadRead,
+  sendDirectMessage,
+} from "@/lib/direct-messages";
 
 /**
- * Resolves the deep link a friend/profile "Message" button sends here —
- * /messages?user=<id>&name=<name>&avatar=<url> — into an initial state:
- * open the matching conversation, or start a fresh one if it doesn't exist
- * yet. Falls back to the first conversation with no query params. Computed
- * once as a useState initializer rather than in an effect, since it only
- * needs to run for the render that mounts this page.
+ * Direct messages come from `direct_messages`; lobby chats still come from
+ * the sessionStorage stand-in, because `lobby_messages` needs the lobby
+ * tables that aren't built yet. One list, two sources, on purpose.
  */
-function buildInitialState(
-  userId: string | null,
-  name: string | null,
-  avatar: string | null,
-  lobbyId: string | null,
-) {
-  let conversations = initialConversations;
-  let activeId = lobbyId
-    ? `lobby:${lobbyId}`
-    : (initialConversations[0]?.id ?? null);
-
-  if (userId) {
-    const existing = conversations.find(
-      (conversation) => conversation.participant.id === userId,
-    );
-    if (existing) {
-      activeId = existing.id;
-    } else if (name && avatar) {
-      const fresh: Conversation = {
-        id: `c-${userId}`,
-        participant: { id: userId, name, avatar },
-        messages: [],
-      };
-      conversations = [fresh, ...conversations];
-      activeId = fresh.id;
-    }
-  }
-
-  // Opening a conversation reads it, so clear its unread flags up front.
-  if (activeId) {
-    conversations = conversations.map((conversation) =>
-      conversation.id === activeId ? markRead(conversation) : conversation,
-    );
-  }
-
-  return { conversations, activeId };
-}
-
 export default function MessagesView() {
   const searchParams = useSearchParams();
-  const [state, setState] = useState(() =>
-    buildInitialState(
-      searchParams.get("user"),
-      searchParams.get("name"),
-      searchParams.get("avatar"),
-      searchParams.get("lobby"),
-    ),
-  );
-  const { conversations, activeId } = state;
-  const active = conversations.find((c) => c.id === activeId) ?? null;
+  const { user, isReady } = useAuth();
+  const { toast } = useNotifications();
+  const meId = user?.role === "player" ? user.id : null;
+
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  /** Set when ?user= points at somebody who isn't a real account. */
+  const [missingTarget, setMissingTarget] = useState<string | null>(null);
+
+  const lobbyParam = searchParams.get("lobby");
+  const userParam = searchParams.get("user");
+  const nameParam = searchParams.get("name");
+
+  useEffect(() => {
+    if (!isReady) return;
+    let cancelled = false;
+
+    async function load() {
+      if (!meId) {
+        if (!cancelled) setConversations([]);
+        return;
+      }
+
+      const supabase = createClient();
+      const threads = await fetchConversations(supabase, meId);
+      if (cancelled) return;
+
+      let list = threads;
+      let open = lobbyParam ? `lobby:${lobbyParam}` : (threads[0]?.id ?? null);
+
+      // "Message" buttons link here as ?user=<username>. If there's no
+      // conversation yet, start an empty one so the first message has
+      // somewhere to go.
+      if (userParam) {
+        // The link carries either a profile id (social rows) or a username
+        // (profile page), so match on both.
+        const existing = threads.find(
+          (thread) =>
+            thread.participant.id === userParam ||
+            thread.participant.name.toLowerCase() === userParam.toLowerCase(),
+        );
+        if (existing) {
+          open = existing.id;
+        } else {
+          const target = await findMessageTarget(supabase, userParam);
+          if (cancelled) return;
+          if (target) {
+            const fresh: Conversation = {
+              id: `dm:${target.id}`,
+              participant: target,
+              messages: [],
+            };
+            list = [fresh, ...threads];
+            open = fresh.id;
+          } else {
+            // Sample rows link to people with no account behind them. Show
+            // the display name from the link, never a raw id.
+            setMissingTarget(nameParam ?? userParam);
+          }
+        }
+      }
+
+      // Load the opened thread here rather than in a follow-up effect: the
+      // list only carries each conversation's latest message, and opening
+      // one also marks it read.
+      if (open?.startsWith("dm:")) {
+        const partnerId = open.slice(3);
+        const [messages] = await Promise.all([
+          fetchThread(supabase, meId, partnerId),
+          markThreadRead(supabase, meId, partnerId),
+        ]);
+        if (cancelled) return;
+        list = list.map((conversation) =>
+          conversation.id === open
+            ? {
+                ...conversation,
+                messages: messages.map((message) => ({ ...message, read: true })),
+              }
+            : conversation,
+        );
+      }
+
+      setConversations(list);
+      setActiveId(open);
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [isReady, meId, userParam, nameParam, lobbyParam]);
 
   // Lobby group chats you're part of (as leader or member), for as long as
   // the lobby runs. Invites don't count until accepted, and an ended lobby's
@@ -109,33 +146,73 @@ export default function MessagesView() {
         }),
     [sessionFor],
   );
+
+  const active = conversations.find((c) => c.id === activeId) ?? null;
   const activeLobbyChat = lobbyChats.find((entry) => entry.key === activeId);
 
-  function handleSelect(id: string) {
-    setState((prev) => ({
-      activeId: id,
-      conversations: prev.conversations.map((conversation) =>
-        conversation.id === id ? markRead(conversation) : conversation,
-      ),
-    }));
-  }
+  const handleSelect = useCallback(
+    async (id: string) => {
+      setActiveId(id);
+      if (!meId || !id.startsWith("dm:")) return;
 
-  function handleSend(body: string) {
-    if (!active) return;
-    const message = {
-      id: `${active.id}-${Date.now()}`,
-      senderId: CURRENT_USER_ID,
-      body,
-      sentAt: "Just now",
-    };
-    setState((prev) => ({
-      ...prev,
-      conversations: prev.conversations.map((conversation) =>
+      const partnerId = id.slice(3);
+      const supabase = createClient();
+      // Opening a conversation reads it; load the full thread at the same
+      // time, since the list only carries the latest message.
+      const [messages] = await Promise.all([
+        fetchThread(supabase, meId, partnerId),
+        markThreadRead(supabase, meId, partnerId),
+      ]);
+      setConversations((prev) =>
+        prev.map((conversation) =>
+          conversation.id === id
+            ? {
+                ...conversation,
+                messages: messages.map((message) => ({ ...message, read: true })),
+              }
+            : conversation,
+        ),
+      );
+    },
+    [meId],
+  );
+
+  async function handleSend(body: string) {
+    if (!active || !meId) return;
+    const partnerId = active.participant.id;
+
+    const sent = await sendDirectMessage(createClient(), meId, partnerId, body);
+    if (!sent) {
+      // Silence here would look like the message was sent — the draft is
+      // already cleared by the composer.
+      toast({
+        tone: "danger",
+        title: "Message not sent",
+        body: "Check your connection and try again.",
+      });
+      return;
+    }
+
+    setConversations((prev) =>
+      prev.map((conversation) =>
         conversation.id === active.id
-          ? { ...conversation, messages: [...conversation.messages, message] }
+          ? { ...conversation, messages: [...conversation.messages, sent] }
           : conversation,
       ),
-    }));
+    );
+  }
+
+  if (isReady && !meId) {
+    return (
+      <div className="flex flex-1 items-center justify-center p-6">
+        <EmptyState
+          icon="/icons/nav-chat.svg"
+          title="Log in to see your messages"
+          description="Direct messages are private to the two people in them."
+          action={{ label: "Log in", href: "/login?next=%2Fmessages" }}
+        />
+      </div>
+    );
   }
 
   return (
@@ -151,8 +228,20 @@ export default function MessagesView() {
           lobby={activeLobbyChat.lobby}
           session={sessionFor(activeLobbyChat.lobby)}
         />
+      ) : missingTarget && !active ? (
+        <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center p-6">
+          <EmptyState
+            title={`No account for ${missingTarget}`}
+            description="That player comes from the sample data, not a registered account — there's nobody to message yet."
+            size="sm"
+          />
+        </div>
       ) : (
-        <MessageThread conversation={active} onSend={handleSend} />
+        <MessageThread
+          conversation={active}
+          onSend={handleSend}
+          currentUserId={CURRENT_USER_ID}
+        />
       )}
     </>
   );

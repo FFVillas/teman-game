@@ -9,11 +9,14 @@ import { CURRENT_USER_ID, type Conversation } from "@/data/lfg-messages";
 interface MessageThreadProps {
   conversation: Conversation | null;
   onSend: (body: string) => void;
+  /** Sender id that marks a message as the viewer's own. */
+  currentUserId?: string;
 }
 
 export default function MessageThread({
   conversation,
   onSend,
+  currentUserId = CURRENT_USER_ID,
 }: MessageThreadProps) {
   const [draft, setDraft] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
@@ -64,7 +67,7 @@ export default function MessageThread({
         )}
 
         {conversation.messages.map((message) => {
-          const isMine = message.senderId === CURRENT_USER_ID;
+          const isMine = message.senderId === currentUserId;
 
           return (
             <div

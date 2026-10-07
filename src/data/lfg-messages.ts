@@ -4,10 +4,9 @@
  * separate from `LobbyMessage` (lfg-lobby.ts), which is lobby-scoped group
  * chat rather than a 1:1 DM.
  *
- * Still mock, and deliberately not fed by the real friendships in
- * src/lib/social.ts — DMs need their own table, out of scope until the
- * Messages backend is built. These participants are local to this file for
- * that reason, rather than pulled from (now-real) Social data.
+ * The rows themselves live in `public.direct_messages` and are read through
+ * `src/lib/direct-messages.ts`; this file now only holds the shapes the
+ * message components are built against.
  */
 
 /**
@@ -37,131 +36,15 @@ export interface Conversation {
 }
 
 /**
- * Sentinel id for "me". AuthUser (contexts/AuthContext.tsx) doesn't carry a
- * real id yet — there's no backend session to pull one from — so locally
- * authored messages use this instead of a user id from another mock file.
+ * Sentinel id for "me". Messages loaded from the database carry it instead
+ * of the signed-in user's real id, so "is this mine?" stays one comparison
+ * in the components rather than threading the session id through them.
  */
 export const CURRENT_USER_ID = "me";
 
-const shadowStrike: MessageParticipant = { id: "f1", name: "ShadowStrike", avatar: "/lfg/avatars/avatar-2.jpg" };
-const healerMain: MessageParticipant = { id: "f2", name: "HealerMain", avatar: "/lfg/avatars/avatar-3.jpg" };
-const noScopeGod: MessageParticipant = { id: "f3", name: "NoScopeGod", avatar: "/lfg/avatars/avatar-4.jpg" };
-const carryPotter: MessageParticipant = { id: "f5", name: "CarryPotter", avatar: "/lfg/avatars/avatar-6.jpg" };
-
-export const conversations: Conversation[] = [
-  {
-    id: "c-1",
-    participant: shadowStrike,
-    messages: [
-      {
-        id: "c1-m1",
-        senderId: shadowStrike.id,
-        body: "yo you up for ranked tonight?",
-        sentAt: "Yesterday · 21:14",
-        read: true,
-      },
-      {
-        id: "c1-m2",
-        senderId: CURRENT_USER_ID,
-        body: "yeah give me 20, still queuing solo",
-        sentAt: "Yesterday · 21:16",
-      },
-      {
-        id: "c1-m3",
-        senderId: shadowStrike.id,
-        body: "bet, I'll get the lobby ready",
-        sentAt: "Yesterday · 21:17",
-        read: true,
-      },
-      {
-        id: "c1-m4",
-        senderId: shadowStrike.id,
-        body: "you joining or nah lol",
-        sentAt: "09:02",
-        read: false,
-      },
-    ],
-  },
-  {
-    id: "c-2",
-    participant: healerMain,
-    messages: [
-      {
-        id: "c2-m1",
-        senderId: CURRENT_USER_ID,
-        body: "gg earlier, that clutch on defense was nasty",
-        sentAt: "Mon · 19:40",
-      },
-      {
-        id: "c2-m2",
-        senderId: healerMain.id,
-        body: "lmao I was sure we lost that round",
-        sentAt: "Mon · 19:42",
-        read: true,
-      },
-      {
-        id: "c2-m3",
-        senderId: healerMain.id,
-        body: "same time tomorrow?",
-        sentAt: "08:15",
-        read: false,
-      },
-    ],
-  },
-  {
-    id: "c-3",
-    participant: noScopeGod,
-    messages: [
-      {
-        id: "c3-m1",
-        senderId: noScopeGod.id,
-        body: "add me back, need a 5th for the tournament lobby",
-        sentAt: "07:50",
-        read: false,
-      },
-      {
-        id: "c3-m2",
-        senderId: noScopeGod.id,
-        body: "sign ups close tonight",
-        sentAt: "07:51",
-        read: false,
-      },
-    ],
-  },
-  {
-    id: "c-4",
-    participant: carryPotter,
-    messages: [
-      {
-        id: "c4-m1",
-        senderId: CURRENT_USER_ID,
-        body: "hey, you still looking for a duo?",
-        sentAt: "3 days ago",
-      },
-      {
-        id: "c4-m2",
-        senderId: carryPotter.id,
-        body: "yeah! what rank you at rn",
-        sentAt: "3 days ago",
-        read: true,
-      },
-    ],
-  },
-];
-
+/** Incoming messages in one conversation that haven't been read yet. */
 export function unreadCountFor(conversation: Conversation): number {
   return conversation.messages.filter(
     (message) => message.senderId !== CURRENT_USER_ID && message.read === false,
   ).length;
-}
-
-export function totalUnreadCount(list: Conversation[] = conversations): number {
-  return list.reduce((sum, conversation) => sum + unreadCountFor(conversation), 0);
-}
-
-export function conversationByParticipantId(
-  id: string,
-  list: Conversation[] = conversations,
-): Conversation | undefined {
-  return list.find((conversation) => conversation.participant.id === id);
 }

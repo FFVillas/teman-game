@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Logo from "./Logo";
 import UserMenu from "./UserMenu";
@@ -8,13 +9,30 @@ import { useAuth } from "@/contexts/AuthContext";
 import { activeLobby } from "@/data/lfg-lobby";
 import NavAuthButtons from "./NavAuthButtons";
 import NotificationBell from "./NotificationBell";
-import { totalUnreadCount } from "@/data/lfg-messages";
+import { createClient } from "@/lib/supabase/client";
+import { fetchUnreadMessageCount } from "@/lib/direct-messages";
 
 export default function Navbar() {
   const { user, isAdmin } = useAuth();
   // Staff accounts don't play, so player-only controls are hidden for them.
   const isPlayer = Boolean(user) && !isAdmin;
-  const unreadMessages = totalUnreadCount();
+  // Unread DMs, read once per page load — same freshness as the bell.
+  // TODO: a Supabase realtime subscription would make both live.
+  const [unreadMessages, setUnreadMessages] = useState(0);
+  const playerId = isPlayer ? user!.id : null;
+
+  useEffect(() => {
+    let cancelled = false;
+    const count = playerId
+      ? fetchUnreadMessageCount(createClient(), playerId)
+      : Promise.resolve(0);
+    count.then((value) => {
+      if (!cancelled) setUnreadMessages(value);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [playerId]);
 
   return (
     <header className="sticky top-0 z-50 flex h-[60px] w-full items-center justify-center border-b border-border-subtle bg-bg-nav px-6">
