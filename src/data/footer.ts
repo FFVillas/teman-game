@@ -25,11 +25,11 @@ export const footerCompanyLinks: FooterLink[] = [
   { label: "About Us", href: "#" },
   { label: "Tournaments", href: "#" },
   { label: "Community", href: "#" },
-  { label: "Support", href: "#" },
+  { label: "Support", href: "/support" },
 ];
 
 export const socialLinks: SocialLink[] = [
-  { label: "Discord", href: "#", icon: "/icons/social-discord.svg", iconWidth: 20, iconHeight: 16, bg: "bg-discord" },
+  { label: "Discord", href: "https://discord.gg/sx8gWPsTC", icon: "/icons/social-discord.svg", iconWidth: 20, iconHeight: 16, bg: "bg-discord" },
   { label: "Twitter", href: "#", icon: "/icons/social-twitter.svg", iconWidth: 16, iconHeight: 16, bg: "bg-twitter" },
   { label: "Twitch", href: "#", icon: "/icons/social-twitch.svg", iconWidth: 16, iconHeight: 16, bg: "bg-twitch" },
 ];
