@@ -92,7 +92,7 @@ export const loginPanel: AuthPanelContent = {
 
 export const authLegal = {
   termsLabel: "Terms of Service",
-  termsHref: "#",
+  termsHref: "/terms",
   privacyLabel: "Privacy Policy",
   privacyHref: "/privacy",
 };
