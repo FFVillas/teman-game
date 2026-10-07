@@ -209,6 +209,46 @@ decline icon buttons in the row (`actionableKinds` in
 requests deliberately aren't — `/social/pending` already owns that action,
 and having it in two places invites them drifting apart.
 
+## Messages: DMs are real, lobby chat is not
+
+Two different entities, deliberately split so two people can work at once:
+
+- **Direct messages** are rows in `public.direct_messages`
+  (`20261007000000_direct_messages.sql`), read and written through
+  `src/lib/direct-messages.ts`. Exactly the proposal's entity: sender,
+  receiver, body, timestamp — no `conversations` table, because a
+  conversation is just every row between two people. RLS lets only the two
+  participants read it, only the sender insert, and only the receiver set
+  `read_at`. **No delete policy**: a sent message can't be unsent.
+- **Lobby chat** is `lobby_messages` in the proposal, which needs the
+  `lobbies` table nobody has built yet. It is still the sessionStorage
+  stand-in (`src/lib/lobby-session.ts`) and must stay that way until the
+  Lobby slice lands — building a second lobby schema alongside someone
+  else's is how the games slice ended up with two parallel versions.
+
+`/messages` shows both in one list: lobby chats on top (session store), DMs
+below (database). The `?user=<username>` deep link resolves to a real
+profile; names that only exist in the social mock data get an empty state
+saying so, rather than opening a conversation that can't be sent to.
+
+An admin **cannot** read DMs through the API — there's no policy for it.
+That's deliberate: if reporting a DM is added later, the reporter should
+attach the specific messages to the report instead of handing moderators a
+window into every private conversation.
+
+## Settings
+
+`/settings` covers what belongs to the *login*, not the player profile:
+email, password, logout, and where account deletion goes. Profile fields
+stay on `/profile/me/edit`, so there's one place to edit who you are.
+
+**No new table, on purpose.** Everything there is already owned by Supabase
+Auth. Notification preferences and profile visibility would each need
+storage the proposal doesn't model — add them when a screen actually reads
+them, not before. Account deletion is admin-handled for now: removing an
+auth record needs a server-side job, which a signed-in browser can't be
+trusted with.
+
 ## Admin console
 
 **Read [`docs/admin-console.md`](docs/admin-console.md) before touching

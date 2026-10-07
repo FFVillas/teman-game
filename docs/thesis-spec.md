@@ -255,6 +255,9 @@ the code is at UI-shell stage while the spec describes the full system.
 | Playstyle 1–5 Likert | closest is free-text `vibeTags` in the create form |
 | Personality tags | not modeled |
 | PWA (service worker, manifest, FCM) | none present — notifications exist as rows and are read on page load, but nothing is pushed |
+| `direct_messages` | **built** (`20261007000000_direct_messages.sql`) — exactly the ERD entity; `/messages` reads and writes it |
+| `lobby_messages` | not built — waits on the `lobbies` table; lobby chat still runs on a sessionStorage stand-in |
+| Settings screen | `/settings` built on Supabase Auth alone (email, password, logout); no new table |
 | Notifications (§3.2.4 req. 5) | table + UI built; cross-player inserts still need a server-side trigger, since RLS only allows self-addressed rows |
 | Supabase + Auth + RLS | `profiles` table + RLS live (Account slice). Everything else still `// TODO` + `router.push` |
 | Admin moderation (reports, sanctions, bans) | `admins` + `is_admin()` live (see divergences above); `reports`/`sanctions`/`sanction_reports`/`admin_actions` written but not run — deferred until the report feature is built. `/admin` console itself still runs on mock data; `AdminGate` is still a client-side check, not yet wired to real auth/RLS; players aren't notified of sanctions yet |
