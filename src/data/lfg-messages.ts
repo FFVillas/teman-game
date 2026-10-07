@@ -1,10 +1,13 @@
-import { onlineFriends, offlineFriends } from "./social-friends";
-
 /**
  * Direct messages between the signed-in user and another player. Mirrors the
  * `direct_messages` entity in the thesis ERD — see docs/thesis-spec.md. Kept
  * separate from `LobbyMessage` (lfg-lobby.ts), which is lobby-scoped group
  * chat rather than a 1:1 DM.
+ *
+ * Still mock, and deliberately not fed by the real friendships in
+ * src/lib/social.ts — DMs need their own table, out of scope until the
+ * Messages backend is built. These participants are local to this file for
+ * that reason, rather than pulled from (now-real) Social data.
  */
 
 /**
@@ -40,14 +43,19 @@ export interface Conversation {
  */
 export const CURRENT_USER_ID = "me";
 
+const shadowStrike: MessageParticipant = { id: "f1", name: "ShadowStrike", avatar: "/lfg/avatars/avatar-2.jpg" };
+const healerMain: MessageParticipant = { id: "f2", name: "HealerMain", avatar: "/lfg/avatars/avatar-3.jpg" };
+const noScopeGod: MessageParticipant = { id: "f3", name: "NoScopeGod", avatar: "/lfg/avatars/avatar-4.jpg" };
+const carryPotter: MessageParticipant = { id: "f5", name: "CarryPotter", avatar: "/lfg/avatars/avatar-6.jpg" };
+
 export const conversations: Conversation[] = [
   {
     id: "c-1",
-    participant: onlineFriends[0], // ShadowStrike
+    participant: shadowStrike,
     messages: [
       {
         id: "c1-m1",
-        senderId: onlineFriends[0].id,
+        senderId: shadowStrike.id,
         body: "yo you up for ranked tonight?",
         sentAt: "Yesterday · 21:14",
         read: true,
@@ -60,14 +68,14 @@ export const conversations: Conversation[] = [
       },
       {
         id: "c1-m3",
-        senderId: onlineFriends[0].id,
+        senderId: shadowStrike.id,
         body: "bet, I'll get the lobby ready",
         sentAt: "Yesterday · 21:17",
         read: true,
       },
       {
         id: "c1-m4",
-        senderId: onlineFriends[0].id,
+        senderId: shadowStrike.id,
         body: "you joining or nah lol",
         sentAt: "09:02",
         read: false,
@@ -76,7 +84,7 @@ export const conversations: Conversation[] = [
   },
   {
     id: "c-2",
-    participant: onlineFriends[1], // HealerMain
+    participant: healerMain,
     messages: [
       {
         id: "c2-m1",
@@ -86,14 +94,14 @@ export const conversations: Conversation[] = [
       },
       {
         id: "c2-m2",
-        senderId: onlineFriends[1].id,
+        senderId: healerMain.id,
         body: "lmao I was sure we lost that round",
         sentAt: "Mon · 19:42",
         read: true,
       },
       {
         id: "c2-m3",
-        senderId: onlineFriends[1].id,
+        senderId: healerMain.id,
         body: "same time tomorrow?",
         sentAt: "08:15",
         read: false,
@@ -102,18 +110,18 @@ export const conversations: Conversation[] = [
   },
   {
     id: "c-3",
-    participant: onlineFriends[2], // NoScopeGod
+    participant: noScopeGod,
     messages: [
       {
         id: "c3-m1",
-        senderId: onlineFriends[2].id,
+        senderId: noScopeGod.id,
         body: "add me back, need a 5th for the tournament lobby",
         sentAt: "07:50",
         read: false,
       },
       {
         id: "c3-m2",
-        senderId: onlineFriends[2].id,
+        senderId: noScopeGod.id,
         body: "sign ups close tonight",
         sentAt: "07:51",
         read: false,
@@ -122,7 +130,7 @@ export const conversations: Conversation[] = [
   },
   {
     id: "c-4",
-    participant: offlineFriends[0], // CarryPotter
+    participant: carryPotter,
     messages: [
       {
         id: "c4-m1",
@@ -132,7 +140,7 @@ export const conversations: Conversation[] = [
       },
       {
         id: "c4-m2",
-        senderId: offlineFriends[0].id,
+        senderId: carryPotter.id,
         body: "yeah! what rank you at rn",
         sentAt: "3 days ago",
         read: true,

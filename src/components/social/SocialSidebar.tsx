@@ -1,24 +1,38 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import UserAvatar from "@/components/UserAvatar";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { currentUser as mockCurrentUser } from "@/data/social-friends";
-import { pendingRequests } from "@/data/social-pending";
-
-const navItems = [
-  { label: "Friends", href: "/social", icon: "/icons/social-friends.svg", badge: undefined as number | undefined },
-  { label: "Pending Requests", href: "/social/pending", icon: "/icons/social-inbox.svg", badge: pendingRequests.length },
-  { label: "Discover Players", href: "/social/discover", icon: "/icons/social-compass.svg", badge: undefined },
-  { label: "Recent Teammates", href: "/social/recent", icon: "/icons/social-recent-teammates.svg", badge: undefined },
-  { label: "Blocked", href: "/social/blocked", icon: "/icons/social-blocked.svg", badge: undefined },
-];
+import { createClient } from "@/lib/supabase/client";
+import { fetchIncomingRequests } from "@/lib/social";
 
 export default function SocialSidebar() {
   const pathname = usePathname();
-  const { user } = useAuth();
+  const { user, isReady } = useAuth();
   const displayUser = user ?? mockCurrentUser;
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    if (!isReady || !user) return;
+    let cancelled = false;
+    fetchIncomingRequests(createClient(), user.id).then((rows) => {
+      if (!cancelled) setPendingCount(rows.length);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isReady, user]);
+
+  const navItems = [
+    { label: "Friends", href: "/social", icon: "/icons/social-friends.svg", badge: undefined as number | undefined },
+    { label: "Pending Requests", href: "/social/pending", icon: "/icons/social-inbox.svg", badge: pendingCount },
+    { label: "Discover Players", href: "/social/discover", icon: "/icons/social-compass.svg", badge: undefined },
+    { label: "Recent Teammates", href: "/social/recent", icon: "/icons/social-recent-teammates.svg", badge: undefined },
+    { label: "Blocked", href: "/social/blocked", icon: "/icons/social-blocked.svg", badge: undefined },
+  ];
 
   return (
     <aside className="hidden min-h-0 w-[260px] shrink-0 flex-col border-r border-border-default sm:flex">

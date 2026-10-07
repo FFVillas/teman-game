@@ -94,7 +94,10 @@ export async function insertNotification(
 }
 
 /** Kinds `notify_user` (see 20261006010000_notify_user_rpc.sql) accepts. */
-export type CrossPlayerNotificationKind = "lobby_invite" | "join_request";
+export type CrossPlayerNotificationKind =
+  | "lobby_invite"
+  | "join_request"
+  | "friend_request";
 
 /**
  * Notifies a DIFFERENT player that the caller did something involving them —
