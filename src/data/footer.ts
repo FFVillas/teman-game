@@ -35,7 +35,7 @@ export const socialLinks: SocialLink[] = [
 ];
 
 export const legalLinks: FooterLink[] = [
-  { label: "Privacy Policy", href: "#" },
+  { label: "Privacy Policy", href: "/privacy" },
   { label: "Terms of Service", href: "#" },
   { label: "Cookie Policy", href: "#" },
 ];

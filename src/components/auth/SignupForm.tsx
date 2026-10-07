@@ -132,6 +132,8 @@ export default function SignupForm() {
               I agree to the{" "}
               <Link
                 href={authLegal.termsHref}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="font-semibold text-brand transition-opacity hover:opacity-80"
               >
                 {authLegal.termsLabel}
@@ -139,6 +141,8 @@ export default function SignupForm() {
               and{" "}
               <Link
                 href={authLegal.privacyHref}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="font-semibold text-brand transition-opacity hover:opacity-80"
               >
                 {authLegal.privacyLabel}
