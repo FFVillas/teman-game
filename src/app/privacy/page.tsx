@@ -2,66 +2,17 @@ import type { Metadata } from "next";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import BackLink from "@/components/BackLink";
+import {
+  LegalBullet as Bullet,
+  LegalSection as Section,
+  LegalSubSection as SubSection,
+} from "@/components/legal/LegalDoc";
 
 export const metadata: Metadata = {
   title: "Privacy Policy — TemanGame",
   description:
     "How TemanGame collects, uses, and protects your information.",
 };
-
-function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="flex flex-col gap-5 border-t border-border-default pt-10 first:border-t-0 first:pt-0">
-      <h2 className="text-xl font-extrabold tracking-tight text-white sm:text-2xl">
-        {title}
-      </h2>
-      <div className="flex flex-col gap-5 text-sm leading-relaxed text-text-subtle sm:text-[15px]">
-        {children}
-      </div>
-    </section>
-  );
-}
-
-function SubSection({
-  number,
-  title,
-  children,
-}: {
-  number: number;
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex flex-col gap-2.5">
-      <h3 className="text-sm font-bold text-white sm:text-base">
-        {number}. {title}
-      </h3>
-      <div className="flex flex-col gap-2.5 pl-0 text-sm leading-relaxed text-text-subtle sm:pl-1 sm:text-[15px]">
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function Bullet({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <li>
-      <span className="font-semibold text-white">{label}:</span> {children}
-    </li>
-  );
-}
 
 export default function PrivacyPolicyPage() {
   return (
