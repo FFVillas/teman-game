@@ -94,5 +94,5 @@ export const authLegal = {
   termsLabel: "Terms of Service",
   termsHref: "#",
   privacyLabel: "Privacy Policy",
-  privacyHref: "#",
+  privacyHref: "/privacy",
 };

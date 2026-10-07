@@ -23,5 +23,5 @@ export const adminMenuLinks: UserMenuLink[] = [
 
 export const userMenuLegalLinks: UserMenuLink[] = [
   { label: "Terms and Services", href: "#" },
-  { label: "Privacy Policy", href: "#" },
+  { label: "Privacy Policy", href: "/privacy" },
 ];
