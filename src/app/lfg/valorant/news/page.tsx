@@ -3,7 +3,9 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import BackLink from "@/components/BackLink";
 import NewsCard from "@/components/lfg/NewsCard";
-import { lfgNews } from "@/data/lfg-news";
+import { createClient } from "@/lib/supabase/server";
+import { fetchGameCatalog } from "@/lib/games";
+import { fetchNews } from "@/lib/news";
 
 export const metadata: Metadata = {
   title: "Latest News — TemanGame",
@@ -11,7 +13,12 @@ export const metadata: Metadata = {
     "Patch notes, esports announcements, and platform updates for Valorant teams on TemanGame.",
 };
 
-export default function LfgNewsIndexPage() {
+export default async function LfgNewsIndexPage() {
+  const supabase = await createClient();
+  const catalog = await fetchGameCatalog(supabase);
+  const game = catalog.find((g) => g.slug === "valorant");
+  const lfgNews = await fetchNews(supabase, game?.id);
+
   return (
     <>
       <Navbar />
