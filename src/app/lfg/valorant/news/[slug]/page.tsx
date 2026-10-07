@@ -5,26 +5,24 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import BackLink from "@/components/BackLink";
 import NewsCard from "@/components/lfg/NewsCard";
-import { lfgNews } from "@/data/lfg-news";
+import { createClient } from "@/lib/supabase/server";
+import { fetchGameCatalog } from "@/lib/games";
+import { fetchNews, fetchNewsArticle } from "@/lib/news";
 
 interface ArticlePageProps {
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ from?: string }>;
 }
 
-function getArticle(slug: string) {
-  return lfgNews.find((article) => article.slug === slug);
-}
-
-export function generateStaticParams() {
-  return lfgNews.map((article) => ({ slug: article.slug }));
-}
+// No generateStaticParams: articles are real rows now, read fresh on every
+// request rather than frozen at build time (same dynamic-rendering choice
+// the rest of the backend-connected pages make).
 
 export async function generateMetadata({
   params,
 }: ArticlePageProps): Promise<Metadata> {
   const { slug } = await params;
-  const article = getArticle(slug);
+  const article = await fetchNewsArticle(await createClient(), slug);
   if (!article) return {};
   return {
     title: `${article.title} — TemanGame`,
@@ -38,10 +36,14 @@ export default async function ArticlePage({
 }: ArticlePageProps) {
   const { slug } = await params;
   const { from } = await searchParams;
-  const article = getArticle(slug);
+  const supabase = await createClient();
+  const article = await fetchNewsArticle(supabase, slug);
   if (!article) notFound();
 
-  const moreArticles = lfgNews
+  const catalog = await fetchGameCatalog(supabase);
+  const game = catalog.find((g) => g.slug === "valorant");
+  const allNews = await fetchNews(supabase, game?.id);
+  const moreArticles = allNews
     .filter((item) => item.slug !== article.slug)
     .slice(0, 3);
 
