@@ -190,10 +190,25 @@ Two different things, deliberately:
   back to. It shows a toast *and* files an entry on `/notifications`,
   where it stays until read.
 
-`NotificationContext` seeds from `src/data/notifications.ts` and persists
-read state to `localStorage`, the same frontend-only pattern as
-`AuthContext`. Replace with FCM + a `notifications` table later; the
-provider is the seam.
+**Notifications are real rows** in `public.notifications`
+(`20261006000000_notifications.sql`); `src/lib/notifications.ts` reads and
+writes them and `NotificationContext` is the only caller. Toasts stay
+local — storing a four-second confirmation would be noise. `src/data/
+notifications.ts` now only holds the kinds, their styling, and which ones
+are actionable.
+
+Two limits worth knowing:
+
+- **Delivery is still "on page load".** Push (FCM + service worker, per the
+  proposal) and PWA are not built. A Supabase realtime subscription on this
+  table is the cheaper first step.
+- **The insert policy only allows rows addressed to yourself.** That covers
+  today's frontend-driven flows, but real cross-player notifications ("X
+  applied to your lobby") must be written server-side — a trigger on
+  `applications` or an edge function — once the Lobby slice exists.
+  Otherwise any account could spam anyone. The mock lobby flows therefore
+  file their notifications to the acting user, and the actor's name lives in
+  the title rather than in `actor_id`.
 
 `ToastHost` is mounted once in the root layout — don't add another.
 
@@ -202,6 +217,46 @@ decline icon buttons in the row (`actionableKinds` in
 `src/data/notifications.ts`) and store the outcome on `resolution`. Friend
 requests deliberately aren't — `/social/pending` already owns that action,
 and having it in two places invites them drifting apart.
+
+## Messages: DMs are real, lobby chat is not
+
+Two different entities, deliberately split so two people can work at once:
+
+- **Direct messages** are rows in `public.direct_messages`
+  (`20261007000000_direct_messages.sql`), read and written through
+  `src/lib/direct-messages.ts`. Exactly the proposal's entity: sender,
+  receiver, body, timestamp — no `conversations` table, because a
+  conversation is just every row between two people. RLS lets only the two
+  participants read it, only the sender insert, and only the receiver set
+  `read_at`. **No delete policy**: a sent message can't be unsent.
+- **Lobby chat** is `lobby_messages` in the proposal, which needs the
+  `lobbies` table nobody has built yet. It is still the sessionStorage
+  stand-in (`src/lib/lobby-session.ts`) and must stay that way until the
+  Lobby slice lands — building a second lobby schema alongside someone
+  else's is how the games slice ended up with two parallel versions.
+
+`/messages` shows both in one list: lobby chats on top (session store), DMs
+below (database). The `?user=<username>` deep link resolves to a real
+profile; names that only exist in the social mock data get an empty state
+saying so, rather than opening a conversation that can't be sent to.
+
+An admin **cannot** read DMs through the API — there's no policy for it.
+That's deliberate: if reporting a DM is added later, the reporter should
+attach the specific messages to the report instead of handing moderators a
+window into every private conversation.
+
+## Settings
+
+`/settings` covers what belongs to the *login*, not the player profile:
+email, password, logout, and where account deletion goes. Profile fields
+stay on `/profile/me/edit`, so there's one place to edit who you are.
+
+**No new table, on purpose.** Everything there is already owned by Supabase
+Auth. Notification preferences and profile visibility would each need
+storage the proposal doesn't model — add them when a screen actually reads
+them, not before. Account deletion is admin-handled for now: removing an
+auth record needs a server-side job, which a signed-in browser can't be
+trusted with.
 
 ## Admin console
 
@@ -425,6 +480,23 @@ expands its hit area over the row. Two things that will bite you:
   handlers call `preventDefault()`/`stopPropagation()` so clicking one
   doesn't also follow the row link. Never nest them inside the anchor —
   that's invalid HTML.
+
+## Navbar and avatars
+
+The right side of the navbar carries only things with live state: the
+active-lobby chip, the notification bell and messages (both with unread
+counts), then the account chip. **Social lives in the account menu**
+(`src/data/user-menu.ts`), not as its own icon — it's somewhere you go, not
+something you monitor, and four icons next to the chip read as clutter.
+Messages use a single speech bubble (`/icons/nav-chat.svg`); the old
+two-bubble icon competed with the bell.
+
+Use **`<UserAvatar src name />`** for any person whose picture may be
+missing — which is every real account, since `avatar_path` starts null and
+`avatarUrl()` returns "". An `<img src="">` makes the browser re-request the
+current page (React warns about it), so an empty source has to render the
+initial tile instead. Mock data always has an avatar, so the plain `<img>`
+in those components is fine.
 
 ## Back navigation
 

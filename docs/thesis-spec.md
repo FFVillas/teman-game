@@ -212,7 +212,18 @@ substitution, argued below.
    not a new table. Counter-Strike 2 models only its 18-rank Competitive
    ladder, not the numeric Premier rating.
 
-Net effect: 13 → 19 distinct tables once the rest of the model is built
+5. **Notifications (2026-10-06,
+   `supabase/migrations/20261006000000_notifications.sql`).** One more table
+   beyond the ERD, which has no entity for notifications at all — yet
+   requirement 5 of §3.2.4 ("Sistem Notifikasi Real-time") and the sequence
+   diagrams on p.59 (apply → notify leader → decision → notify applicant)
+   both depend on them. Frame it like `sanctions`: detailing a behaviour the
+   proposal already specifies rather than inventing a feature. Current limit
+   worth stating in BAB 4: the insert policy only allows rows addressed to
+   yourself, so genuine cross-player notifications wait on a server-side
+   trigger that arrives with the Lobby slice.
+
+Net effect: 13 → 20 distinct tables once the rest of the model is built
 (13 original, minus `user`/`role`/`user_role_mapping` reshaped into
 `profiles` + `admins` = 12; plus `profile_private` = 13; plus
 `sanctions`/`sanction_reports`/`admin_actions` = 16; plus `game_ranks`,
@@ -247,7 +258,11 @@ the code is at UI-shell stage while the spec describes the full system.
 | `game` + `user_game_mapping` | **built** (`20261003000200_games.sql`, with `game_ranks`, `game_roles`, `user_game_roles`) — profile tabs, onboarding and the edit form all read/write it. Rank and role are self-reported picks from the ladder; no game API integration |
 | Playstyle 1–5 Likert | closest is free-text `vibeTags` in the create form |
 | Personality tags | not modeled |
-| PWA (service worker, manifest, FCM) | none present |
+| PWA (service worker, manifest, FCM) | none present — notifications exist as rows and are read on page load, but nothing is pushed |
+| `direct_messages` | **built** (`20261007000000_direct_messages.sql`) — exactly the ERD entity; `/messages` reads and writes it |
+| `lobby_messages` | not built — waits on the `lobbies` table; lobby chat still runs on a sessionStorage stand-in |
+| Settings screen | `/settings` built on Supabase Auth alone (email, password, logout); no new table |
+| Notifications (§3.2.4 req. 5) | table + UI built; cross-player inserts still need a server-side trigger, since RLS only allows self-addressed rows |
 | Supabase + Auth + RLS | `profiles` table + RLS live (Account slice). Everything else still `// TODO` + `router.push` |
 | Admin moderation (reports, sanctions, bans) | `admins` + `is_admin()` live (see divergences above); `reports`/`sanctions`/`sanction_reports`/`admin_actions` written but not run — deferred until the report feature is built. `/admin` console itself still runs on mock data; `AdminGate` is still a client-side check, not yet wired to real auth/RLS; players aren't notified of sanctions yet |
 | Rank/role/region filtering | `LfgToolbar` has a hardcoded `resultCount={128}`; `SortDropdown` not wired |

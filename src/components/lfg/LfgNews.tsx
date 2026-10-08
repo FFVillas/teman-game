@@ -1,9 +1,11 @@
 import Link from "next/link";
 import NewsCard from "./NewsCard";
-import { lfgNews } from "@/data/lfg-news";
+import type { NewsArticle } from "@/data/lfg-news";
 
-export default function LfgNews() {
-  const featured = lfgNews.slice(0, 3);
+export default function LfgNews({ articles }: { articles: NewsArticle[] }) {
+  const featured = articles.slice(0, 3);
+
+  if (featured.length === 0) return null;
 
   return (
     <div className="flex flex-col gap-10 pt-6">

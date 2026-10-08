@@ -9,11 +9,19 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useAuth } from "./AuthContext";
+import { createClient } from "@/lib/supabase/client";
+import type { AppNotification, NotificationKind } from "@/data/notifications";
+import { useRealtimeInserts } from "@/lib/realtime";
 import {
-  seedNotifications,
-  type AppNotification,
-  type NotificationKind,
-} from "@/data/notifications";
+  fetchNotifications,
+  insertNotification,
+  markAllNotificationsRead,
+  markNotificationRead,
+  notifyUser,
+  resolveNotification,
+  type CrossPlayerNotificationKind,
+} from "@/lib/notifications";
 
 export type ToastTone = "success" | "info" | "danger";
 
@@ -34,12 +42,26 @@ interface NotificationContextValue {
   resolve: (id: string, resolution: "accepted" | "declined") => void;
   /** Transient confirmation of something the user just did. */
   toast: (input: Omit<Toast, "id">) => void;
-  /** An incoming event: shows a toast *and* lands in the notification list. */
+  /** An incoming event: shows a toast *and* files a row in `notifications`. */
   notify: (
     input: Omit<Toast, "id"> & {
       kind: NotificationKind;
-      actorName?: string;
-      actorAvatar?: string;
+      /** A real profile id, when there is one. */
+      actorId?: string;
+    }
+  ) => void;
+  /**
+   * Notifies a DIFFERENT player (invited them, applied to their lobby) —
+   * no local toast, since the caller already shows their own confirmation.
+   * Not wired into any lobby UI yet; see `notifyUser` in `@/lib/notifications`.
+   */
+  notifyPlayer: (
+    targetUserId: string,
+    input: {
+      kind: CrossPlayerNotificationKind;
+      title: string;
+      body?: string;
+      href?: string;
     }
   ) => void;
   dismissToast: (id: string) => void;
@@ -50,34 +72,64 @@ const NotificationContext = createContext<NotificationContextValue | undefined>(
   undefined
 );
 
-const STORAGE_KEY = "temangame:notifications";
 /** Also drives the toast's countdown bar — see ToastHost. */
 export const TOAST_MS = 4500;
 
+/**
+ * Two different things live here, deliberately:
+ *
+ * - **Toasts** are local and stay local. They confirm something you just did
+ *   and vanish after a few seconds, so there's nothing worth storing —
+ *   writing them to the database would add a round trip to a confirmation
+ *   you're already looking at.
+ * - **Notifications** are rows in `public.notifications`: incoming events you
+ *   may need to come back to. They survive a reload, a new device and a
+ *   different browser, and the unread count on the bell is real.
+ *
+ * Delivery is still "on page load". Real-time push (Firebase Cloud Messaging
+ * through a service worker, per the proposal) sits on top of this table
+ * later; a Supabase realtime subscription is the cheaper first step.
+ */
 export function NotificationProvider({ children }: { children: ReactNode }) {
-  const [notifications, setNotifications] =
-    useState<AppNotification[]>(seedNotifications);
+  const { user, isReady } = useAuth();
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const timers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
-  // Same frontend-only pattern as AuthContext: read state can't be known
-  // during SSR, so hydrate from localStorage once on mount.
-  // TODO: replace with Firebase Cloud Messaging + a `notifications` table.
-  useEffect(() => {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (!stored) return;
-    try {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setNotifications(JSON.parse(stored) as AppNotification[]);
-    } catch {
-      window.localStorage.removeItem(STORAGE_KEY);
-    }
-  }, []);
+  // Staff accounts have no player notifications, and a signed-out visitor has
+  // nothing to show — in both cases the list stays empty rather than querying
+  // a table RLS would hand back empty anyway.
+  const playerId = user?.role === "player" ? user.id : null;
 
-  const persist = useCallback((next: AppNotification[]) => {
-    setNotifications(next);
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-  }, []);
+  useEffect(() => {
+    if (!isReady) return;
+    let cancelled = false;
+    // Signing out resolves to an empty list through the same path, so the
+    // previous account's notifications can't linger on screen.
+    const load = playerId
+      ? fetchNotifications(createClient())
+      : Promise.resolve<AppNotification[]>([]);
+
+    load.then((rows) => {
+      if (!cancelled) setNotifications(rows);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isReady, playerId]);
+
+  // A notification written by someone else (or by another tab) lands here
+  // without a reload. `notify()` already adds its own row locally, so the
+  // id check stops it appearing twice.
+  useRealtimeInserts<{ id: string }>({
+    table: "notifications",
+    filter: playerId ? `user_id=eq.${playerId}` : undefined,
+    enabled: Boolean(playerId),
+    onInsert: () => {
+      if (!playerId) return;
+      fetchNotifications(createClient()).then((rows) => setNotifications(rows));
+    },
+  });
 
   const dismissToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -88,18 +140,15 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const pushToast = useCallback(
-    (input: Omit<Toast, "id">) => {
-      const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-      setToasts((prev) => [...prev, { ...input, id }]);
-      const timer = setTimeout(() => {
-        setToasts((prev) => prev.filter((t) => t.id !== id));
-        timers.current.delete(id);
-      }, TOAST_MS);
-      timers.current.set(id, timer);
-    },
-    []
-  );
+  const pushToast = useCallback((input: Omit<Toast, "id">) => {
+    const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    setToasts((prev) => [...prev, { ...input, id }]);
+    const timer = setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+      timers.current.delete(id);
+    }, TOAST_MS);
+    timers.current.set(id, timer);
+  }, []);
 
   // Clear any pending timers if the provider unmounts.
   useEffect(() => {
@@ -111,53 +160,55 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const notify = useCallback<NotificationContextValue["notify"]>(
-    ({ kind, actorName, actorAvatar, ...toastInput }) => {
+    ({ kind, actorId, ...toastInput }) => {
       pushToast(toastInput);
-      setNotifications((prev) => {
-        const next: AppNotification[] = [
-          {
-            id: `n-${Date.now()}`,
-            kind,
-            title: toastInput.title,
-            body: toastInput.body ?? "",
-            actorName,
-            actorAvatar,
-            href: toastInput.href,
-            createdAgo: "just now",
-            read: false,
-          },
-          ...prev,
-        ];
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-        return next;
+      if (!playerId) return;
+
+      insertNotification(createClient(), playerId, {
+        kind,
+        title: toastInput.title,
+        body: toastInput.body,
+        href: toastInput.href,
+        actorId,
+      }).then((saved) => {
+        if (saved) setNotifications((prev) => [saved, ...prev]);
       });
     },
-    [pushToast]
+    [playerId, pushToast]
   );
 
-  const markRead = useCallback(
-    (id: string) => {
-      persist(
-        notifications.map((n) => (n.id === id ? { ...n, read: true } : n))
-      );
+  const notifyPlayer = useCallback<NotificationContextValue["notifyPlayer"]>(
+    (targetUserId, input) => {
+      if (!playerId) return;
+      notifyUser(createClient(), targetUserId, input);
     },
-    [notifications, persist]
+    [playerId]
   );
+
+  // Optimistic: these rows belong to the caller, so there's no refusal worth
+  // holding the UI for. A failed write just means the next load re-reads it.
+  const markRead = useCallback((id: string) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+    );
+    markNotificationRead(createClient(), id);
+  }, []);
+
+  const markAllRead = useCallback(() => {
+    if (!playerId) return;
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    markAllNotificationsRead(createClient(), playerId);
+  }, [playerId]);
 
   const resolve = useCallback(
     (id: string, resolution: "accepted" | "declined") => {
-      persist(
-        notifications.map((n) =>
-          n.id === id ? { ...n, resolution, read: true } : n
-        )
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, resolution, read: true } : n))
       );
+      resolveNotification(createClient(), id, resolution);
     },
-    [notifications, persist]
+    []
   );
-
-  const markAllRead = useCallback(() => {
-    persist(notifications.map((n) => ({ ...n, read: true })));
-  }, [notifications, persist]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -171,6 +222,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         resolve,
         toast: pushToast,
         notify,
+        notifyPlayer,
         toasts,
         dismissToast,
       }}

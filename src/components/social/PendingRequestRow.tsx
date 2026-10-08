@@ -1,28 +1,58 @@
 "use client";
 
 import { useState } from "react";
-import type { PendingRequest } from "@/data/social-pending";
+import UserAvatar from "@/components/UserAvatar";
+import { useNotifications } from "@/contexts/NotificationContext";
+import { createClient } from "@/lib/supabase/client";
+import {
+  acceptFriendRequest,
+  removeFriendship,
+  type IncomingRequestRow,
+} from "@/lib/social";
 
 export default function PendingRequestRow({
   request,
+  onResolved,
 }: {
-  request: PendingRequest;
+  request: IncomingRequestRow;
+  onResolved: () => void;
 }) {
+  const { toast } = useNotifications();
   const [resolved, setResolved] = useState<"accepted" | "declined" | null>(
     null
   );
+  const [busy, setBusy] = useState(false);
+
+  async function handleAccept() {
+    setBusy(true);
+    const ok = await acceptFriendRequest(createClient(), request.friendshipId);
+    setBusy(false);
+    if (!ok) {
+      toast({ tone: "danger", title: "Couldn't accept that request" });
+      return;
+    }
+    setResolved("accepted");
+    setTimeout(onResolved, 900);
+  }
+
+  async function handleDecline() {
+    setBusy(true);
+    const ok = await removeFriendship(createClient(), request.friendshipId);
+    setBusy(false);
+    if (!ok) {
+      toast({ tone: "danger", title: "Couldn't decline that request" });
+      return;
+    }
+    setResolved("declined");
+    setTimeout(onResolved, 900);
+  }
 
   return (
     <div className="flex items-center justify-between gap-3 rounded-xl px-3 py-3 transition-colors hover:bg-white/5">
       <div className="flex items-center gap-3">
-        {/* eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization */}
-        <img
-          src={request.avatar}
-          alt=""
-          className="size-10 rounded-full object-cover"
-        />
+        <UserAvatar src={request.avatar} name={request.username} className="size-10" />
         <div className="flex flex-col">
-          <span className="text-sm font-bold text-white">{request.name}</span>
+          <span className="text-sm font-bold text-white">{request.username}</span>
           <span className="text-xs text-text-muted">
             {resolved === "accepted"
               ? "Friend added"
@@ -37,9 +67,10 @@ export default function PendingRequestRow({
         <div className="flex items-center gap-1">
           <button
             type="button"
-            onClick={() => setResolved("accepted")}
+            onClick={handleAccept}
+            disabled={busy}
             aria-label="Accept"
-            className="flex size-8 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-white/10 hover:text-[#10b981]"
+            className="flex size-8 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-white/10 hover:text-[#10b981] disabled:pointer-events-none disabled:opacity-40"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path
@@ -53,9 +84,10 @@ export default function PendingRequestRow({
           </button>
           <button
             type="button"
-            onClick={() => setResolved("declined")}
+            onClick={handleDecline}
+            disabled={busy}
             aria-label="Decline"
-            className="flex size-8 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-white/10 hover:text-[#ef4444]"
+            className="flex size-8 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-white/10 hover:text-[#ef4444] disabled:pointer-events-none disabled:opacity-40"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path

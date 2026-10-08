@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Logo from "./Logo";
 import UserMenu from "./UserMenu";
@@ -8,13 +9,39 @@ import { useAuth } from "@/contexts/AuthContext";
 import { activeLobby } from "@/data/lfg-lobby";
 import NavAuthButtons from "./NavAuthButtons";
 import NotificationBell from "./NotificationBell";
-import { totalUnreadCount } from "@/data/lfg-messages";
+import { createClient } from "@/lib/supabase/client";
+import { fetchUnreadMessageCount } from "@/lib/direct-messages";
+import { useRealtimeInserts } from "@/lib/realtime";
 
 export default function Navbar() {
   const { user, isAdmin } = useAuth();
   // Staff accounts don't play, so player-only controls are hidden for them.
   const isPlayer = Boolean(user) && !isAdmin;
-  const unreadMessages = totalUnreadCount();
+  // Unread DMs, read once per page load — same freshness as the bell.
+  // TODO: a Supabase realtime subscription would make both live.
+  const [unreadMessages, setUnreadMessages] = useState(0);
+  const playerId = isPlayer ? user!.id : null;
+
+  useEffect(() => {
+    let cancelled = false;
+    const count = playerId
+      ? fetchUnreadMessageCount(createClient(), playerId)
+      : Promise.resolve(0);
+    count.then((value) => {
+      if (!cancelled) setUnreadMessages(value);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [playerId]);
+
+  // Keeps the badge honest while the tab is open.
+  useRealtimeInserts<{ id: string }>({
+    table: "direct_messages",
+    filter: playerId ? `receiver_id=eq.${playerId}` : undefined,
+    enabled: Boolean(playerId),
+    onInsert: () => setUnreadMessages((count) => count + 1),
+  });
 
   return (
     <header className="sticky top-0 z-50 flex h-[60px] w-full items-center justify-center border-b border-border-subtle bg-bg-nav px-6">
@@ -68,15 +95,6 @@ export default function Navbar() {
             </span>
           </Link>
 
-          <Link
-            href="/social"
-            aria-label="Social"
-            className="hidden shrink-0 opacity-80 transition-opacity hover:opacity-100 sm:block"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
-            <img src="/icons/people.svg" alt="" width={16} height={12} />
-          </Link>
-
           {isPlayer && <NotificationBell />}
 
           {isPlayer && (
@@ -90,13 +108,11 @@ export default function Navbar() {
               className="relative flex size-8 items-center justify-center rounded-lg opacity-70 transition-opacity hover:opacity-100"
             >
               {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
-              <img
-                src="/icons/feature-chat.svg"
-                alt=""
-                className="h-3.5 w-auto brightness-0 invert"
-              />
+              <img src="/icons/nav-chat.svg" alt="" className="size-[22px]" />
+              {/* Sits on the bubble rather than beside it: the count belongs
+                  to the icon, and tucking it in keeps the row compact. */}
               {unreadMessages > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-brand px-1 text-[9px] font-bold text-white">
+                <span className="absolute right-0 top-0 flex h-3.5 min-w-3.5 items-center justify-center rounded-full border border-bg-nav bg-brand px-1 text-[9px] font-bold text-white">
                   {unreadMessages}
                 </span>
               )}

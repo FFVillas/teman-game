@@ -9,12 +9,20 @@ import {
   type AppNotification,
 } from "@/data/notifications";
 import { EmptyState } from "@/components/EmptyState";
+import { currentPlayerMember, lobbyById } from "@/data/lfg-lobby";
+import { updateLobbySession } from "@/lib/lobby-session";
 
-const toneRing: Record<string, string> = {
-  brand: "border-brand/30 bg-brand/10",
-  success: "border-success/30 bg-success/10",
-  star: "border-star/30 bg-star/10",
-  danger: "border-danger/30 bg-danger/10",
+/** `/lfg/<game>/lobby/<id>` → `<id>`, so an accepted invite notification can
+ *  update that lobby's own session without a dedicated id field. */
+function lobbyIdFromHref(href?: string): string | undefined {
+  return href?.match(/\/lobby\/([^/?]+)/)?.[1];
+}
+
+const toneSolid: Record<string, string> = {
+  brand: "border-brand bg-brand",
+  success: "border-success bg-success",
+  star: "border-star bg-star",
+  danger: "border-danger bg-danger",
 };
 
 type Filter = "all" | "unread" | "requests";
@@ -62,7 +70,7 @@ function ActionButtons({
         type="button"
         onClick={() => onResolve("declined")}
         aria-label={isInvite ? "Decline invitation" : "Decline request"}
-        className="flex h-8 items-center justify-center gap-1.5 rounded-lg border border-border-strong px-2.5 text-[11px] font-semibold text-text-muted transition-colors hover:border-danger hover:text-danger"
+        className="flex h-8 items-center justify-center gap-1.5 rounded-lg bg-danger px-2.5 text-[11px] font-bold text-white transition-opacity hover:opacity-90"
       >
         {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
         <img src="/icons/action-decline.svg" alt="" className="size-3" />
@@ -80,6 +88,32 @@ function Row({ notification }: { notification: AppNotification }) {
   function handleResolve(resolution: "accepted" | "declined") {
     // TODO: PATCH the underlying application / invite row.
     resolve(notification.id, resolution);
+
+    // Accepting a lobby invite here is the only way to accept it now (the
+    // lobby page's own banner just reflects this session instead of
+    // offering a second accept button) — so put the player on the roster
+    // the same way LobbyDetail's handleAcceptInvite does.
+    if (resolution === "accepted" && notification.kind === "lobby_invite") {
+      const lobby = lobbyById(lobbyIdFromHref(notification.href) ?? "");
+      if (lobby) {
+        updateLobbySession(lobby, (prev) => ({
+          ...prev,
+          roleOverride: "member",
+          messages: [
+            ...prev.messages,
+            {
+              id: `sys-${Date.now()}`,
+              authorId: "system",
+              authorName: "System",
+              body: `${currentPlayerMember.name} joined the lobby`,
+              sentAt: "now",
+              isSystem: true,
+            },
+          ],
+        }));
+      }
+    }
+
     toast({
       tone: resolution === "accepted" ? "success" : "info",
       title:
@@ -111,18 +145,18 @@ function Row({ notification }: { notification: AppNotification }) {
             {/* The kind icon rides the avatar, so you can tell an invite
                 from a review without reading either. */}
             <span
-              className={`absolute -bottom-0.5 -right-0.5 flex size-[18px] items-center justify-center rounded-full border border-bg-card-alt ${toneRing[style.tone]}`}
+              className={`absolute -bottom-0.5 -right-0.5 flex size-[18px] items-center justify-center rounded-full border border-bg-card-alt ${toneSolid[style.tone]}`}
             >
               {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
-              <img src={style.icon} alt="" className="size-2.5" />
+              <img src={style.icon} alt="" className="h-2.5 w-auto brightness-0 invert" />
             </span>
           </>
         ) : (
           <div
-            className={`flex size-10 items-center justify-center rounded-full border ${toneRing[style.tone]}`}
+            className={`flex size-10 items-center justify-center rounded-full border ${toneSolid[style.tone]}`}
           >
             {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
-            <img src={style.icon} alt="" className="size-4" />
+            <img src={style.icon} alt="" className="h-4 w-auto brightness-0 invert" />
           </div>
         )}
       </div>
@@ -181,7 +215,7 @@ function Row({ notification }: { notification: AppNotification }) {
           className={`mt-1 shrink-0 rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${
             notification.resolution === "accepted"
               ? "bg-success/10 text-success"
-              : "bg-white/5 text-text-muted"
+              : "bg-danger/10 text-danger"
           }`}
         >
           {notification.resolution}

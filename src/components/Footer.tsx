@@ -75,6 +75,8 @@ export default function Footer() {
                   <li key={social.label}>
                     <Link
                       href={social.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       aria-label={social.label}
                       className={`flex size-10 items-center justify-center rounded-full border border-border-default ${social.bg} transition-opacity hover:opacity-90`}
                     >
