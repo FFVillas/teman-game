@@ -335,10 +335,12 @@ confidence marks and open questions before changing any of them.
   static folder beats the dynamic one. Those five have no lobbies yet, so the
   list shows an empty state. Slugs come from `src/data/games.ts`, which also
   drives the navbar links and the landing cards.
-- **Modes** per game are in `src/data/game-modes.ts` (group-play modes only,
-  each with a kind, a max party and a rotating flag; researched list in the
-  reference doc). The create form takes its mode list from there and caps the
-  group size at the chosen mode's max party.
+- **Modes** per game are the `game_modes` table (group-play modes only, each
+  with a kind, a max party, a rotating flag and the game's party rule;
+  researched list in the reference doc), read through the catalog as
+  `GameInfo.modes`. The create form caps the group size at the chosen mode's
+  max party, and `partyRuleFor(mode, capacity, ranks)` in `lib/ranks.ts` turns
+  the stored rule into the check, the same data the SQL join check uses.
 - The LFG search bar offers the game's own region and mode, and one **Rank**
   dropdown: "Fits my rank" (default for a signed-in player with a rank), "All
   ranks", or a tier (Silver, Gold…), each meaning "lobbies that accept it".
@@ -346,11 +348,11 @@ confidence marks and open questions before changing any of them.
   "Seeking Roles" only for games that have roles. Only the lobby *leader* sets
   a min–max range (form: "Rank Requirement", default "Any rank").
 - **A lobby card shows one rank fact: the leader's accepted range**, drawn in
-  the original rank-badge spot as icons plus divisions ("[icon] Bronze 1 –
-  [icon] Gold 3", "Ascendant 1 and up", or "Any rank"; `LfgTeam.rankRange`,
-  `RankRangeBadge`, `rankRangeEnds`). The range is still picked as whole tiers,
-  so the badge shows the lowest division of the first tier and the highest of
-  the last. Icons come from `src/data/rank-icons.ts`; tiers without art yet
+  the original rank-badge spot as icons and tier names ("[icon] Bronze to
+  [icon] Gold", "Ascendant and up", or "Any rank"; `LfgTeam.rankRange`,
+  `RankRangeBadge`, `rankRangeEnds`). A leader picks whole tiers, never
+  divisions, so the badge names tiers only (Valorant's middle division stands
+  in for the tier's icon). Icons come from `src/data/rank-icons.ts`; tiers without art yet
   get a small placeholder marker. The
   leader's own rank (`LfgTeam.rank`) is not on the card; it only orders
   results (`M_rank`). Whether the viewer can join *right now* is checked in
@@ -364,6 +366,29 @@ confidence marks and open questions before changing any of them.
   kept separate from closeness (`M_rank`, which only orders). A lobby carries
   an optional leader-set range, default "Any rank". The party rules are
   approximations from guides; see the reference doc before changing them.
+- **Lobbies are real** (`20261006000000_lobbies.sql` plus `20261007000000_lobby_start.sql` and `20261008000000_lobby_lifecycle.sql` and `20261009000000_lobby_edit.sql`: `game_modes`, `lobbies`,
+  `lobby_roles`, `applications`, the `lobby_members` view and the write
+  functions; plan and gaps in `docs/lobby-slice-plan.md`). Every LFG page lists
+  the game's real lobbies (`fetchLobbyTeams` in `src/lib/lobbies.ts`), the create
+  form calls `create_lobby` and the join dialog calls `apply_to_lobby`. All writes
+  go through those database functions, never plain inserts; their error codes
+  are mapped to wording in `lobbyErrorMessage`. A real lobby opens at
+  `/lfg/<game>/lobby/<uuid>` (`RealLobbyDetail`, which reuses the mock screen's
+  header, roster and join-request components; the mock ones, `lobby-1` and so
+  on, still run on `LobbyDetail`). On it the leader accepts or declines, starts, reopens
+  and ends or closes the lobby, members leave, applicants withdraw. Header: only
+  "Start lobby" and "Join voice" sit at the bottom; the menu (or the one action
+  a visitor has) stays top right. Statuses: `live` (recruiting, the screen's
+  "Forming"), `scheduled`, `started` ("Live"), `completed` (ended after being
+  started) and `closed` (cancelled). Stale lobbies end by themselves
+  (`expire_stale_lobbies`, 6 hours). The Discord link is private to the leader and
+  members (`lobby_voice_link`; the column can't be read through the API, so
+  always select lobby columns explicitly, never `*`). The leader edits a lobby
+  at `/lfg/<game>/lobby/<id>/edit` (the create form with the lobby's values;
+  `update_lobby`, with group size, range, roles and schedule locked once started)
+  and can remove a member (they may apply again). Still mock or missing: chat
+  (the panel is shown disabled), invites, ratings, the Valorant banner above the
+  list, and live updates (refresh to see changes).
 - The old single region list (`regions.ts`: `SG2`, `NA East`, `EU West`) is
   gone. The create-lobby form now uses the Valorant list from
   `game-regions.ts`, with the labels as its values; once lobbies are real, the

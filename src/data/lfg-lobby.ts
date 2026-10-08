@@ -34,14 +34,19 @@ export type ApplicationStatus = "pending" | "accepted" | "rejected";
 export interface LobbyMember {
   id: string;
   name: string;
+  /** Empty when the player has no picture; an initial is drawn instead. */
   avatar: string;
   rank: LfgRank;
-  role: LfgRole;
+  /** Absent for the leader and for games without roles. */
+  role?: LfgRole | null;
   /** Per-lobby, not a global account flag — the leader is whoever created it. */
   isLeader: boolean;
-  micOn: boolean;
-  /** Community rating, 1.0–5.0. Feeds `R` in the compatibility score. */
-  reputation: number;
+  /** Mock lobbies only: nothing reads a microphone state from the database. */
+  micOn?: boolean;
+  /** Community rating, 1.0–5.0. Feeds `R` in the compatibility score. Null until rated. */
+  reputation: number | null;
+  /** Real players: their profile URL segment (their username). */
+  profileSlug?: string;
 }
 
 export interface LobbyApplication {
@@ -50,8 +55,9 @@ export interface LobbyApplication {
   applicantName: string;
   avatar: string;
   rank: LfgRank;
-  role: LfgRole;
-  reputation: number;
+  role?: LfgRole | null;
+  reputation: number | null;
+  profileSlug?: string;
   message?: string;
   appliedAgo: string;
   /**
@@ -59,7 +65,7 @@ export interface LobbyApplication {
    * the point of the algorithm being explainable — the leader can see *why*
    * an applicant is ranked where they are.
    */
-  matchScore: number;
+  matchScore?: number;
 }
 
 export interface LobbyMessage {

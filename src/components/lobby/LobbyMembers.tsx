@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { LobbyMember } from "@/data/lfg-lobby";
 import { findProfileByUsername } from "@/data/player-profiles";
 import type { LfgCandidate } from "@/data/lfg-candidates";
+import PlayerAvatar from "@/components/lfg/PlayerAvatar";
 
 interface LobbyMembersProps {
   members: LobbyMember[];
@@ -60,10 +61,10 @@ export default function LobbyMembers({
       <ul className="flex flex-col gap-2">
         {members.map((member) => {
           const isMe = member.id === currentUserId;
-          const profileHref = isMe
-            ? "/profile/me"
-            : `/profile/${findProfileByUsername(member.name)?.slug ?? ""}`;
-          const canLink = isMe || Boolean(findProfileByUsername(member.name));
+          const slug =
+            member.profileSlug ?? findProfileByUsername(member.name)?.slug;
+          const profileHref = isMe ? "/profile/me" : `/profile/${slug ?? ""}`;
+          const canLink = isMe || Boolean(slug);
 
           return (
           <li
@@ -72,21 +73,19 @@ export default function LobbyMembers({
           >
             {canLink ? (
               <Link href={profileHref} className="shrink-0">
-                {/* eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization */}
-                <img
+                <PlayerAvatar
                   src={member.avatar}
-                  alt=""
-                  className={`size-10 rounded-full object-cover transition-opacity hover:opacity-80 ${
+                  name={member.name}
+                  className={`size-10 text-sm transition-opacity hover:opacity-80 ${
                     member.isLeader ? "border-2 border-brand" : ""
                   }`}
                 />
               </Link>
             ) : (
-              // eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization
-              <img
+              <PlayerAvatar
                 src={member.avatar}
-                alt=""
-                className={`size-10 shrink-0 rounded-full object-cover ${
+                name={member.name}
+                className={`size-10 shrink-0 text-sm ${
                   member.isLeader ? "border-2 border-brand" : ""
                 }`}
               />
@@ -119,29 +118,41 @@ export default function LobbyMembers({
               </div>
               <div className="flex flex-wrap items-center gap-2.5 text-[11px] text-text-muted">
                 <span className="flex items-center gap-1">
-                  {/* eslint-disable-next-line @next/next/no-img-element -- static badge icon, no benefit from next/image optimization */}
-                  <img src={member.rank.icon} alt="" className="size-3" />
+                  {member.rank.icon && (
+                    // eslint-disable-next-line @next/next/no-img-element -- static badge icon, no benefit from next/image optimization
+                    <img src={member.rank.icon} alt="" className="size-3" />
+                  )}
                   <span className={`font-bold ${member.rank.colorClass}`}>
                     {member.rank.name}
                   </span>
                 </span>
-                <span className="flex items-center gap-1">
-                  {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
-                  <img src={member.role.icon} alt="" className="size-3" />
-                  {member.role.name}
-                </span>
-                <span className="flex items-center gap-1 text-star">
-                  ★ {member.reputation.toFixed(1)}
-                </span>
+                {member.role && (
+                  <span className="flex items-center gap-1">
+                    {member.role.icon && (
+                      // eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization
+                      <img src={member.role.icon} alt="" className="size-3" />
+                    )}
+                    {member.role.name}
+                  </span>
+                )}
+                {member.reputation === null ? (
+                  <span className="italic text-text-muted/70">No ratings yet</span>
+                ) : (
+                  <span className="flex items-center gap-1 text-star">
+                    ★ {member.reputation.toFixed(1)}
+                  </span>
+                )}
               </div>
             </div>
 
-            {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
-            <img
-              src={member.micOn ? "/icons/lfg-mic.svg" : "/icons/lfg-mic-outline.svg"}
-              alt={member.micOn ? "Mic on" : "Mic off"}
-              className={`h-3.5 w-2.5 shrink-0 ${member.micOn ? "" : "opacity-40"}`}
-            />
+            {member.micOn !== undefined && (
+              // eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization
+              <img
+                src={member.micOn ? "/icons/lfg-mic.svg" : "/icons/lfg-mic-outline.svg"}
+                alt={member.micOn ? "Mic on" : "Mic off"}
+                className={`h-3.5 w-2.5 shrink-0 ${member.micOn ? "" : "opacity-40"}`}
+              />
+            )}
 
             {canManage && !member.isLeader && (
               <button

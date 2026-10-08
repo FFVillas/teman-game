@@ -6,7 +6,9 @@ export type LfgMode = "ranked" | "casual" | "tournament";
 
 export interface LfgMember {
   id: string;
+  /** Empty when the player has no picture; render an initial instead. */
   avatar: string;
+  name?: string;
 }
 
 export interface LfgTeam {
@@ -35,6 +37,29 @@ export interface LfgTeam {
    */
   rankRange?: TierRange;
   lookingFor: LfgRole[];
+  // Set only on lobbies read from the database:
+  /** The leader's profile id. Its presence means the lobby is real. */
+  leaderId?: string;
+  /** `game_modes.value`, e.g. "competitive". */
+  modeValue?: string;
+  /** Ladder positions of everyone in the lobby who has a rank set. */
+  memberOrdinals?: number[];
+  /** True once the lobby is over: cancelled (closed) or ended after playing (completed). */
+  closed?: boolean;
+  /** True when it ended after being started, as opposed to being cancelled. */
+  completed?: boolean;
+  /** True once the leader has started the lobby: playing, no new members. */
+  started?: boolean;
+  /**
+   * How the signed-in viewer relates to this lobby: leading it, on the
+   * roster, waiting on an application, or turned down. Absent for visitors.
+   */
+  viewerState?: "leader" | "member" | "pending" | "declined";
+  /** What the edit form needs to start from. */
+  modeId?: number;
+  tags?: string[];
+  startsAt?: string | null;
+  endsAt?: string | null;
 }
 
 export const lfgTeams: LfgTeam[] = [

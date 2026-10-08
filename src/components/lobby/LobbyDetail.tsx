@@ -137,7 +137,7 @@ export default function LobbyDetail({ lobby, initialRole }: LobbyDetailProps) {
       kind: "application_accepted",
       tone: "success",
       title: `${app.applicantName} joined your lobby`,
-      body: `${app.role.name} · ${app.rank.name}`,
+      body: `${app.role?.name ?? "Player"} · ${app.rank.name}`,
       actorName: app.applicantName,
       actorAvatar: app.avatar,
       href: `/lfg/${lobby.game}/lobby/${lobby.id}`,
@@ -249,6 +249,7 @@ export default function LobbyDetail({ lobby, initialRole }: LobbyDetailProps) {
         onStart={handleStart}
         onEnd={handleEnd}
         onLeave={handleLeave}
+        editHref={`/lfg/${lobby.game}/create`}
       />
 
       {ratingOutcome && (

@@ -1,5 +1,6 @@
 export interface LfgRole {
   name: string;
+  /** Empty when the role has no artwork yet; show its name instead. */
   icon: string;
 }
 

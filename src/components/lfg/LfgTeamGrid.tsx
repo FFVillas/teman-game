@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { LfgTeam } from "@/data/lfg-teams";
 import LfgTeamCard from "./LfgTeamCard";
 import RequestToJoinModal from "./RequestToJoinModal";
@@ -25,7 +26,19 @@ export default function LfgTeamGrid({
   /** The signed-in viewer's rank in this game; "" if unknown. */
   myRank?: string;
 }) {
+  const router = useRouter();
   const [selectedTeam, setSelectedTeam] = useState<LfgTeam | null>(null);
+
+  // A lobby you lead, are in, or have applied to opens its own page: there is
+  // nothing to apply for. Everyone else gets the apply dialog.
+  function openTeam(team: LfgTeam) {
+    const hasPlace =
+      team.viewerState === "leader" ||
+      team.viewerState === "member" ||
+      team.viewerState === "pending";
+    if (hasPlace) router.push(`/lfg/${team.game}/lobby/${team.id}`);
+    else setSelectedTeam(team);
+  }
   const [currentPage, setCurrentPage] = useState(1);
 
   if (teams.length === 0) {
@@ -65,7 +78,7 @@ export default function LfgTeamGrid({
           <LfgTeamCard
             key={team.id}
             team={team}
-            onOpenDetails={() => setSelectedTeam(team)}
+            onOpenDetails={() => openTeam(team)}
             game={game}
           />
         ))}

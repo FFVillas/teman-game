@@ -2,18 +2,32 @@ import type { GameRank } from "@/lib/games";
 import { rankRangeEnds, describeTierRange, type TierRange } from "@/lib/ranks";
 import { rankIconFor } from "@/data/rank-icons";
 
+/**
+ * The badge for a whole tier. Valorant's art is per division, so the middle
+ * division stands in for the tier; League's art is already per tier.
+ */
+function tierArt(gameSlug: string, rank: GameRank, ranks: GameRank[]) {
+  const inTier = ranks
+    .filter((candidate) => candidate.tier === rank.tier)
+    .sort((a, b) => a.ordinal - b.ordinal);
+  const middle = inTier[Math.floor((inTier.length - 1) / 2)] ?? rank;
+  return rankIconFor(gameSlug, middle);
+}
+
 function Point({
   rank,
+  ranks,
   gameSlug,
   text,
   icon,
 }: {
   rank: GameRank;
+  ranks: GameRank[];
   gameSlug: string;
   text: string;
   icon: string;
 }) {
-  const art = rankIconFor(gameSlug, rank);
+  const art = tierArt(gameSlug, rank, ranks);
   return (
     <span className="flex items-center gap-1">
       {art ? (
@@ -25,15 +39,16 @@ function Point({
         </span>
       )}
       <span className={`${text} font-bold text-white/90`}>
-        {rank.name}
+        {rank.tier}
       </span>
     </span>
   );
 }
 
 /**
- * A lobby's accepted rank range, drawn like a rank badge: "[icon] Plat 1 to
- * [icon] Diamond 3". Open ends read "Ascendant 1 and up"; no range reads "Any
+ * A lobby's accepted rank range, drawn like a rank badge: "[icon] Platinum to
+ * [icon] Diamond". A leader picks whole tiers, never divisions, so the badge
+ * names tiers only. Open ends read "Ascendant and up"; no range reads "Any
  * rank". Tiers without art yet get a plain marker so the row keeps its shape.
  */
 export default function RankRangeBadge({
@@ -48,7 +63,8 @@ export default function RankRangeBadge({
   gameSlug: string;
   size?: "md" | "sm";
 }) {
-  const { from, to } = rankRangeEnds(ranks ?? [], range);
+  const ladder = ranks ?? [];
+  const { from, to } = rankRangeEnds(ladder, range);
   const text = size === "md" ? "text-[11px]" : "text-[9px]";
   const icon = size === "md" ? "size-3.5" : "size-3";
 
@@ -62,11 +78,11 @@ export default function RankRangeBadge({
 
   return (
     <span className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-      {from && <Point rank={from} gameSlug={gameSlug} text={text} icon={icon} />}
-      {from && to && from.id !== to.id && (
+      {from && <Point rank={from} ranks={ladder} gameSlug={gameSlug} text={text} icon={icon} />}
+      {from && to && from.tier !== to.tier && (
         <>
           <span aria-hidden className="h-px w-2 bg-white/30" />
-          <Point rank={to} gameSlug={gameSlug} text={text} icon={icon} />
+          <Point rank={to} ranks={ladder} gameSlug={gameSlug} text={text} icon={icon} />
         </>
       )}
       {from && !to && (
@@ -74,7 +90,7 @@ export default function RankRangeBadge({
       )}
       {!from && to && (
         <>
-          <Point rank={to} gameSlug={gameSlug} text={text} icon={icon} />
+          <Point rank={to} ranks={ladder} gameSlug={gameSlug} text={text} icon={icon} />
           <span className={`${text} text-text-muted`}>and below</span>
         </>
       )}

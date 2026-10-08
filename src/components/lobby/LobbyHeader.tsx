@@ -1,39 +1,90 @@
 "use client";
 
 import Image from "next/image";
-import type { Lobby, LobbyStatus, LobbyViewerRole } from "@/data/lfg-lobby";
+import type { ReactNode } from "react";
+import Link from "next/link";
+import type { LobbyStatus, LobbyViewerRole } from "@/data/lfg-lobby";
+import type { LfgRank } from "@/data/lfg-ranks";
+import type { LfgMode } from "@/data/lfg-teams";
 import { modeStyles } from "@/components/lfg/LfgTeamCard";
 import LobbyActionsMenu from "./LobbyActionsMenu";
 
-const statusStyles: Record<LobbyStatus, { label: string; className: string }> = {
+/** The header works for mock lobbies and for ones from the database. */
+type HeaderStatus = LobbyStatus | "scheduled" | "closed";
+
+export interface LobbyHeaderLobby {
+  cover: string;
+  mode: LfgMode;
+  name: string;
+  bio?: string;
+  region: string;
+  languages?: string;
+  micRequired: boolean;
+  game: string;
+  scheduledFor?: string;
+  /** Shown as "Join voice". Only pass it for people who may use it. */
+  discordUrl?: string;
+  /** Mock lobbies: the minimum rank, shown as "X and up". */
+  rank?: LfgRank;
+}
+
+const statusStyles: Record<HeaderStatus, { label: string; className: string }> = {
   forming: {
     label: "Forming",
     className: "border-border-strong text-text-subtle",
   },
   live: { label: "Live", className: "border-success text-success" },
   completed: { label: "Completed", className: "border-border-strong text-text-muted" },
+  scheduled: { label: "Scheduled", className: "border-border-strong text-text-subtle" },
+  closed: { label: "Closed", className: "border-border-strong text-text-muted" },
 };
 
 interface LobbyHeaderProps {
-  lobby: Lobby;
+  lobby: LobbyHeaderLobby;
   role: LobbyViewerRole;
-  status: LobbyStatus;
-  onStart: () => void;
-  onEnd: () => void;
-  onLeave: () => void;
+  status: HeaderStatus;
+  onStart?: () => void;
+  onEnd?: () => void;
+  /** Leader of a started ("live") lobby: back to recruiting. */
+  onReopen?: () => void;
+  onLeave?: () => void;
+  /** Replaces the rank line, e.g. the accepted range badge of a real lobby. */
+  rankSlot?: ReactNode;
+  /**
+   * Top right, for people who have no menu (apply, withdraw, log in). Leaders
+   * and members get the menu instead.
+   */
+  topAction?: ReactNode;
+  /** Where "Edit details" goes. Omit when the lobby can't be edited. */
+  editHref?: string;
+  /** Leader of a lobby with no voice link yet: where to add one. */
+  addVoiceHref?: string;
 }
 
+/**
+ * Everything but the two main buttons lives at the top: the status chips on
+ * the left, the menu (or the one action a visitor has) on the right. Only
+ * "Start lobby" and "Join voice" sit at the bottom, so the header stays short.
+ */
 export default function LobbyHeader({
   lobby,
   role,
   status,
   onStart,
   onEnd,
+  onReopen,
   onLeave,
+  rankSlot,
+  topAction,
+  editHref,
+  addVoiceHref,
 }: LobbyHeaderProps) {
   const mode = modeStyles[lobby.mode];
   const statusStyle = statusStyles[status];
   const isLeader = role === "leader";
+  const isOver = status === "completed" || status === "closed";
+  const canStart =
+    isLeader && (status === "forming" || status === "scheduled") && onStart;
 
   return (
     <header className="relative overflow-hidden rounded-2xl border border-border-strong bg-bg-card-alt">
@@ -54,7 +105,7 @@ export default function LobbyHeader({
         <div className="absolute inset-0 bg-gradient-to-r from-bg-card-alt via-bg-card-alt/55 to-transparent" />
       </div>
 
-      <div className="relative flex min-h-[260px] flex-col p-6 sm:p-7">
+      <div className="relative flex min-h-[190px] flex-col p-6 sm:p-7">
         <div className="flex min-h-9 items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <span
@@ -77,21 +128,28 @@ export default function LobbyHeader({
             )}
           </div>
 
-          {isLeader && (
-            <LobbyActionsMenu
-              editHref={`/lfg/${lobby.game}/create`}
-              onEnd={status !== "completed" ? onEnd : undefined}
-            />
-          )}
+          {topAction ??
+            (isLeader ? (
+              <LobbyActionsMenu
+                editHref={editHref}
+                onReopen={status === "live" ? onReopen : undefined}
+                onEnd={isOver ? undefined : onEnd}
+                endLabel={status === "live" ? "End lobby" : "Close lobby"}
+              />
+            ) : role === "member" && !isOver && onLeave ? (
+              <LobbyActionsMenu onLeave={onLeave} />
+            ) : null)}
         </div>
 
         <div className="flex flex-col gap-2 pt-4">
           <h1 className="text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
             {lobby.name}
           </h1>
-          <p className="max-w-[520px] text-sm leading-relaxed text-text-subtle">
-            {lobby.bio}
-          </p>
+          {lobby.bio && (
+            <p className="max-w-[520px] text-sm leading-relaxed text-text-subtle">
+              {lobby.bio}
+            </p>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-4 pt-4 text-[11px] text-text-muted">
@@ -107,13 +165,16 @@ export default function LobbyHeader({
               {lobby.languages}
             </span>
           )}
-          <span className="flex items-center gap-1.5">
-            {/* eslint-disable-next-line @next/next/no-img-element -- static badge icon, no benefit from next/image optimization */}
-            <img src={lobby.rank.icon} alt="" className="size-3" />
-            <span className={`font-bold ${lobby.rank.colorClass}`}>
-              {lobby.rank.name}+ only
-            </span>
-          </span>
+          {rankSlot ??
+            (lobby.rank && (
+              <span className="flex items-center gap-1.5">
+                {/* eslint-disable-next-line @next/next/no-img-element -- static badge icon, no benefit from next/image optimization */}
+                <img src={lobby.rank.icon} alt="" className="size-3" />
+                <span className={`font-bold ${lobby.rank.colorClass}`}>
+                  {lobby.rank.name} and up
+                </span>
+              </span>
+            ))}
           {lobby.micRequired && (
             <span className="flex items-center gap-1.5 text-success">
               {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
@@ -123,9 +184,9 @@ export default function LobbyHeader({
           )}
         </div>
 
-        <div className="mt-auto flex flex-wrap items-center gap-2 pt-5">
-          {isLeader ? (
-            status === "forming" && (
+        {(canStart || lobby.discordUrl || addVoiceHref) && (
+          <div className="mt-auto flex flex-wrap items-center gap-2 pt-4">
+            {canStart && (
               <button
                 type="button"
                 onClick={onStart}
@@ -135,32 +196,33 @@ export default function LobbyHeader({
                 <img src="/icons/lfg-play.svg" alt="" className="size-3" />
                 Start lobby
               </button>
-            )
-          ) : role === "member" ? (
-            status !== "completed" && (
-              <button
-                type="button"
-                onClick={onLeave}
-                className="flex h-10 items-center justify-center rounded-lg border border-border-strong px-5 text-xs font-bold text-text-subtle transition-colors hover:border-danger hover:text-danger"
-              >
-                Leave lobby
-              </button>
-            )
-          ) : null}
+            )}
 
-          {lobby.discordUrl && (
-            <a
-              href={lobby.discordUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex h-10 items-center justify-center gap-2 rounded-lg bg-discord px-4 text-xs font-bold text-white transition-opacity hover:opacity-90"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
-              <img src="/icons/social-discord.svg" alt="" className="h-3 w-4" />
-              Join voice
-            </a>
-          )}
-        </div>
+            {lobby.discordUrl && (
+              <a
+                href={lobby.discordUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex h-10 items-center justify-center gap-2 rounded-lg bg-discord px-4 text-xs font-bold text-white transition-opacity hover:opacity-90"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
+                <img src="/icons/social-discord.svg" alt="" className="h-3 w-4" />
+                Join voice
+              </a>
+            )}
+
+            {!lobby.discordUrl && addVoiceHref && (
+              <Link
+                href={addVoiceHref}
+                className="flex h-10 items-center justify-center gap-2 rounded-lg border border-discord/60 px-4 text-xs font-bold text-white transition-colors hover:bg-discord/15"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
+                <img src="/icons/social-discord.svg" alt="" className="h-3 w-4" />
+                Add voice link
+              </Link>
+            )}
+          </div>
+        )}
       </div>
     </header>
   );
