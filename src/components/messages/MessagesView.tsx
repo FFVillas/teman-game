@@ -9,12 +9,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNotifications } from "@/contexts/NotificationContext";
 import { createClient } from "@/lib/supabase/client";
-import {
-  CURRENT_PLAYER_ID,
-  allLobbies,
-  viewerRoleIn,
-} from "@/data/lfg-lobby";
-import { useLobbySessions } from "@/lib/lobby-session";
+import { fetchMyLobbyChats, type MyLobbyChat } from "@/lib/lobby-chat";
 import { CURRENT_USER_ID, type Conversation } from "@/data/lfg-messages";
 import { useRealtimeInserts } from "@/lib/realtime";
 import {
@@ -26,9 +21,9 @@ import {
 } from "@/lib/direct-messages";
 
 /**
- * Direct messages come from `direct_messages`; lobby chats still come from
- * the sessionStorage stand-in, because `lobby_messages` needs the lobby
- * tables that aren't built yet. One list, two sources, on purpose.
+ * Direct messages come from `direct_messages` and lobby chats from
+ * `lobby_messages`: two tables, one list, because to the player they are both
+ * "a conversation".
  */
 export default function MessagesView() {
   const searchParams = useSearchParams();
@@ -131,28 +126,38 @@ export default function MessagesView() {
     };
   }, [isReady, meId, userParam, nameParam, lobbyParam]);
 
-  // Lobby group chats you're part of (as leader or member), for as long as
-  // the lobby runs. Invites don't count until accepted, and an ended lobby's
-  // chat is gone — it drops off this list, not just the lobby page.
-  const sessionFor = useLobbySessions();
+  // Lobby group chats you're part of (as leader or accepted member), for as
+  // long as the lobby is open. A pending application doesn't count, and an
+  // ended lobby's chat drops off this list, not just the lobby page.
+  const [lobbyChatList, setLobbyChatList] = useState<MyLobbyChat[]>([]);
+  const refreshLobbyChats = useCallback(() => {
+    const next = meId
+      ? fetchMyLobbyChats(createClient(), meId)
+      : Promise.resolve<MyLobbyChat[]>([]);
+    next.then(setLobbyChatList);
+  }, [meId]);
+
+  useEffect(() => {
+    if (isReady) refreshLobbyChats();
+  }, [isReady, refreshLobbyChats]);
+
+  // A line landing in any lobby you can read updates its preview here. The
+  // open chat shows its own messages; this keeps the list beside it current.
+  useRealtimeInserts<{ id: string }>({
+    table: "lobby_messages",
+    enabled: Boolean(meId),
+    onInsert: () => refreshLobbyChats(),
+  });
+
   const lobbyChats = useMemo<LobbyChatEntry[]>(
     () =>
-      allLobbies
-        .filter((lobby) => {
-          const session = sessionFor(lobby);
-          const role =
-            session.roleOverride ?? viewerRoleIn(lobby, CURRENT_PLAYER_ID);
-          return (role === "leader" || role === "member") && !session.chatClosed;
-        })
-        .map((lobby) => {
-          const { messages } = sessionFor(lobby);
-          return {
-            key: `lobby:${lobby.id}`,
-            lobby,
-            lastMessage: messages[messages.length - 1],
-          };
-        }),
-    [sessionFor],
+      lobbyChatList.map((chat) => ({
+        key: `lobby:${chat.lobbyId}`,
+        name: chat.name,
+        cover: chat.cover,
+        preview: chat.preview,
+      })),
+    [lobbyChatList],
   );
 
   // Incoming messages only: your own sends are already on screen, so there
@@ -190,7 +195,9 @@ export default function MessagesView() {
   });
 
   const active = conversations.find((c) => c.id === activeId) ?? null;
-  const activeLobbyChat = lobbyChats.find((entry) => entry.key === activeId);
+  const activeLobbyChat = lobbyChatList.find(
+    (chat) => `lobby:${chat.lobbyId}` === activeId,
+  );
 
   const handleSelect = useCallback(
     async (id: string) => {
@@ -265,11 +272,8 @@ export default function MessagesView() {
         activeId={activeId}
         onSelect={handleSelect}
       />
-      {activeLobbyChat ? (
-        <LobbyChatThread
-          lobby={activeLobbyChat.lobby}
-          session={sessionFor(activeLobbyChat.lobby)}
-        />
+      {activeLobbyChat && meId ? (
+        <LobbyChatThread chat={activeLobbyChat} meId={meId} />
       ) : missingTarget && !active ? (
         <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center p-6">
           <EmptyState

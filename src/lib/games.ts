@@ -16,11 +16,30 @@ export interface GameRank {
   name: string;
   /** Position on the ladder, 0 = lowest. ΔR = |a.ordinal − b.ordinal|. */
   ordinal: number;
+  /** Free Fire only: ranked parties must share one band. Null elsewhere. */
+  partyBand: number | null;
 }
 
 export interface GameRole {
   id: number;
   name: string;
+}
+
+/** A mode a lobby can be created for, with the game's party rule for it. */
+export interface GameMode {
+  id: number;
+  /** Stable key, e.g. "competitive". */
+  value: string;
+  label: string;
+  kind: "ranked" | "casual" | "tournament";
+  /** Largest premade group the queue allows; caps a lobby's capacity. */
+  maxParty: number;
+  rotating: boolean;
+  /** How far apart ranks in one party may be (see lib/ranks.ts). */
+  partyRule: "none" | "tiers" | "steps" | "bands";
+  partyMaxApart: number | null;
+  /** The rule only applies to lobbies of at most this many slots. */
+  partyRuleMaxCapacity: number | null;
 }
 
 export interface GameInfo {
@@ -33,6 +52,8 @@ export interface GameInfo {
   ranks: GameRank[];
   /** Empty for games that define no roles (CS2, PUBG Mobile, Free Fire). */
   roles: GameRole[];
+  /** Group-play modes, in the order they should be offered. */
+  modes: GameMode[];
 }
 
 interface GameRowFromApi {
@@ -41,8 +62,20 @@ interface GameRowFromApi {
   name: string;
   platform: "pc" | "mobile";
   genre: string;
-  game_ranks: GameRank[] | null;
+  game_ranks: Array<Omit<GameRank, "partyBand"> & { party_band: number | null }> | null;
   game_roles: GameRole[] | null;
+  game_modes: Array<{
+    id: number;
+    value: string;
+    label: string;
+    kind: GameMode["kind"];
+    max_party: number;
+    rotating: boolean;
+    sort_order: number;
+    party_rule: GameMode["partyRule"];
+    party_max_apart: number | null;
+    party_rule_max_capacity: number | null;
+  }> | null;
 }
 
 /** Every game with its ranks and roles, in the order they should be listed. */
@@ -52,7 +85,7 @@ export async function fetchGameCatalog(
   const { data } = await supabase
     .from("games")
     .select(
-      "id, slug, name, platform, genre, sort_order, game_ranks(id, tier, name, ordinal), game_roles(id, name)",
+      "id, slug, name, platform, genre, sort_order, game_ranks(id, tier, name, ordinal, party_band), game_roles(id, name), game_modes(id, value, label, kind, max_party, rotating, sort_order, party_rule, party_max_apart, party_rule_max_capacity)",
     )
     .order("sort_order");
 
@@ -62,8 +95,29 @@ export async function fetchGameCatalog(
     name: game.name,
     platform: game.platform,
     genre: game.genre,
-    ranks: [...(game.game_ranks ?? [])].sort((a, b) => a.ordinal - b.ordinal),
+    ranks: (game.game_ranks ?? [])
+      .map((rank) => ({
+        id: rank.id,
+        tier: rank.tier,
+        name: rank.name,
+        ordinal: rank.ordinal,
+        partyBand: rank.party_band,
+      }))
+      .sort((a, b) => a.ordinal - b.ordinal),
     roles: [...(game.game_roles ?? [])].sort((a, b) => a.id - b.id),
+    modes: [...(game.game_modes ?? [])]
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map((mode) => ({
+        id: mode.id,
+        value: mode.value,
+        label: mode.label,
+        kind: mode.kind,
+        maxParty: mode.max_party,
+        rotating: mode.rotating,
+        partyRule: mode.party_rule,
+        partyMaxApart: mode.party_max_apart,
+        partyRuleMaxCapacity: mode.party_rule_max_capacity,
+      })),
   }));
 }
 

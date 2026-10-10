@@ -42,3 +42,6 @@ next-env.d.ts
 
 # claude code (personal/local permission cache — not shared)
 .claude/settings.local.json
+
+# raw image downloads waiting to be compressed and renamed (large, not shipped)
+/inbox/

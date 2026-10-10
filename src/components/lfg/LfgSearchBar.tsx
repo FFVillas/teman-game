@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import FormDropdown from "@/components/FormDropdown";
 import { regionsFor } from "@/data/game-regions";
-import { modesFor } from "@/data/game-modes";
 import type { GameInfo } from "@/lib/games";
 import { tiersOf } from "@/lib/ranks";
 
@@ -38,7 +37,7 @@ export default function LfgSearchBar({
   myRank?: string;
 }) {
   const regions = regionsFor(gameSlug).options;
-  const modes = modesFor(gameSlug);
+  const modes = game?.modes ?? [];
   const tiers = useMemo(() => tiersOf(game?.ranks ?? []), [game]);
 
   const [region, setRegion] = useState("");

@@ -3,6 +3,10 @@ import { notFound } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import LobbyDetail from "@/components/lobby/LobbyDetail";
+import RealLobbyPage, {
+  realLobbyMetadata,
+} from "@/components/lobby/RealLobbyPage";
+import { isLobbyId } from "@/lib/lobbies";
 import {
   CURRENT_PLAYER_ID,
   allLobbies,
@@ -20,6 +24,7 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
+  if (isLobbyId(id)) return realLobbyMetadata(id);
   const lobby = lobbyById(id);
 
   if (!lobby) return { title: "Lobby not found — TemanGame" };
@@ -36,6 +41,10 @@ export default async function LobbyPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  // A uuid is a real lobby from the database; "lobby-1" and friends are the
+  // mock ones the demo screens use.
+  if (isLobbyId(id)) return <RealLobbyPage slug="valorant" id={id} />;
+
   const lobby = lobbyById(id);
   // Your role comes from the lobby data itself, like it will from the
   // database: leader, member, or holding an invite. Anyone else has no

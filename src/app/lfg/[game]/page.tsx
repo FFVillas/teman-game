@@ -6,10 +6,12 @@ import LfgHero from "@/components/lfg/LfgHero";
 import LfgSearchBar from "@/components/lfg/LfgSearchBar";
 import LfgToolbar from "@/components/lfg/LfgToolbar";
 import LfgTeamGrid from "@/components/lfg/LfgTeamGrid";
+import ActiveLobbyBanner from "@/components/lfg/ActiveLobbyBanner";
 import { gameBySlug } from "@/data/games";
 import { navLinkFor } from "@/data/nav-links";
 import { createClient } from "@/lib/supabase/server";
 import { fetchGameCatalog, fetchMyRankName } from "@/lib/games";
+import { fetchLobbyTeams, fetchMyLobbies } from "@/lib/lobbies";
 
 interface LfgGamePageProps {
   params: Promise<{ game: string }>;
@@ -31,9 +33,8 @@ export async function generateMetadata({
 
 /**
  * The LFG page for every game except Valorant (which has its own route, see
- * `app/lfg/valorant`). There are no lobbies for these games yet, so the list
- * is empty, but the filters are already the game's own: its regions, its
- * modes and its rank ladder.
+ * `app/lfg/valorant`). The list is the game's real lobbies, and the filters
+ * are the game's own: its regions, its modes and its rank ladder.
  */
 export default async function LfgGamePage({ params }: LfgGamePageProps) {
   const { game: slug } = await params;
@@ -44,6 +45,13 @@ export default async function LfgGamePage({ params }: LfgGamePageProps) {
   const catalog = await fetchGameCatalog(supabase);
   const game = catalog.find((g) => g.slug === slug);
   const myRank = await fetchMyRankName(supabase, catalog, slug);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const teams = game
+    ? await fetchLobbyTeams(supabase, game, { viewerId: user?.id ?? null })
+    : [];
+  const mine = user ? await fetchMyLobbies(supabase, user.id) : null;
 
   return (
     <>
@@ -56,11 +64,22 @@ export default async function LfgGamePage({ params }: LfgGamePageProps) {
             description={description}
           />
 
+          <ActiveLobbyBanner
+            lobby={mine?.current ?? null}
+            scheduled={mine?.scheduled}
+          />
+
           <LfgSearchBar gameSlug={slug} game={game} myRank={myRank} />
 
-          <LfgToolbar gameSlug={slug} resultCount={0} />
+          <LfgToolbar gameSlug={slug} resultCount={teams.length} />
 
-          <LfgTeamGrid teams={[]} gameSlug={slug} gameName={meta.name} />
+          <LfgTeamGrid
+            teams={teams}
+            gameSlug={slug}
+            gameName={meta.name}
+            game={game}
+            myRank={myRank}
+          />
         </div>
       </main>
       <Footer />

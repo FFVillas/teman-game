@@ -39,3 +39,14 @@ export const legalLinks: FooterLink[] = [
   { label: "Terms of Service", href: "/terms" },
   { label: "Cookie Policy", href: "#" },
 ];
+
+/**
+ * Shown under the logo. The first paragraph is Riot's required wording for
+ * products that use its properties (developer.riotgames.com/policies/general),
+ * with our name in it; keep it verbatim. We are not a registered partner of any
+ * publisher, so do not add "compliant" or "partner" claims here.
+ */
+export const footerDisclaimer: string[] = [
+  "TemanGame isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties. Riot Games, and all associated properties are trademarks or registered trademarks of Riot Games, Inc.",
+  "TemanGame is an independent student project and is also not affiliated with Valve, Moonton, Krafton or Garena. Their game names and artwork belong to their respective owners.",
+];

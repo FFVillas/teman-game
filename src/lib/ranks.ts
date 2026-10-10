@@ -1,4 +1,4 @@
-import type { GameRank } from "@/lib/games";
+import type { GameMode, GameRank } from "@/lib/games";
 
 /**
  * Rank ranges and "who may join this lobby" logic. Pure functions, no
@@ -135,50 +135,37 @@ export type PartyRule =
 const NO_RULE: PartyRule = { kind: "none" };
 
 /**
- * The rule for a game's mode and lobby size. Only ranked modes have one.
+ * The party rule for a mode and lobby size, read from the database
+ * (`game_modes.party_*`, `game_ranks.party_band`), so the app and the join
+ * check in SQL (`lobby_join_bounds`) use the same data. Only ranked modes have
+ * one, and Valorant's applies only below five slots.
  *
- * Approximations, on purpose (see the reference doc): Valorant also allows
- * Iron to reach Silver and compares divisions from Platinum up; League is
- * treated as one tier apart although Iron can reach Silver; Mobile Legends
- * counts its Mythic tiers as separate ranks; Counter-Strike 2 limits CS
- * Rating, which a rank ladder can't express, so it has no rule here. The game
- * enforces the real rule when the party queues, so a slightly loose guess
- * only means a lobby shows up that the game then refuses.
+ * The rules themselves are approximations from guides (see
+ * docs/game-reference.md): the game enforces the real one when the party
+ * queues, so a slightly loose guess only means a lobby shows up that the game
+ * then refuses.
  */
 export function partyRuleFor(
-  gameSlug: string,
-  modeValue: string,
+  mode: GameMode | undefined,
   capacity: number,
+  ranks: GameRank[],
 ): PartyRule {
-  switch (gameSlug) {
-    case "valorant":
-      // A full five-stack has no rank limit (it earns less RR instead).
-      return modeValue === "competitive" && capacity < 5
-        ? { kind: "tiers", maxApart: 1 }
-        : NO_RULE;
-    case "league-of-legends":
-      return modeValue === "ranked-solo-duo"
-        ? { kind: "tiers", maxApart: 1 }
-        : NO_RULE;
-    case "mobile-legends":
-      return modeValue === "ranked" ? { kind: "tiers", maxApart: 2 } : NO_RULE;
-    case "pubg-mobile":
-      return modeValue.startsWith("ranked")
-        ? { kind: "steps", maxApart: 10 }
-        : NO_RULE;
-    case "free-fire":
-      return modeValue.includes("ranked")
-        ? {
-            kind: "bands",
-            bands: [
-              ["Bronze", "Silver", "Gold", "Platinum", "Diamond"],
-              ["Heroic", "Grandmaster"],
-            ],
-          }
-        : NO_RULE;
-    default:
-      return NO_RULE;
+  if (!mode || mode.partyRule === "none") return NO_RULE;
+  if (mode.partyRuleMaxCapacity !== null && capacity > mode.partyRuleMaxCapacity) {
+    return NO_RULE;
   }
+  if (mode.partyRule === "tiers" || mode.partyRule === "steps") {
+    return { kind: mode.partyRule, maxApart: mode.partyMaxApart ?? 0 };
+  }
+  // bands: the tier names that share each `party_band`.
+  const bands = new Map<number, string[]>();
+  for (const rank of ranks) {
+    if (rank.partyBand === null) continue;
+    const names = bands.get(rank.partyBand) ?? [];
+    if (!names.includes(rank.tier)) names.push(rank.tier);
+    bands.set(rank.partyBand, names);
+  }
+  return { kind: "bands", bands: [...bands.values()] };
 }
 
 /**

@@ -7,10 +7,9 @@ import LfgToolbar from "@/components/lfg/LfgToolbar";
 import LfgTeamGrid from "@/components/lfg/LfgTeamGrid";
 import LfgNews from "@/components/lfg/LfgNews";
 import ActiveLobbyBanner from "@/components/lfg/ActiveLobbyBanner";
-import { lfgTeams } from "@/data/lfg-teams";
-import { activeLobby, scheduledLobbies } from "@/data/lfg-lobby";
 import { createClient } from "@/lib/supabase/server";
 import { fetchGameCatalog, fetchMyRankName } from "@/lib/games";
+import { fetchLobbyTeams, fetchMyLobbies } from "@/lib/lobbies";
 import { fetchNews } from "@/lib/news";
 
 export const metadata: Metadata = {
@@ -19,15 +18,23 @@ export const metadata: Metadata = {
     "Browse available lobbies and professional teams looking for players. Filter by rank, role, and region to find your perfect match.",
 };
 
-// Valorant keeps its own route because it is the one game with lobby and
-// chat pages built (both still mock). The other five games share
+// Valorant keeps its own route because it is the one game with the mock lobby
+// and chat pages (real lobbies open here too; the list, the banner above it and
+// the news are all real). The other five games share
 // `app/lfg/[game]/page.tsx`; a static folder wins over the dynamic one.
 export default async function LfgValorantPage() {
   const supabase = await createClient();
   const catalog = await fetchGameCatalog(supabase);
   const game = catalog.find((g) => g.slug === "valorant");
   const myRank = await fetchMyRankName(supabase, catalog, "valorant");
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const teams = game
+    ? await fetchLobbyTeams(supabase, game, { viewerId: user?.id ?? null })
+    : [];
   const news = await fetchNews(supabase, game?.id);
+  const mine = user ? await fetchMyLobbies(supabase, user.id) : null;
 
   return (
     <>
@@ -40,14 +47,17 @@ export default async function LfgValorantPage() {
             description="Browse available lobbies and professional teams looking for players. Filter by rank, role, and region to find your perfect match."
           />
 
-          <ActiveLobbyBanner lobby={activeLobby} scheduled={scheduledLobbies} />
+          <ActiveLobbyBanner
+            lobby={mine?.current ?? null}
+            scheduled={mine?.scheduled}
+          />
 
           <LfgSearchBar gameSlug="valorant" game={game} myRank={myRank} />
 
-          <LfgToolbar gameSlug="valorant" resultCount={128} />
+          <LfgToolbar gameSlug="valorant" resultCount={teams.length} />
 
           <LfgTeamGrid
-            teams={lfgTeams}
+            teams={teams}
             gameSlug="valorant"
             gameName="Valorant"
             game={game}

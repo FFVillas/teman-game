@@ -3,10 +3,13 @@
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { lfgRoles } from "@/data/lfg-roles";
+import { roleIconFor } from "@/data/role-icons";
 import { useNotifications } from "@/contexts/NotificationContext";
 import { regionsFor } from "@/data/game-regions";
-import { modesFor } from "@/data/game-modes";
+import { randomCoverKey } from "@/data/lfg-covers";
+import { useAuth } from "@/contexts/AuthContext";
+import { createClient } from "@/lib/supabase/client";
+import { createLobby, updateLobby } from "@/lib/lobbies";
 import type { GameInfo } from "@/lib/games";
 import {
   OPEN_BOUNDS,
@@ -15,6 +18,7 @@ import {
   lobbyJoinBounds,
   ordinalFits,
   partyRuleFor,
+  rankRangeEnds,
   tiersOf,
   type TierRange,
 } from "@/lib/ranks";
@@ -24,9 +28,28 @@ import RankRangeFields from "./RankRangeFields";
 const languageOptions = ["English", "Indonesian", "English / Indonesian"];
 const vibeTagOptions = ["Competitive", "Chill", "Tactical", "Grinding", "Voice Comms"];
 
-/** Role icons exist for Valorant's four roles only; other games show text. */
-function roleIconFor(roleName: string): string | undefined {
-  return Object.values(lfgRoles).find((role) => role.name === roleName)?.icon;
+/**
+ * A clock time like "08:00 PM" as the next moment it happens, in UTC+7 (the
+ * form says times are local UTC+7), strictly after `notBefore`. The form
+ * collects a time of day only, so "8 PM" means tonight, or tomorrow if that
+ * has already passed.
+ */
+function nextJakartaTime(label: string, notBefore: Date): Date {
+  const [clock, period] = label.split(" ");
+  const [hourText, minuteText] = clock.split(":");
+  let hour = Number(hourText) % 12;
+  if (period === "PM") hour += 12;
+  const minute = Number(minuteText);
+  const jakartaNow = new Date(Date.now() + 7 * 3_600_000);
+  let moment = Date.UTC(
+    jakartaNow.getUTCFullYear(),
+    jakartaNow.getUTCMonth(),
+    jakartaNow.getUTCDate(),
+    hour - 7,
+    minute
+  );
+  while (moment <= notBefore.getTime()) moment += 86_400_000;
+  return new Date(moment);
 }
 
 const timeOptions = (() => {
@@ -45,6 +68,52 @@ const timeOptions = (() => {
 
 const inputClass =
   "w-full rounded-lg border border-border-strong bg-bg-page px-4 py-3 text-sm text-white placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-brand";
+
+/** Greys out and disables a part of the form (a fieldset disables every control inside). */
+function Lockable({ locked, children }: { locked: boolean; children: ReactNode }) {
+  return (
+    <fieldset
+      disabled={locked}
+      className={`m-0 min-w-0 border-0 p-0 ${locked ? "opacity-50" : ""}`}
+    >
+      {children}
+    </fieldset>
+  );
+}
+
+/** A stored timestamp as the form's clock label, e.g. "08:00 PM", in UTC+7. */
+function clockLabel(iso: string): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Jakarta",
+    hour: "numeric",
+    minute: "numeric",
+    hour12: true,
+  }).formatToParts(new Date(iso));
+  const hour = parts.find((part) => part.type === "hour")?.value ?? "8";
+  const minute = Number(parts.find((part) => part.type === "minute")?.value ?? "0");
+  const period = (parts.find((part) => part.type === "dayPeriod")?.value ?? "PM").toUpperCase();
+  return `${hour.padStart(2, "0")}:${minute >= 15 && minute < 45 ? "30" : "00"} ${period}`;
+}
+
+/** What the form starts from when it edits an existing lobby. */
+export interface EditLobbyInit {
+  lobbyId: string;
+  status: "live" | "scheduled" | "started";
+  name: string;
+  description: string;
+  modeId: number;
+  /** A region code ("AP"). */
+  region: string;
+  languages: string[];
+  mic: boolean;
+  tags: string[];
+  capacity: number;
+  rankRange?: TierRange;
+  roleNames: string[];
+  discordUrl: string;
+  startsAt: string | null;
+  endsAt: string | null;
+}
 
 function FormField({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -94,6 +163,7 @@ export default function CreateTeamForm({
   gameName,
   game,
   leaderRank,
+  edit,
 }: {
   /** `games.slug`; picks the game's modes, regions and where Save returns to. */
   gameSlug: string;
@@ -102,12 +172,22 @@ export default function CreateTeamForm({
   game?: GameInfo;
   /** The signed-in leader's own rank in this game, e.g. "Gold 2"; "" if unknown. */
   leaderRank?: string;
+  /** Set to edit an existing lobby instead of creating one. */
+  edit?: EditLobbyInit;
 }) {
   const router = useRouter();
   const { toast } = useNotifications();
+  const { user } = useAuth();
   const lobbiesHref = `/lfg/${gameSlug}`;
+  // Editing: the mode never changes, and once the lobby is playing the group
+  // size, rank range, roles and schedule are locked too.
+  const lockMode = Boolean(edit);
+  const lockRest = edit?.status === "started";
+  const leaveHref = edit ? `${lobbiesHref}/lobby/${edit.lobbyId}` : lobbiesHref;
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const modes = modesFor(gameSlug);
+  const modes = game?.modes ?? [];
   const modeLabels = modes.map((mode) => mode.label);
   const roles = game?.roles ?? [];
   // SelectField takes plain strings, so region labels are used as the values
@@ -119,20 +199,30 @@ export default function CreateTeamForm({
     regionList.options.find((option) => option.value === regionList.default)
       ?.label ?? regionOptions[0];
 
-  const [teamName, setTeamName] = useState("");
-  const [modeLabel, setModeLabel] = useState(modeLabels[0] ?? "");
+  const [teamName, setTeamName] = useState(edit?.name ?? "");
+  const [modeLabel, setModeLabel] = useState(
+    modes.find((mode) => mode.id === edit?.modeId)?.label ?? modeLabels[0] ?? ""
+  );
   // The ranks this lobby accepts. Off by default: a full group often doesn't
   // care about rank, and it's the leader's call whether to set a limit.
-  const [anyRank, setAnyRank] = useState(true);
-  const [rankRange, setRankRange] = useState<TierRange>({ from: "", to: "" });
-  const [description, setDescription] = useState("");
-  const [vibeTags, setVibeTags] = useState<string[]>(["Competitive"]);
+  const [anyRank, setAnyRank] = useState(
+    edit ? !(edit.rankRange?.from || edit.rankRange?.to) : true
+  );
+  const [rankRange, setRankRange] = useState<TierRange>(
+    edit?.rankRange ?? { from: "", to: "" }
+  );
+  const [description, setDescription] = useState(edit?.description ?? "");
+  const [vibeTags, setVibeTags] = useState<string[]>(edit?.tags ?? ["Competitive"]);
+  const [discordUrl, setDiscordUrl] = useState(edit?.discordUrl ?? "");
 
-  const [region, setRegion] = useState<string>(defaultRegionLabel);
+  const [region, setRegion] = useState<string>(
+    regionList.options.find((option) => option.value === edit?.region)?.label ??
+      defaultRegionLabel
+  );
   // The mode decides how big a group can be (Wingman is 2, a squad is 4…).
   const maxGroupSize =
     modes.find((mode) => mode.label === modeLabel)?.maxParty ?? 5;
-  const [requestedGroupSize, setGroupSize] = useState(3);
+  const [requestedGroupSize, setGroupSize] = useState(edit?.capacity ?? 3);
   const groupSize = Math.min(requestedGroupSize, maxGroupSize);
 
   // Who could join, from two sources: the game's own rule about how far apart
@@ -142,7 +232,7 @@ export default function CreateTeamForm({
   const activeMode = modes.find((mode) => mode.label === modeLabel);
   const leaderOrdinal =
     game?.ranks.find((rank) => rank.name === leaderRank)?.ordinal ?? null;
-  const gameRule = partyRuleFor(gameSlug, activeMode?.value ?? "", groupSize);
+  const gameRule = partyRuleFor(activeMode, groupSize, game?.ranks ?? []);
   const chosenBounds = anyRank
     ? OPEN_BOUNDS
     : boundsFromTierRange(tiers, rankRange);
@@ -154,13 +244,22 @@ export default function CreateTeamForm({
   );
   const leaderOutsideRange =
     leaderOrdinal !== null && !ordinalFits(leaderOrdinal, chosenBounds);
-  const [language, setLanguage] = useState(languageOptions[0]);
-  const [playtimeMode, setPlaytimeMode] = useState<"now" | "schedule">("now");
-  const [scheduleStart, setScheduleStart] = useState("08:00 PM");
-  const [scheduleEnd, setScheduleEnd] = useState("11:00 PM");
-  const [seekingRoles, setSeekingRoles] = useState<string[]>([]);
-  const [anyRole, setAnyRole] = useState(false);
-  const [micRequired, setMicRequired] = useState(true);
+  const [language, setLanguage] = useState(
+    languageOptions.find((option) => edit && option === edit.languages.join(" / ")) ??
+      languageOptions[0]
+  );
+  const [playtimeMode, setPlaytimeMode] = useState<"now" | "schedule">(
+    edit?.startsAt ? "schedule" : "now"
+  );
+  const [scheduleStart, setScheduleStart] = useState(
+    edit?.startsAt ? clockLabel(edit.startsAt) : "08:00 PM"
+  );
+  const [scheduleEnd, setScheduleEnd] = useState(
+    edit?.endsAt ? clockLabel(edit.endsAt) : "11:00 PM"
+  );
+  const [seekingRoles, setSeekingRoles] = useState<string[]>(edit?.roleNames ?? []);
+  const [anyRole, setAnyRole] = useState(edit ? edit.roleNames.length === 0 : false);
+  const [micRequired, setMicRequired] = useState(edit?.mic ?? true);
 
   function toggleVibeTag(tag: string) {
     setVibeTags((prev) =>
@@ -174,30 +273,125 @@ export default function CreateTeamForm({
     );
   }
 
-  function handleSubmit(event: FormEvent) {
+  async function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    // TODO: wire up to the create-team API once it exists.
+    if (submitting) return;
+    if (!user) {
+      setSubmitError("Log in to create a lobby.");
+      return;
+    }
+    if (!game || !activeMode) {
+      setSubmitError("Pick a game mode first.");
+      return;
+    }
+
+    // The form holds labels; the database stores codes and ids.
+    const regionCode =
+      regionList.options.find((option) => option.label === region)?.value ??
+      regionList.default;
+    const ends = anyRank ? {} : rankRangeEnds(game.ranks, rankRange);
+    const now = new Date();
+    const startsAt =
+      playtimeMode === "schedule" ? nextJakartaTime(scheduleStart, now) : null;
+    const endsAt =
+      startsAt && scheduleEnd ? nextJakartaTime(scheduleEnd, startsAt) : null;
+
+    setSubmitting(true);
+    setSubmitError(null);
+
+    if (edit) {
+      // Leaving a schedule untouched keeps its stored moments, so saving a
+      // lobby whose start has just passed doesn't push it to tomorrow.
+      const keepStart =
+        edit.startsAt && playtimeMode === "schedule" && scheduleStart === clockLabel(edit.startsAt);
+      const keepEnd =
+        edit.endsAt && keepStart && scheduleEnd === clockLabel(edit.endsAt);
+      const failure = await updateLobby(createClient(), {
+        lobbyId: edit.lobbyId,
+        name: teamName.trim(),
+        description,
+        region: regionCode,
+        languages: language.split(" / "),
+        micRequired,
+        tags: vibeTags,
+        capacity: groupSize,
+        startsAt: keepStart ? edit.startsAt : (startsAt?.toISOString() ?? null),
+        endsAt: keepEnd ? edit.endsAt : (endsAt?.toISOString() ?? null),
+        minRankId: ends.from?.id ?? null,
+        maxRankId: ends.to?.id ?? null,
+        roleIds: anyRole
+          ? []
+          : game.roles
+              .filter((role) => seekingRoles.includes(role.name))
+              .map((role) => role.id),
+        discordUrl,
+      });
+      setSubmitting(false);
+      if (failure) {
+        setSubmitError(failure);
+        return;
+      }
+      toast({ tone: "success", title: "Lobby updated" });
+      router.push(leaveHref);
+      router.refresh();
+      return;
+    }
+
+    const result = await createLobby(createClient(), {
+      game,
+      modeId: activeMode.id,
+      name: teamName.trim(),
+      description,
+      region: regionCode,
+      languages: language.split(" / "),
+      micRequired,
+      tags: vibeTags,
+      capacity: groupSize,
+      startsAt: startsAt?.toISOString() ?? null,
+      endsAt: endsAt?.toISOString() ?? null,
+      minRankId: ends.from?.id ?? null,
+      maxRankId: ends.to?.id ?? null,
+      cover: randomCoverKey(gameSlug),
+      roleIds: anyRole
+        ? []
+        : game.roles
+            .filter((role) => seekingRoles.includes(role.name))
+            .map((role) => role.id),
+      discordUrl,
+    });
+    setSubmitting(false);
+
+    if ("error" in result) {
+      setSubmitError(result.error);
+      return;
+    }
     toast({
       tone: "success",
       title: "Lobby created",
-      body: teamName.trim()
-        ? `${teamName.trim()} is now open for applications.`
-        : "Your lobby is now open for applications.",
+      body: `${teamName.trim()} is now open for applications.`,
     });
     router.push(lobbiesHref);
+    router.refresh();
   }
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <BackLink label="Back to lobbies" href={lobbiesHref} />
+      <BackLink
+        label={edit ? "Back to lobby" : "Back to lobbies"}
+        href={leaveHref}
+      />
 
       <div className="overflow-hidden rounded-2xl border border-border-strong bg-bg-card-alt">
         <div className="flex flex-col gap-2 px-6 pb-6 pt-8 sm:px-10 sm:pt-10">
           <h1 className="text-2xl font-bold text-white sm:text-3xl">
-            Create a Team
+            {edit ? "Edit your lobby" : "Create a Team"}
           </h1>
           <p className="text-sm text-text-muted">
-            Recruit the perfect squad for your next {gameName} match.
+            {edit
+              ? lockRest
+                ? "This lobby is playing, so its group size, rank range, roles and playtime are locked. The rest can still change."
+                : "The game mode can't change once a lobby exists. Everything else can."
+              : `Recruit the perfect squad for your next ${gameName} match.`}
           </p>
         </div>
 
@@ -213,14 +407,17 @@ export default function CreateTeamForm({
             </FormField>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <FormField label="Gamemode Selection">
-                <SelectField
-                  value={modeLabel}
-                  onChange={setModeLabel}
-                  options={modeLabels}
-                />
-              </FormField>
+              <Lockable locked={lockMode}>
+                <FormField label="Gamemode Selection">
+                  <SelectField
+                    value={modeLabel}
+                    onChange={setModeLabel}
+                    options={modeLabels}
+                  />
+                </FormField>
+              </Lockable>
               {tiers.length > 0 && (
+                <Lockable locked={lockRest}>
                 <div className="flex flex-col gap-1.5">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold uppercase tracking-wider text-text-muted">
@@ -272,6 +469,7 @@ export default function CreateTeamForm({
                     </p>
                   )}
                 </div>
+                </Lockable>
               )}
             </div>
 
@@ -283,6 +481,19 @@ export default function CreateTeamForm({
                 rows={5}
                 className={`${inputClass} h-[140px] resize-none`}
               />
+            </FormField>
+
+            <FormField label="Discord voice link (optional)">
+              <input
+                type="url"
+                value={discordUrl}
+                onChange={(event) => setDiscordUrl(event.target.value)}
+                placeholder="https://discord.gg/yourcode"
+                className={inputClass}
+              />
+              <span className="text-[11px] text-text-muted">
+                Only you and the players you accept can see this link.
+              </span>
             </FormField>
 
             <div className="flex flex-col gap-3">
@@ -334,6 +545,7 @@ export default function CreateTeamForm({
                 />
               </FormField>
 
+              <Lockable locked={lockRest}>
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold uppercase tracking-wider text-text-muted">
@@ -388,6 +600,7 @@ export default function CreateTeamForm({
                   </div>
                 </div>
               </div>
+              </Lockable>
 
               <FormField label="Language">
                 <SelectField
@@ -397,6 +610,7 @@ export default function CreateTeamForm({
                 />
               </FormField>
 
+              <Lockable locked={lockRest}>
               <div className="flex flex-col gap-3">
                 <span className="text-xs font-bold uppercase tracking-wider text-text-muted">
                   Playtime
@@ -492,8 +706,10 @@ export default function CreateTeamForm({
                   </>
                 )}
               </div>
+              </Lockable>
 
               {roles.length > 0 && (
+                <Lockable locked={lockRest}>
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold uppercase tracking-wider text-text-muted">
@@ -512,7 +728,7 @@ export default function CreateTeamForm({
                   <div className="flex flex-wrap gap-2">
                     {roles.map((role) => {
                       const isSelected = seekingRoles.includes(role.name);
-                      const icon = roleIconFor(role.name);
+                      const icon = roleIconFor(gameSlug, role.name);
                       return (
                         <button
                           key={role.id}
@@ -540,6 +756,7 @@ export default function CreateTeamForm({
                     })}
                   </div>
                 </div>
+                </Lockable>
               )}
 
               <div className="flex items-center justify-between border-t border-border-strong pt-6">
@@ -581,22 +798,25 @@ export default function CreateTeamForm({
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-4 border-t-2 border-border-strong px-6 py-5 sm:px-10">
-          <div className="flex items-center gap-2 text-sm italic text-text-muted">
-            <span className="size-1.5 rounded-full bg-[#10b981]" />
-            Join 1,240+ active players online
-          </div>
+          <p
+            role={submitError ? "alert" : undefined}
+            className={`text-sm ${submitError ? "text-danger" : "text-text-muted"}`}
+          >
+            {submitError ?? ""}
+          </p>
           <div className="flex items-center gap-6">
             <Link
-              href={lobbiesHref}
+              href={leaveHref}
               className="text-sm font-bold text-text-muted transition-colors hover:text-white"
             >
               Discard
             </Link>
             <button
               type="submit"
-              className="rounded-lg bg-brand px-6 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+              disabled={submitting}
+              className="rounded-lg bg-brand px-6 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Create Team
+              {submitting ? (edit ? "Saving…" : "Creating…") : edit ? "Save changes" : "Create Team"}
             </button>
           </div>
         </div>

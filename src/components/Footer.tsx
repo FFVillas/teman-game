@@ -5,6 +5,7 @@ import {
   footerCompanyLinks,
   socialLinks,
   legalLinks,
+  footerDisclaimer,
 } from "@/data/footer";
 
 export default function Footer() {
@@ -18,6 +19,16 @@ export default function Footer() {
               Connect with competitive players across the globe. Join the
               best LFG platform for hardcore gamers.
             </p>
+            <div className="flex flex-col gap-2">
+              {footerDisclaimer.map((paragraph) => (
+                <p
+                  key={paragraph}
+                  className="text-[11px] leading-relaxed text-text-muted"
+                >
+                  {paragraph}
+                </p>
+              ))}
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-16 sm:gap-20">

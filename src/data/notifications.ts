@@ -19,7 +19,6 @@ export type NotificationKind =
   | "lobby_started"
   | "rating_due"
   | "friend_request"
-  | "message"
   | "review_received"
   | "report_update";
 
@@ -37,6 +36,12 @@ export interface AppNotification {
   read: boolean;
   /** Set once the user accepts or declines an actionable notification. */
   resolution?: "accepted" | "declined";
+  /**
+   * The row this notification is about: the application for a join request,
+   * the invite for a lobby invite. Accept and Decline use it to answer the
+   * real row.
+   */
+  refId?: string;
 }
 
 /**
@@ -68,7 +73,6 @@ export const notificationStyles: Record<
   lobby_started: { icon: "/icons/lfg-play.svg", tone: "success" },
   rating_due: { icon: "/icons/player-star-full.svg", tone: "star" },
   friend_request: { icon: "/icons/player-add-friend.svg", tone: "brand" },
-  message: { icon: "/icons/feature-chat.svg", tone: "brand" },
   review_received: { icon: "/icons/player-star-full.svg", tone: "star" },
   report_update: { icon: "/icons/feature-verified.svg", tone: "danger" },
 };

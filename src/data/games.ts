@@ -17,7 +17,7 @@ export interface Game {
  */
 export const games: Game[] = [
   { slug: "valorant", name: "Valorant", image: "/games/valorant.jpg", meta: "PC · Tactical FPS", href: "/lfg/valorant" },
-  { slug: "league-of-legends", name: "League of Legends", image: "/games/league-of-legends.jpg", meta: "PC · MOBA", href: "/lfg/league-of-legends" },
+  { slug: "league-of-legends", name: "League of Legends", image: "/games/league-of-legends.webp", meta: "PC · MOBA", href: "/lfg/league-of-legends" },
   { slug: "counter-strike-2", name: "Counter-Strike 2", image: "/games/counter-strike-2.jpg", meta: "PC · Tactical FPS", href: "/lfg/counter-strike-2" },
   { slug: "mobile-legends", name: "Mobile Legends: Bang Bang", image: "/games/mobile-legends.jpg", meta: "Mobile · MOBA", href: "/lfg/mobile-legends" },
   { slug: "pubg-mobile", name: "PUBG Mobile", image: "/games/pubg-battlegrounds.png", meta: "Mobile · Battle Royale", href: "/lfg/pubg-mobile" },

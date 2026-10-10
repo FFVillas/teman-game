@@ -1,11 +1,12 @@
 export interface LfgRole {
   name: string;
+  /** Empty when the role has no artwork yet; show its name instead. */
   icon: string;
 }
 
 export const lfgRoles = {
-  duelist: { name: "Duelist", icon: "/icons/role-duelist.svg" },
-  initiator: { name: "Initiator", icon: "/icons/role-initiator.svg" },
-  sentinel: { name: "Sentinel", icon: "/icons/role-sentinel.svg" },
-  controller: { name: "Controller", icon: "/icons/role-controller.svg" },
+  duelist: { name: "Duelist", icon: "/roles/valorant/duelist.svg" },
+  initiator: { name: "Initiator", icon: "/roles/valorant/initiator.svg" },
+  sentinel: { name: "Sentinel", icon: "/roles/valorant/sentinel.svg" },
+  controller: { name: "Controller", icon: "/roles/valorant/controller.svg" },
 } satisfies Record<string, LfgRole>;

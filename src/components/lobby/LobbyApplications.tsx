@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { LobbyApplication } from "@/data/lfg-lobby";
 import { findProfileByUsername } from "@/data/player-profiles";
+import PlayerAvatar from "@/components/lfg/PlayerAvatar";
 
 /**
  * The match score is `S_total` from the recommendation engine. Showing the
@@ -35,6 +36,8 @@ interface LobbyApplicationsProps {
   onReject: (id: string) => void;
   /** Lobby is full, so accepting is blocked until a slot frees up. */
   isFull: boolean;
+  /** A decision is being saved; hold the buttons so it can't be sent twice. */
+  busy?: boolean;
 }
 
 export default function LobbyApplications({
@@ -42,6 +45,7 @@ export default function LobbyApplications({
   onAccept,
   onReject,
   isFull,
+  busy = false,
 }: LobbyApplicationsProps) {
   const pending = applications.filter((a) => a.status === "pending");
 
@@ -60,13 +64,13 @@ export default function LobbyApplications({
 
       {pending.length === 0 ? (
         <p className="rounded-xl border border-dashed border-border-default p-6 text-center text-xs text-text-muted">
-          No pending requests. New applicants will show up here, sorted by
-          match score.
+          No pending requests. New applicants will show up here.
         </p>
       ) : (
         <ul className="flex flex-col gap-2">
           {pending.map((app) => {
-            const profile = findProfileByUsername(app.applicantName);
+            const slug =
+              app.profileSlug ?? findProfileByUsername(app.applicantName)?.slug;
 
             return (
             <li
@@ -74,29 +78,27 @@ export default function LobbyApplications({
               className="flex flex-col gap-3 rounded-xl border border-border-default bg-bg-page p-3"
             >
               <div className="flex items-start gap-3">
-                {profile ? (
-                  <Link href={`/profile/${profile.slug}`} className="shrink-0">
-                    {/* eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization */}
-                    <img
+                {slug ? (
+                  <Link href={`/profile/${slug}`} className="shrink-0">
+                    <PlayerAvatar
                       src={app.avatar}
-                      alt=""
-                      className="size-10 rounded-full object-cover transition-opacity hover:opacity-80"
+                      name={app.applicantName}
+                      className="size-10 text-sm transition-opacity hover:opacity-80"
                     />
                   </Link>
                 ) : (
-                  // eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization
-                  <img
+                  <PlayerAvatar
                     src={app.avatar}
-                    alt=""
-                    className="size-10 shrink-0 rounded-full object-cover"
+                    name={app.applicantName}
+                    className="size-10 shrink-0 text-sm"
                   />
                 )}
 
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <div className="flex flex-wrap items-center gap-2">
-                    {profile ? (
+                    {slug ? (
                       <Link
-                        href={`/profile/${profile.slug}`}
+                        href={`/profile/${slug}`}
                         className="truncate text-sm font-bold text-white hover:text-brand hover:underline"
                       >
                         {app.applicantName}
@@ -112,24 +114,38 @@ export default function LobbyApplications({
                   </div>
                   <div className="flex flex-wrap items-center gap-2.5 text-[11px] text-text-muted">
                     <span className="flex items-center gap-1">
-                      {/* eslint-disable-next-line @next/next/no-img-element -- static badge icon, no benefit from next/image optimization */}
-                      <img src={app.rank.icon} alt="" className="size-3" />
+                      {app.rank.icon && (
+                        // eslint-disable-next-line @next/next/no-img-element -- static badge icon, no benefit from next/image optimization
+                        <img src={app.rank.icon} alt="" className="size-3" />
+                      )}
                       <span className={`font-bold ${app.rank.colorClass}`}>
                         {app.rank.name}
                       </span>
                     </span>
-                    <span className="flex items-center gap-1">
-                      {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
-                      <img src={app.role.icon} alt="" className="size-3" />
-                      {app.role.name}
-                    </span>
-                    <span className="flex items-center gap-1 text-star">
-                      ★ {app.reputation.toFixed(1)}
-                    </span>
+                    {app.role && (
+                      <span className="flex items-center gap-1">
+                        {app.role.icon && (
+                          // eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization
+                          <img src={app.role.icon} alt="" className="size-3" />
+                        )}
+                        {app.role.name}
+                      </span>
+                    )}
+                    {app.reputation === null ? (
+                      <span className="italic text-text-muted/70">
+                        No ratings yet
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-star">
+                        ★ {app.reputation.toFixed(1)}
+                      </span>
+                    )}
                   </div>
                 </div>
 
-                <MatchScore score={app.matchScore} />
+                {app.matchScore !== undefined && (
+                  <MatchScore score={app.matchScore} />
+                )}
               </div>
 
               {app.message && (
@@ -142,7 +158,7 @@ export default function LobbyApplications({
                 <button
                   type="button"
                   onClick={() => onAccept(app.id)}
-                  disabled={isFull}
+                  disabled={isFull || busy}
                   title={isFull ? "Lobby is full" : undefined}
                   className="flex h-8 flex-1 items-center justify-center rounded-lg bg-brand text-xs font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                 >
@@ -151,7 +167,8 @@ export default function LobbyApplications({
                 <button
                   type="button"
                   onClick={() => onReject(app.id)}
-                  className="flex h-8 flex-1 items-center justify-center rounded-lg border border-border-strong text-xs font-semibold text-text-muted transition-colors hover:border-danger hover:text-danger"
+                  disabled={busy}
+                  className="flex disabled:cursor-not-allowed disabled:opacity-40 h-8 flex-1 items-center justify-center rounded-lg border border-border-strong text-xs font-semibold text-text-muted transition-colors hover:border-danger hover:text-danger"
                 >
                   Decline
                 </button>

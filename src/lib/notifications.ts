@@ -20,12 +20,13 @@ interface NotificationRow {
   href: string | null;
   read_at: string | null;
   resolution: "accepted" | "declined" | null;
+  ref_id: string | null;
   created_at: string;
   actor: { username: string; avatar_path: string | null } | null;
 }
 
 const COLUMNS =
-  "id, kind, title, body, href, read_at, resolution, created_at, actor:profiles!notifications_actor_id_fkey (username, avatar_path)";
+  "id, kind, title, body, href, read_at, resolution, ref_id, created_at, actor:profiles!notifications_actor_id_fkey (username, avatar_path)";
 
 function rowToNotification(row: NotificationRow): AppNotification {
   return {
@@ -39,6 +40,7 @@ function rowToNotification(row: NotificationRow): AppNotification {
     createdAgo: formatAgo(row.created_at),
     read: row.read_at !== null,
     resolution: row.resolution ?? undefined,
+    refId: row.ref_id ?? undefined,
   };
 }
 
@@ -93,23 +95,19 @@ export async function insertNotification(
   return rowToNotification(data as unknown as NotificationRow);
 }
 
-/** Kinds `notify_user` (see 20261006010000_notify_user_rpc.sql) accepts. */
-export type CrossPlayerNotificationKind =
-  | "lobby_invite"
-  | "join_request"
-  | "friend_request";
+/**
+ * Kinds `notify_user` accepts (see 20261012000000_lobby_invites.sql). Lobby
+ * invites and join requests are not here on purpose: triggers write those, so
+ * a player can't post one with a title and link of their choosing.
+ */
+export type CrossPlayerNotificationKind = "friend_request";
 
 /**
  * Notifies a DIFFERENT player that the caller did something involving them —
- * "X invited you to a lobby", "Y wants to join yours". A plain insert can't
- * do this (the insert policy only allows rows addressed to yourself), so
- * this goes through the `notify_user` security-definer function instead,
- * which always records the real caller as `actor_id` and is rate-limited.
- *
- * Not wired into any lobby UI yet — the Lobby slice (`lobbies`,
- * `applications`, `lobby_invites`) is still mock, so there's no real invite
- * or join-request event to call this from. This is the mechanism ready for
- * when that lands.
+ * "X sent you a friend request". A plain insert can't do this (the insert
+ * policy only allows rows addressed to yourself), so this goes through the
+ * `notify_user` security-definer function instead, which always records the
+ * real caller as `actor_id` and is rate-limited.
  */
 export async function notifyUser(
   supabase: SupabaseClient,

@@ -9,14 +9,8 @@ import {
   type AppNotification,
 } from "@/data/notifications";
 import { EmptyState } from "@/components/EmptyState";
-import { currentPlayerMember, lobbyById } from "@/data/lfg-lobby";
-import { updateLobbySession } from "@/lib/lobby-session";
-
-/** `/lfg/<game>/lobby/<id>` → `<id>`, so an accepted invite notification can
- *  update that lobby's own session without a dedicated id field. */
-function lobbyIdFromHref(href?: string): string | undefined {
-  return href?.match(/\/lobby\/([^/?]+)/)?.[1];
-}
+import { respondToApplication, respondToInvite } from "@/lib/lobbies";
+import { createClient } from "@/lib/supabase/client";
 
 const toneSolid: Record<string, string> = {
   brand: "border-brand bg-brand",
@@ -48,9 +42,11 @@ function matchesFilter(notification: AppNotification, filter: Filter) {
 function ActionButtons({
   notification,
   onResolve,
+  busy,
 }: {
   notification: AppNotification;
   onResolve: (resolution: "accepted" | "declined") => void;
+  busy: boolean;
 }) {
   const isInvite = notification.kind === "lobby_invite";
 
@@ -59,8 +55,9 @@ function ActionButtons({
       <button
         type="button"
         onClick={() => onResolve("accepted")}
+        disabled={busy}
         aria-label={isInvite ? "Accept invitation" : "Accept request"}
-        className="flex h-8 items-center justify-center gap-1.5 rounded-lg bg-brand px-2.5 text-[11px] font-bold text-white transition-opacity hover:opacity-90"
+        className="flex h-8 items-center justify-center gap-1.5 rounded-lg bg-brand px-2.5 text-[11px] font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
         <img src="/icons/action-accept.svg" alt="" className="size-3" />
@@ -69,8 +66,9 @@ function ActionButtons({
       <button
         type="button"
         onClick={() => onResolve("declined")}
+        disabled={busy}
         aria-label={isInvite ? "Decline invitation" : "Decline request"}
-        className="flex h-8 items-center justify-center gap-1.5 rounded-lg bg-danger px-2.5 text-[11px] font-bold text-white transition-opacity hover:opacity-90"
+        className="flex h-8 items-center justify-center gap-1.5 rounded-lg bg-danger px-2.5 text-[11px] font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
         <img src="/icons/action-decline.svg" alt="" className="size-3" />
@@ -84,35 +82,38 @@ function Row({ notification }: { notification: AppNotification }) {
   const { markRead, resolve, toast } = useNotifications();
   const style = notificationStyles[notification.kind];
   const actionable = isActionable(notification);
+  const [busy, setBusy] = useState(false);
 
-  function handleResolve(resolution: "accepted" | "declined") {
-    // TODO: PATCH the underlying application / invite row.
-    resolve(notification.id, resolution);
+  async function handleResolve(resolution: "accepted" | "declined") {
+    if (busy) return;
 
-    // Accepting a lobby invite here is the only way to accept it now (the
-    // lobby page's own banner just reflects this session instead of
-    // offering a second accept button) — so put the player on the roster
-    // the same way LobbyDetail's handleAcceptInvite does.
-    if (resolution === "accepted" && notification.kind === "lobby_invite") {
-      const lobby = lobbyById(lobbyIdFromHref(notification.href) ?? "");
-      if (lobby) {
-        updateLobbySession(lobby, (prev) => ({
-          ...prev,
-          roleOverride: "member",
-          messages: [
-            ...prev.messages,
-            {
-              id: `sys-${Date.now()}`,
-              authorId: "system",
-              authorName: "System",
-              body: `${currentPlayerMember.name} joined the lobby`,
-              sentAt: "now",
-              isSystem: true,
-            },
-          ],
-        }));
+    // Both kinds are real rows: answer the application or the invite first.
+    // The database then marks this notification itself, and refuses when the
+    // answer no longer holds (the lobby filled up, the player no longer
+    // fits, you're already in another lobby), in which case nothing is
+    // resolved and the reason is shown.
+    if (notification.refId) {
+      setBusy(true);
+      const accept = resolution === "accepted";
+      const failure =
+        notification.kind === "lobby_invite"
+          ? await respondToInvite(createClient(), notification.refId, accept)
+          : await respondToApplication(createClient(), notification.refId, accept);
+      setBusy(false);
+      if (failure) {
+        toast({
+          tone: "danger",
+          title:
+            notification.kind === "lobby_invite"
+              ? "Couldn't answer this invitation"
+              : "Couldn't answer this request",
+          body: failure,
+        });
+        return;
       }
     }
+
+    resolve(notification.id, resolution);
 
     toast({
       tone: resolution === "accepted" ? "success" : "info",
@@ -209,7 +210,11 @@ function Row({ notification }: { notification: AppNotification }) {
       )}
 
       {actionable ? (
-        <ActionButtons notification={notification} onResolve={handleResolve} />
+        <ActionButtons
+          notification={notification}
+          onResolve={handleResolve}
+          busy={busy}
+        />
       ) : notification.resolution ? (
         <span
           className={`mt-1 shrink-0 rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${

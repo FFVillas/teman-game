@@ -36,7 +36,7 @@ someone who actually plays it. Five minutes in the game beats any article.
 4. **Regions are regional groups, never countries.** See
    [Region options](#region-options-proposal).
 5. **Game modes** are a researched list below; the group-play ones are in
-   `src/data/game-modes.ts`, in the app and not yet a table.
+   the database (`game_modes`, seeded by `20261006000000_lobbies.sql`).
 6. **Region lists live in the app for now** (`src/data/game-regions.ts`,
    option A), not a database table. Moving to a `game_regions` table later is
    a new migration plus a data move, not a rewrite; the four non-official
@@ -369,7 +369,7 @@ label (`ranked` / `casual` / `tournament`, the three labels lobbies already
 carry), and whether a rank requirement makes sense.
 
 Only modes people **group up for** are offered in the app
-(`src/data/game-modes.ts`, column "In the app"). Solo and free-for-all modes
+(`game_modes`, column "In the app"). Solo and free-for-all modes
 (Deathmatch, Arms Race, Co-Op vs AI…) are listed here for completeness but
 left out, because there is nobody to look for. **Rotating** modes come and go
 with patches and events, so that list needs a look each season.
@@ -479,10 +479,10 @@ Karakin, Livik and Nusa. Solo queues are not offered (nobody to look for).
 
 ### How the app uses modes, and what is still open
 
-- **Not in the database yet.** The list is `src/data/game-modes.ts`. When
-  lobbies are stored they need to point at a mode, which is the moment to move
-  it into a `game_modes` table (game, name, kind, max party, rotating) like
-  ranks and roles. That would be one more table beyond the proposal.
+- **In the database since 2026-10-06.** `game_modes` (game, value, label,
+  kind, max party, rotating, plus the party rule) is seeded by
+  `20261006000000_lobbies.sql`, and a lobby points at a mode. The app reads
+  the modes through `fetchGameCatalog`. One more table beyond the proposal.
 - **The create form** offers the game's own modes, and the group size cap
   follows the chosen mode (Wingman 2, a squad 4, a normal team 5).
 - **The filters on each game's LFG page** (region, mode, rank) already offer

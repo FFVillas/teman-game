@@ -4,6 +4,7 @@ import type { LfgTeam } from "@/data/lfg-teams";
 import { findProfileByUsername } from "@/data/player-profiles";
 import type { GameInfo } from "@/lib/games";
 import RankRangeBadge from "./RankRangeBadge";
+import PlayerAvatar from "./PlayerAvatar";
 
 export const modeStyles: Record<LfgTeam["mode"], { label: string; className: string }> = {
   ranked: {
@@ -20,6 +21,15 @@ export const modeStyles: Record<LfgTeam["mode"], { label: string; className: str
   },
 };
 
+/** The button says what the viewer can do here, not always "Join". */
+const joinLabel: Record<NonNullable<LfgTeam["viewerState"]> | "none", string> = {
+  none: "Join",
+  leader: "Manage",
+  member: "Open",
+  pending: "Pending",
+  declined: "Declined",
+};
+
 interface LfgTeamCardProps {
   team: LfgTeam;
   onOpenDetails?: () => void;
@@ -34,7 +44,11 @@ export default function LfgTeamCard({
 }: LfgTeamCardProps) {
   const mode = modeStyles[team.mode];
   const hasOpenSlots = team.slotsFilled < team.slotsTotal;
-  const leaderProfile = findProfileByUsername(team.leaderName);
+  // Real lobbies link to the leader's real profile; mock ones only when a mock
+  // profile exists.
+  const leaderSlug = team.leaderId
+    ? team.leaderName
+    : findProfileByUsername(team.leaderName)?.slug;
 
   return (
     <div
@@ -111,13 +125,13 @@ export default function LfgTeamCard({
 
         <div className="flex flex-1 items-center gap-2.5">
           <div className="flex items-center">
-            {team.members.map((member) => (
-              // eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnails, no benefit from next/image optimization
-              <img
+            {team.members.map((member, index) => (
+              <PlayerAvatar
                 key={member.id}
                 src={member.avatar}
-                alt=""
-                className="-ml-3.5 size-10 rounded-full border-2 border-bg-card-alt object-cover first:ml-0"
+                name={member.name}
+                style={{ zIndex: team.members.length - index }}
+                className="-ml-3.5 size-10 border-2 border-bg-card-alt text-sm first:ml-0"
               />
             ))}
             {hasOpenSlots && (
@@ -130,9 +144,9 @@ export default function LfgTeamCard({
           <div className="flex flex-col gap-0.5">
             <p className="text-[11px] text-white/50">
               Led by{" "}
-              {leaderProfile ? (
+              {leaderSlug ? (
                 <Link
-                  href={`/profile/${leaderProfile.slug}`}
+                  href={`/profile/${leaderSlug}`}
                   onClick={(event) => event.stopPropagation()}
                   className="text-white hover:text-brand hover:underline"
                 >
@@ -164,8 +178,14 @@ export default function LfgTeamCard({
                   title={role.name}
                   className="flex size-6 items-center justify-center rounded-md border border-brand/30 bg-brand/10"
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
-                  <img src={role.icon} alt={role.name} className="size-2.5" />
+                  {role.icon ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization
+                    <img src={role.icon} alt={role.name} className="size-2.5" />
+                  ) : (
+                    <span className="text-[8px] font-bold text-brand">
+                      {role.name.slice(0, 2)}
+                    </span>
+                  )}
                 </div>
               ))}
             </div>
@@ -173,9 +193,9 @@ export default function LfgTeamCard({
           <button
             type="button"
             onClick={onOpenDetails}
-            className="flex h-6 w-[64px] items-center justify-center rounded-md bg-[#272c33] text-xs font-bold text-white transition-opacity hover:opacity-90"
+            className="flex h-6 min-w-[64px] items-center justify-center rounded-md bg-[#272c33] px-2 text-xs font-bold text-white transition-opacity hover:opacity-90"
           >
-            Join
+            {joinLabel[team.viewerState ?? "none"]}
           </button>
         </div>
       </div>
