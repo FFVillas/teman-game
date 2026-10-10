@@ -36,8 +36,8 @@ export default function SocialSidebar() {
 
   return (
     <aside className="hidden min-h-0 w-[260px] shrink-0 flex-col border-r border-border-default sm:flex">
-      <div className="p-6">
-        <h1 className="text-2xl font-extrabold text-white">Social</h1>
+      <div className="px-6 py-5">
+        <h1 className="text-xl font-extrabold text-white">Social</h1>
       </div>
 
       <div className="px-4">
@@ -56,24 +56,24 @@ export default function SocialSidebar() {
         </div>
       </div>
 
-      <nav className="mt-4 flex flex-col gap-1 px-4">
+      <nav className="mt-3 flex flex-col gap-0.5 px-4">
         {navItems.map((item) => {
           const active = pathname === item.href;
           return (
             <Link
               key={item.label}
               href={item.href}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${
+              className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors ${
                 active
                   ? "bg-white/10 text-white"
                   : "text-text-muted hover:bg-white/5 hover:text-white"
               }`}
             >
               {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
-              <img src={item.icon} alt="" className="h-auto w-[18px]" />
+              <img src={item.icon} alt="" className="h-auto w-4" />
               <span className="flex-1 text-left">{item.label}</span>
               {!!item.badge && (
-                <span className="flex h-5 min-w-5 items-center justify-center rounded-md bg-brand px-1 text-[11px] font-bold text-white">
+                <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-md bg-brand px-1 text-[10px] font-bold text-white">
                   {item.badge}
                 </span>
               )}
@@ -84,8 +84,10 @@ export default function SocialSidebar() {
 
       <div className="mt-auto flex items-center gap-3 border-t border-border-subtle p-4">
         <UserAvatar src={displayUser.avatar} name={displayUser.name} />
-        <div className="flex flex-1 flex-col">
-          <span className="text-sm font-bold text-white">{displayUser.name}</span>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <span className="truncate text-sm font-bold text-white">
+            {displayUser.name.split("@")[0]}
+          </span>
         </div>
       </div>
     </aside>

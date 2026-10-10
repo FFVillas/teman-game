@@ -1,37 +1,16 @@
 "use client";
 
-export type ConnectedProvider = "discord" | "steam" | "riot";
+import {
+  connectProviders as providers,
+  type ConnectedProvider,
+} from "@/data/connect-providers";
+
+export type { ConnectedProvider };
 
 interface ConnectStepProps {
   connected: Set<ConnectedProvider>;
   onToggle: (provider: ConnectedProvider) => void;
 }
-
-const providers: {
-  id: ConnectedProvider;
-  label: string;
-  caption: string;
-  icon: string;
-}[] = [
-  {
-    id: "discord",
-    label: "Discord",
-    caption: "Drop a voice link in your lobbies automatically.",
-    icon: "/icons/social-discord.svg",
-  },
-  {
-    id: "riot",
-    label: "Riot Games",
-    caption: "Keeps Valorant / LoL rank in sync once this is live.",
-    icon: "/icons/player-riot.svg",
-  },
-  {
-    id: "steam",
-    label: "Steam",
-    caption: "Shows on your profile for CS2 teammates.",
-    icon: "/icons/player-steam.svg",
-  },
-];
 
 export default function ConnectStep({ connected, onToggle }: ConnectStepProps) {
   return (

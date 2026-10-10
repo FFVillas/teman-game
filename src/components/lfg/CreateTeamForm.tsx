@@ -331,7 +331,11 @@ export default function CreateTeamForm({
         setSubmitError(failure);
         return;
       }
-      toast({ tone: "success", title: "Lobby updated" });
+      toast({
+        tone: "success",
+        title: "Lobby updated",
+        body: "Your changes have been saved.",
+      });
       router.push(leaveHref);
       router.refresh();
       return;
@@ -365,11 +369,7 @@ export default function CreateTeamForm({
       setSubmitError(result.error);
       return;
     }
-    toast({
-      tone: "success",
-      title: "Lobby created",
-      body: `${teamName.trim()} is now open for applications.`,
-    });
+    // No pop-up: the lobby list opens with it at the top as "Your lobby".
     router.push(lobbiesHref);
     router.refresh();
   }

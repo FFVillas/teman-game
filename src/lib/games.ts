@@ -125,9 +125,15 @@ export async function fetchGameCatalog(
 export interface GameSetupInput {
   gameId: number;
   inGameName: string;
+  /** Player ID, UID or Character ID; "" where the game has none. */
+  accountId: string;
+  /** Mobile Legends only. */
+  zoneId: string;
   region: string;
   rankId: number | null;
   roleIds: number[];
+  /** The roles marked as favourites: a subset of `roleIds`. */
+  favoriteRoleIds: number[];
 }
 
 /**
@@ -148,6 +154,8 @@ export async function saveGameSetup(
 ): Promise<string | null> {
   const fields = {
     in_game_name: setup.inGameName.trim() || null,
+    account_id: setup.accountId.trim() || null,
+    zone_id: setup.zoneId.trim() || null,
     region: setup.region || null,
     rank_id: setup.rankId,
   };
@@ -182,6 +190,7 @@ export async function saveGameSetup(
         user_id: userId,
         game_id: setup.gameId,
         role_id: roleId,
+        is_favorite: setup.favoriteRoleIds.includes(roleId),
       })),
     );
     if (rolesError) return rolesError.message;
@@ -195,6 +204,8 @@ export interface PlayerGameSetup {
   gameSlug: string;
   gameName: string;
   inGameName: string;
+  accountId: string;
+  zoneId: string;
   /** Display label, e.g. "Asia Pacific (AP)". Empty if none was chosen. */
   region: string;
   /** The stored value, e.g. "AP", for forms that edit it. */
@@ -202,6 +213,8 @@ export interface PlayerGameSetup {
   /** Empty if the player hasn't picked a rank. */
   rank: string;
   roles: string[];
+  /** The favourites among `roles`. */
+  favoriteRoles: string[];
 }
 
 /**
@@ -258,20 +271,31 @@ export async function fetchPlayerGameSetups(
   const [mappings, roleRows] = await Promise.all([
     supabase
       .from("user_game_mapping")
-      .select("game_id, in_game_name, region, rank_id")
+      .select("game_id, in_game_name, account_id, zone_id, region, rank_id")
       .eq("user_id", userId),
     supabase
       .from("user_game_roles")
-      .select("game_id, role_id")
+      .select("game_id, role_id, is_favorite")
       .eq("user_id", userId),
   ]);
 
   const roleIdsByGame = new Map<number, number[]>();
-  for (const row of (roleRows.data ?? []) as { game_id: number; role_id: number }[]) {
+  const favoriteIdsByGame = new Map<number, number[]>();
+  for (const row of (roleRows.data ?? []) as {
+    game_id: number;
+    role_id: number;
+    is_favorite: boolean;
+  }[]) {
     roleIdsByGame.set(row.game_id, [
       ...(roleIdsByGame.get(row.game_id) ?? []),
       row.role_id,
     ]);
+    if (row.is_favorite) {
+      favoriteIdsByGame.set(row.game_id, [
+        ...(favoriteIdsByGame.get(row.game_id) ?? []),
+        row.role_id,
+      ]);
+    }
   }
 
   const mappingByGame = new Map(
@@ -279,6 +303,8 @@ export async function fetchPlayerGameSetups(
       (mappings.data ?? []) as {
         game_id: number;
         in_game_name: string | null;
+        account_id: string | null;
+        zone_id: string | null;
         region: string | null;
         rank_id: number | null;
       }[]
@@ -289,16 +315,22 @@ export async function fetchPlayerGameSetups(
     const mapping = mappingByGame.get(game.id);
     if (!mapping) return [];
     const roleIds = roleIdsByGame.get(game.id) ?? [];
+    const favoriteIds = favoriteIdsByGame.get(game.id) ?? [];
     return [
       {
         gameSlug: game.slug,
         gameName: game.name,
         inGameName: mapping.in_game_name ?? "",
+        accountId: mapping.account_id ?? "",
+        zoneId: mapping.zone_id ?? "",
         region: regionLabel(game.slug, mapping.region),
         regionValue: mapping.region ?? "",
         rank: game.ranks.find((rank) => rank.id === mapping.rank_id)?.name ?? "",
         roles: game.roles
           .filter((role) => roleIds.includes(role.id))
+          .map((role) => role.name),
+        favoriteRoles: game.roles
+          .filter((role) => favoriteIds.includes(role.id))
           .map((role) => role.name),
       },
     ];

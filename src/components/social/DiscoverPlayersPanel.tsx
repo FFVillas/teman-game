@@ -40,7 +40,7 @@ export default function DiscoverPlayersPanel() {
       <div className="flex items-center gap-2 border-b border-border-default px-6 py-4">
         {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
         <img src="/icons/social-compass.svg" alt="" className="h-auto w-4 opacity-70" />
-        <span className="text-base font-bold text-white">Discover Players</span>
+        <span className="text-sm font-bold text-white">Discover Players</span>
       </div>
 
       <div className="flex flex-col gap-3 px-6 pb-2 pt-4">

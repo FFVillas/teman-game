@@ -6,7 +6,9 @@ import type { PlayerProfile } from "@/data/player-profiles";
 import { matchesForSlug } from "@/data/match-history";
 import MatchHistoryList from "./MatchHistoryList";
 import BackLink from "@/components/BackLink";
-import { EmptyState, NotSetOrAdd } from "@/components/EmptyState";
+import { EmptyState, NotSet, NotSetOrAdd } from "@/components/EmptyState";
+import { connectProviders } from "@/data/connect-providers";
+import { formatFor } from "@/data/game-accounts";
 import { profileCompleteness } from "@/lib/profile-completeness";
 import { gameByName } from "@/data/games";
 
@@ -69,9 +71,17 @@ interface ProfileGame {
   slug: string;
   name: string;
   inGameName: string;
+  accountId: string;
+  zoneId: string;
   region: string;
   rank: string;
   roles: string[];
+  favoriteRoles: string[];
+}
+
+/** "Player ID", "UID", "Character ID": what this game calls its account number. */
+function accountIdLabel(slug: string): string {
+  return formatFor(slug).fields.find((field) => field.key === "id")?.label ?? "Account ID";
 }
 
 function gamesOf(profile: PlayerProfile): ProfileGame[] {
@@ -80,18 +90,24 @@ function gamesOf(profile: PlayerProfile): ProfileGame[] {
       slug: setup.gameSlug,
       name: setup.gameName,
       inGameName: setup.inGameName,
+      accountId: setup.accountId,
+      zoneId: setup.zoneId,
       region: setup.region,
       rank: setup.rank,
       roles: setup.roles,
+      favoriteRoles: setup.favoriteRoles,
     }));
   }
   return profile.gameStats.map((stat) => ({
     slug: gameByName(stat.game)?.slug ?? stat.game,
     name: stat.game,
     inGameName: "",
+    accountId: "",
+    zoneId: "",
     region: profile.region === "\u2014" ? "" : profile.region,
     rank: [stat.rank.name, stat.tier].filter(Boolean).join(" "),
     roles: [stat.mainRole.name],
+    favoriteRoles: [stat.mainRole.name],
   }));
 }
 
@@ -352,19 +368,9 @@ export default function PlayerProfileView({
 
             <div className="flex flex-col gap-3 rounded-2xl border border-border-default bg-bg-card-alt p-5">
               <h2 className={sectionHeading}>Connections</h2>
+              {/* Every account you can link is listed: the linked ones first,
+                  then the rest dimmed, so what's missing is visible too. */}
               <div className="flex flex-col gap-2">
-                {profile.connections.length === 0 && (
-                  <EmptyState
-                    icon="/icons/social-discord.svg"
-                    title="No linked accounts"
-                    description={
-                      isOwner
-                        ? "Linking Discord, Steam or Riot lets teammates reach you outside the app. Coming soon."
-                        : `${profile.username} hasn't linked Discord, Steam or Riot.`
-                    }
-                    size="sm"
-                  />
-                )}
                 {profile.connections.map((account) => (
                   <div
                     key={account.provider}
@@ -376,16 +382,56 @@ export default function PlayerProfileView({
                       alt=""
                       className="h-5 w-6 object-contain"
                     />
-                    <div className="flex flex-col">
+                    <div className="flex min-w-0 flex-1 flex-col">
                       <span className="text-[10px] font-bold uppercase tracking-tight text-text-muted">
                         {account.label}
                       </span>
-                      <span className="text-xs font-bold text-white">
+                      <span className="truncate text-xs font-bold text-white">
                         {account.handle}
                       </span>
                     </div>
+                    <span className="shrink-0 rounded-md bg-brand/15 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-brand">
+                      Connected
+                    </span>
                   </div>
                 ))}
+                {connectProviders
+                  .filter(
+                    (provider) =>
+                      !profile.connections.some(
+                        (account) => account.provider === provider.id
+                      )
+                  )
+                  .map((provider) => (
+                    <div
+                      key={provider.id}
+                      className="flex items-center gap-3 rounded-lg border border-dashed border-border-default px-3 py-2.5"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
+                      <img
+                        src={provider.icon}
+                        alt=""
+                        className="h-5 w-6 object-contain opacity-40"
+                      />
+                      <div className="flex min-w-0 flex-1 flex-col">
+                        <span className="text-[10px] font-bold uppercase tracking-tight text-text-muted">
+                          {provider.label}
+                        </span>
+                        <NotSet label="Not connected" />
+                      </div>
+                      {isOwner && (
+                        // Linking isn't live yet, so this can't do anything.
+                        <button
+                          type="button"
+                          disabled
+                          title="Linking accounts isn't live yet"
+                          className="shrink-0 cursor-not-allowed rounded-md border border-border-strong px-2.5 py-1 text-[11px] font-bold text-text-muted opacity-60"
+                        >
+                          Connect
+                        </button>
+                      )}
+                    </div>
+                  ))}
               </div>
             </div>
           </div>
@@ -423,7 +469,6 @@ export default function PlayerProfileView({
             <div className="p-5">
               {!activeGame ? (
                 <EmptyState
-                  icon="/icons/lfg-page-valorant.svg"
                   title="No games added yet"
                   description={
                     isOwner
@@ -454,9 +499,17 @@ export default function PlayerProfileView({
                           {activeGame.roles.map((role) => (
                             <span
                               key={role}
-                              className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-bold text-text-subtle"
+                              className="relative rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-bold text-text-subtle"
                             >
                               {role}
+                              {activeGame.favoriteRoles.includes(role) && (
+                                <span
+                                  aria-label="Favourite"
+                                  className="absolute -right-1.5 -top-1.5 flex size-4 items-center justify-center rounded-full bg-star text-[13px] leading-none text-bg-page"
+                                >
+                                  ★
+                                </span>
+                              )}
                             </span>
                           ))}
                         </div>
@@ -486,6 +539,20 @@ export default function PlayerProfileView({
                         <NotSetOrAdd isOwner={isOwner} href={editHref} />
                       )}
                     </div>
+
+                    {/* The game's own account number, so teammates can find and add
+                        this player in the game (Mobile Legends needs the zone too). */}
+                    {activeGame.accountId && (
+                      <div className="flex flex-col gap-1">
+                        <span className={fieldLabel}>
+                          {accountIdLabel(activeGame.slug)}
+                        </span>
+                        <span className="text-xs text-white">
+                          {activeGame.accountId}
+                          {activeGame.zoneId && ` (${activeGame.zoneId})`}
+                        </span>
+                      </div>
+                    )}
 
                     {/* Win rate only exists on the mock profiles; nothing
                         reads it from a game, so it is never shown as if a

@@ -76,15 +76,39 @@ export default function Navbar() {
                 <li key={link.label}>
                   <Link
                     href={link.href}
-                    className="flex items-center gap-2 text-sm font-semibold text-text-muted transition-colors hover:text-white"
+                    className="group flex items-center gap-2 text-sm font-semibold text-text-muted transition-colors hover:text-white"
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
-                    <img
-                      src={link.icon}
-                      alt=""
-                      width={link.iconWidth}
-                      height={link.iconHeight}
-                    />
+                    {/* Grey like the text until hovered, then the game's own
+                        colours. The grey is the logo's silhouette (a mask)
+                        filled with the muted text colour, so every logo lands
+                        on exactly the same grey. */}
+                    <span
+                      aria-hidden
+                      className="relative block shrink-0"
+                      style={{ width: link.iconWidth, height: link.iconHeight }}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
+                      <img
+                        src={link.icon}
+                        alt=""
+                        width={link.iconWidth}
+                        height={link.iconHeight}
+                        className="absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100"
+                      />
+                      <span
+                        className="absolute inset-0 bg-text-muted transition-opacity group-hover:opacity-0"
+                        style={{
+                          maskImage: `url(${link.icon})`,
+                          WebkitMaskImage: `url(${link.icon})`,
+                          maskRepeat: "no-repeat",
+                          WebkitMaskRepeat: "no-repeat",
+                          maskPosition: "center",
+                          WebkitMaskPosition: "center",
+                          maskSize: "contain",
+                          WebkitMaskSize: "contain",
+                        }}
+                      />
+                    </span>
                     <span>{link.label}</span>
                   </Link>
                 </li>

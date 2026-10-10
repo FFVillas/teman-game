@@ -33,6 +33,7 @@ import {
   type GameInfo,
   type PlayerGameSetup,
 } from "@/lib/games";
+import { gameProfileProblem } from "@/lib/game-profile";
 import { regionsFor } from "@/data/game-regions";
 import { emptyGameProfile } from "@/components/onboarding/RankRoleStep";
 import {
@@ -116,9 +117,12 @@ export default function EditProfileForm({
     gameSetups.map((setup) => ({
       slug: setup.gameSlug,
       username: setup.inGameName,
+      accountId: setup.accountId,
+      zoneId: setup.zoneId,
       region: setup.regionValue,
       rank: setup.rank,
       roles: setup.roles,
+      favoriteRoles: setup.favoriteRoles,
     }))
   );
   const savedGameSlugs = gameSetups.map((setup) => setup.gameSlug);
@@ -211,7 +215,22 @@ export default function EditProfileForm({
     if (usernameError) nextErrors.username = usernameError;
     const dateOfBirth = joinDate(dobParts);
 
-    if (nextErrors.username || nextErrors.dateOfBirth || nextErrors.schedule) {
+    // A typo in a game's account fields is caught here, before anything is
+    // saved, rather than as a database error on the first game.
+    for (const draft of games) {
+      const problem = gameProfileProblem(draft.slug, { ...emptyGameProfile, ...draft });
+      if (problem) {
+        nextErrors.games = `${catalog.find((g) => g.slug === draft.slug)?.name ?? draft.slug}: ${problem}`;
+        break;
+      }
+    }
+
+    if (
+      nextErrors.username ||
+      nextErrors.dateOfBirth ||
+      nextErrors.schedule ||
+      nextErrors.games
+    ) {
       setErrors(nextErrors);
       return;
     }
@@ -266,10 +285,15 @@ export default function EditProfileForm({
       const failure = await saveGameSetup(supabase, userId, {
         gameId: game.id,
         inGameName: details.username,
+        accountId: details.accountId,
+        zoneId: details.zoneId,
         region: details.region || regionsFor(draft.slug).default,
         rankId: game.ranks.find((rank) => rank.name === details.rank)?.id ?? null,
         roleIds: game.roles
           .filter((role) => details.roles.includes(role.name))
+          .map((role) => role.id),
+        favoriteRoleIds: game.roles
+          .filter((role) => details.favoriteRoles.includes(role.name))
           .map((role) => role.id),
       });
       if (failure) {

@@ -11,6 +11,8 @@ import {
 export interface DropdownOption {
   value: string;
   label: string;
+  /** A small image shown before the label (a rank badge, for instance). */
+  icon?: string;
 }
 
 interface FormDropdownProps {
@@ -169,9 +171,19 @@ export default function FormDropdown({
         }`}
       >
         <span
-          className={`truncate ${selected ? "text-white" : "text-text-muted"}`}
+          className={`flex min-w-0 items-center gap-2 ${selected ? "text-white" : "text-text-muted"}`}
         >
-          {selected?.label ?? placeholder ?? ""}
+          {selected?.icon && (
+            // eslint-disable-next-line @next/next/no-img-element -- badge art, no benefit from next/image optimization
+            // No taller than the text's line, so picking a rank with a badge
+            // doesn't make this field taller than the one beside it.
+            <img
+              src={selected.icon}
+              alt=""
+              className={`shrink-0 object-contain ${size === "sm" ? "size-4" : "size-5"}`}
+            />
+          )}
+          <span className="truncate">{selected?.label ?? placeholder ?? ""}</span>
         </span>
         {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
         <img
@@ -215,7 +227,13 @@ export default function FormDropdown({
                       : "text-white/80"
                 }`}
               >
-                <span>{item.label}</span>
+                <span className="flex items-center gap-2.5">
+                  {item.icon && (
+                    // eslint-disable-next-line @next/next/no-img-element -- badge art, no benefit from next/image optimization
+                    <img src={item.icon} alt="" className="size-6 shrink-0 object-contain" />
+                  )}
+                  {item.label}
+                </span>
                 {isSelected && (
                   <svg
                     viewBox="0 0 20 20"

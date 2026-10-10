@@ -1,5 +1,6 @@
 "use client";
 
+import { EmptyState } from "@/components/EmptyState";
 import UserAvatar from "@/components/UserAvatar";
 import { useState } from "react";
 import { CURRENT_USER_ID, unreadCountFor, type Conversation } from "@/data/lfg-messages";
@@ -69,11 +70,21 @@ export default function ConversationList({
 
       <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 pb-4">
         {filtered.length === 0 && filteredLobbies.length === 0 && (
-          <p className="px-3 text-xs text-text-muted">
-            {conversations.length === 0 && lobbyChats.length === 0
-              ? "No conversations yet."
-              : `Nothing found for "${query}".`}
-          </p>
+          <EmptyState
+            fill
+            size="sm"
+            icon="/icons/nav-chat.svg"
+            title={
+              conversations.length === 0 && lobbyChats.length === 0
+                ? "No conversations yet"
+                : "No results"
+            }
+            description={
+              conversations.length === 0 && lobbyChats.length === 0
+                ? "Message a friend or a player from a lobby to start one."
+                : `Nothing found for "${query}".`
+            }
+          />
         )}
 
         {/* Lobby group chats sit on top: they're temporary and time-bound,

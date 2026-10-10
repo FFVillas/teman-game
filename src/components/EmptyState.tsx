@@ -52,6 +52,7 @@ export function EmptyState({
   description,
   action,
   size = "md",
+  fill = false,
 }: {
   /** Path to an SVG in /icons. Optional — small slots read fine without one. */
   icon?: string;
@@ -59,11 +60,21 @@ export function EmptyState({
   description?: ReactNode;
   action?: { label: string; href: string };
   size?: "sm" | "md";
+  /**
+   * Take all the room the parent has (inside a flex column), with the icon and
+   * text centred in it, and no box around it. For a panel whose only content
+   * is this empty state.
+   */
+  fill?: boolean;
 }) {
   return (
     <div
-      className={`flex flex-col items-center gap-2 rounded-xl border border-dashed border-border-default text-center ${
+      className={`flex flex-col items-center gap-2 text-center ${
         size === "sm" ? "px-4 py-5" : "px-5 py-8"
+      } ${
+        fill
+          ? "w-full flex-1 justify-center"
+          : "rounded-xl border border-dashed border-border-default"
       }`}
     >
       {icon && (

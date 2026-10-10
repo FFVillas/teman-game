@@ -186,14 +186,20 @@ first.
 Two different things, deliberately:
 
 - **Toast** (`toast()`) confirms something *you just did* and disappears
-  after ~4.5s. Used only where the result isn't visible on screen —
-  because the action redirects (create lobby, save profile, finish
-  onboarding, leave lobby) or closes a modal (apply to lobby, submit a
-  report). Accepting an applicant, sending a chat message and saving a
-  rating deliberately have no toast: the UI already updates in place.
-- **Notification** (`notify()`) is an incoming event you may need to come
-  back to. It shows a toast *and* files an entry on `/notifications`,
-  where it stays until read.
+  after ~4.5s. Used only where the result isn't visible on screen (start
+  or end a lobby, save a profile, finish onboarding, submit a report) and for
+  errors. Accepting or declining, leaving, applying, creating a lobby,
+  friend requests, blocking and every admin action except claiming or
+  dismissing a case deliberately have no toast: the UI already shows it.
+  Every toast has a subtitle (clamped to two lines) and a solid-colour icon
+  circle: green success, blue info, red danger. The card itself stays dark.
+- **Incoming events pop up too**: a new `notifications` row (realtime) raises
+  a toast through `incomingToast()` in `src/lib/notifications.ts`. Invites,
+  join requests and friend requests carry Accept / Decline (answered in
+  `ToastHost`, 12s); accepted and lobby-started are green, removed is red.
+  New direct messages and lobby chat lines do **not** pop up (DMs raise the
+  messages badge only). `notify()` files a row, so for a signed-in player its
+  pop-up comes from that same path.
 
 **Notifications are real rows** in `public.notifications`
 (`20261006000000_notifications.sql`); `src/lib/notifications.ts` reads and
@@ -221,8 +227,15 @@ Two limits worth knowing:
   rows trigger a `lobby_invite` to the invitee, `ref_id` is the invite, and
   Accept calls `respond_to_invite`. `notify_user` is now **friend requests
   only**; never widen it to lobby kinds, a player could forge one. There is no
-  `message` kind (DMs have their own unread count). Only the old mock flows
-  still file a notification to the acting user.
+  `message` kind (DMs have their own unread count) and no `report_update`.
+  Only the old mock flows still file a notification to the acting user.
+
+  A row shows the game's logo before the title (read from the `/lfg/<slug>`
+  link, `gameOfNotification`), unread as a small dot after the time, and names
+  (the person, the lobby) a step heavier than the rest of the sentence
+  (`titleSegments`). That last one finds the lobby name by matching the title
+  wording the triggers write, so **change the trigger text and
+  `lobbyNamePosition` together**.
 
 `ToastHost` is mounted once in the root layout — don't add another.
 
@@ -401,6 +414,16 @@ confidence marks and open questions before changing any of them.
 - Onboarding saves games on "Finish setup" and stays on the page with an error
   if saving fails. "Skip for now" saves nothing, so a skipped setup doesn't
   record default answers.
+- **One form for a game's details** (`components/profile/GameDetailsFields`, used by
+  onboarding with the auth look and by the edit form compactly): the account the
+  game asks for (Riot ID, or nickname plus an ID; formats and checks in
+  `src/data/game-accounts.ts`, stored in `in_game_name`, `account_id`, `zone_id`),
+  region and rank as dropdowns (rank shows its badge for the games with badge art:
+  Valorant, League), and roles as chips that cycle off, picked, favourite (★, a
+  yellow badge on the chip), off (`user_game_roles.is_favorite`). A mistyped ID
+  blocks Save with a message rather than failing in the database. The IDs and
+  favourites show on the profile's game card. Migration
+  `20261015000000_game_account_details.sql`.
 - After onboarding, games are added, edited and removed in the **Games card on
   `/profile/me/edit`**. Save applies removals first, then saves each remaining
   game, and does all of that before the picture and the profile row so a

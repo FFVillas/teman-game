@@ -4,7 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { useAdminData } from "@/contexts/AdminDataContext";
-import { useNotifications } from "@/contexts/NotificationContext";
 import type { AdminPlayer } from "@/data/admin-moderation";
 import {
   accountStatusMeta,
@@ -23,7 +22,6 @@ import {
 import { ReasonModal } from "./AdminModal";
 
 export default function LobbyRecord({ lobbyId }: { lobbyId: string }) {
-  const { toast } = useNotifications();
   const { lobbies, players, reports, sanctions, closeLobby, removeLobbyMember } =
     useAdminData();
   const [closing, setClosing] = useState(false);
@@ -45,17 +43,11 @@ export default function LobbyRecord({ lobbyId }: { lobbyId: string }) {
   function handleClose(reason: string) {
     closeLobby(lobby!.id, reason);
     setClosing(false);
-    toast({
-      tone: "success",
-      title: `${lobby!.name} closed`,
-      body: "Chat is locked and every member is notified.",
-    });
   }
 
   function handleRemove(reason: string) {
     if (!removing) return;
     removeLobbyMember(lobby!.id, removing.id, reason);
-    toast({ tone: "info", title: `${removing.username} removed from ${lobby!.name}` });
     setRemoving(null);
   }
 

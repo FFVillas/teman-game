@@ -253,8 +253,9 @@ export default function MessagesView() {
 
   if (isReady && !meId) {
     return (
-      <div className="flex flex-1 items-center justify-center p-6">
+      <div className="flex flex-1 flex-col p-6">
         <EmptyState
+          fill
           icon="/icons/nav-chat.svg"
           title="Log in to see your messages"
           description="Direct messages are private to the two people in them."
@@ -275,11 +276,12 @@ export default function MessagesView() {
       {activeLobbyChat && meId ? (
         <LobbyChatThread chat={activeLobbyChat} meId={meId} />
       ) : missingTarget && !active ? (
-        <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center p-6">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col p-6">
           <EmptyState
+            fill
+            icon="/icons/nav-chat.svg"
             title={`No account for ${missingTarget}`}
             description="That player comes from the sample data, not a registered account — there's nobody to message yet."
-            size="sm"
           />
         </div>
       ) : (

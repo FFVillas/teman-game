@@ -33,7 +33,7 @@ export default function ReportPlayerPanel({
     // TODO: POST to `reports`, opening a moderation ticket for an admin.
     void report;
     toast({
-      tone: "danger",
+      tone: "success",
       title: "Report sent",
       body: `A moderator will review your report on ${target.name}.`,
     });

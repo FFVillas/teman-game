@@ -157,22 +157,12 @@ export default function RealLobbyDetail({
     router.refresh();
   }
 
-  const decide = (applicationId: string, accept: boolean) => {
-    const applicant = pending.find((entry) => entry.id === applicationId);
-    run(
-      () => respondToApplication(createClient(), applicationId, accept),
-      () =>
-        toast({
-          tone: "success",
-          title: accept
-            ? `${applicant?.applicantName ?? "Player"} joined`
-            : "Application declined",
-        }),
-    );
-  };
+  // The roster and the lists update in place, so accepting, declining, leaving
+  // and removing someone need no pop-up. Only what isn't visible on screen
+  // gets one: starting and ending a lobby.
+  const decide = (applicationId: string, accept: boolean) =>
+    run(() => respondToApplication(createClient(), applicationId, accept));
 
-  // The page updates in place (the roster gains you, or the banner goes), so
-  // neither answer needs a toast.
   const answerInvite = (accept: boolean) => {
     if (myInvite) run(() => respondToInvite(createClient(), myInvite.id, accept));
   };
@@ -192,26 +182,13 @@ export default function RealLobbyDetail({
     );
   }
 
-  function reopen() {
-    run(
-      () => reopenLobby(createClient(), team.id),
-      () =>
-        toast({
-          tone: "success",
-          title: "Recruiting reopened",
-          body: "The lobby is back in the list.",
-        }),
-    );
-  }
+  const reopen = () => run(() => reopenLobby(createClient(), team.id));
 
   function confirmed() {
     if (confirming === "remove" && removeTarget) {
       run(
         () => removeMember(createClient(), team.id, removeTarget.id),
-        () => {
-          setRemoveTarget(null);
-          toast({ tone: "info", title: `${removeTarget.name} was removed` });
-        },
+        () => setRemoveTarget(null),
       );
     } else if (confirming === "close") {
       run(
@@ -220,17 +197,13 @@ export default function RealLobbyDetail({
           toast({
             tone: "info",
             title: started ? "Lobby ended" : "Lobby closed",
+            body: started
+              ? "The chat is closed for everyone."
+              : "It no longer accepts applications.",
           }),
       );
     } else if (confirming === "leave") {
-      run(
-        () => leaveLobby(createClient(), team.id),
-        () =>
-          toast({
-            tone: "info",
-            title: state === "member" ? "You left the lobby" : "Application withdrawn",
-          }),
-      );
+      run(() => leaveLobby(createClient(), team.id));
     }
   }
 

@@ -11,7 +11,7 @@ export default function RecentTeammatesPanel() {
           alt=""
           className="h-auto w-4 opacity-70"
         />
-        <span className="text-base font-bold text-white">Recent Teammates</span>
+        <span className="text-sm font-bold text-white">Recent Teammates</span>
       </div>
 
       <div className="px-6 pb-2 pt-4">

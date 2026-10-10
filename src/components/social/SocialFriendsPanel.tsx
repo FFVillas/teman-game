@@ -47,7 +47,7 @@ export default function SocialFriendsPanel() {
         <div className="flex items-center gap-2">
           {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
           <img src="/icons/social-friends.svg" alt="" className="h-auto w-4 opacity-70" />
-          <span className="text-base font-bold text-white">Friends</span>
+          <span className="text-sm font-bold text-white">Friends</span>
         </div>
 
         {/* Adding a friend means finding one first — this is the entry point
@@ -82,6 +82,7 @@ export default function SocialFriendsPanel() {
       <div className="flex min-h-0 flex-1 flex-col gap-8 overflow-y-auto p-6">
         {loading ? null : visible.length === 0 ? (
           <EmptyState
+            fill
             icon="/icons/social-friends.svg"
             title={friends.length === 0 ? "No friends yet" : "No matches"}
             description={

@@ -4,7 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { useAdminData } from "@/contexts/AdminDataContext";
-import { useNotifications } from "@/contexts/NotificationContext";
 import type { AdminReport, Sanction } from "@/data/admin-moderation";
 import {
   accountStatusMeta,
@@ -75,7 +74,6 @@ function ReportList({
 }
 
 export default function PlayerRecord({ playerId }: { playerId: string }) {
-  const { toast } = useNotifications();
   const { players, reports, sanctions, lobbies, liftSanction } = useAdminData();
   const [sanctioning, setSanctioning] = useState(false);
   const [lifting, setLifting] = useState<Sanction | null>(null);
@@ -104,11 +102,6 @@ export default function PlayerRecord({ playerId }: { playerId: string }) {
   function handleLift(reason: string) {
     if (!lifting) return;
     liftSanction(lifting.id, reason);
-    toast({
-      tone: "success",
-      title: `${describeSanction(lifting)} lifted`,
-      body: `${player!.username}'s record keeps the entry, marked as lifted.`,
-    });
     setLifting(null);
   }
 

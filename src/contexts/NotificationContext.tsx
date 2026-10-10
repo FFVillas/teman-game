@@ -15,7 +15,9 @@ import type { AppNotification, NotificationKind } from "@/data/notifications";
 import { useRealtimeInserts } from "@/lib/realtime";
 import {
   fetchNotifications,
+  incomingToast,
   insertNotification,
+  type NotificationInsert,
   markAllNotificationsRead,
   markNotificationRead,
   notifyUser,
@@ -25,12 +27,28 @@ import {
 
 export type ToastTone = "success" | "info" | "danger";
 
+/** A pop-up that can be answered with Accept / Decline right in it. */
+export interface ToastAction {
+  kind: "lobby_invite" | "join_request" | "friend_request";
+  /** The notification this pop-up came from, so answering can update it. */
+  notificationId: string;
+  /** The invite or application to answer; absent for friend requests. */
+  refId?: string;
+  /** Who sent it; a friend request is answered by looking their request up. */
+  actorId?: string;
+}
+
 export interface Toast {
   id: string;
   tone: ToastTone;
   title: string;
+  /** The subtitle. Every pop-up should have one; the card clamps it to two lines. */
   body?: string;
+  /** The related page. The whole pop-up is a link to it, and closes when followed. */
   href?: string;
+  /** How long it stays, in ms. Defaults to `TOAST_MS`. */
+  duration?: number;
+  action?: ToastAction;
 }
 
 interface NotificationContextValue {
@@ -118,19 +136,6 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     };
   }, [isReady, playerId]);
 
-  // A notification written by someone else (or by another tab) lands here
-  // without a reload. `notify()` already adds its own row locally, so the
-  // id check stops it appearing twice.
-  useRealtimeInserts<{ id: string }>({
-    table: "notifications",
-    filter: playerId ? `user_id=eq.${playerId}` : undefined,
-    enabled: Boolean(playerId),
-    onInsert: () => {
-      if (!playerId) return;
-      fetchNotifications(createClient()).then((rows) => setNotifications(rows));
-    },
-  });
-
   const dismissToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
     const timer = timers.current.get(id);
@@ -146,9 +151,23 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     const timer = setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
       timers.current.delete(id);
-    }, TOAST_MS);
+    }, input.duration ?? TOAST_MS);
     timers.current.set(id, timer);
   }, []);
+
+  // A notification written by someone else (or by another tab) lands here
+  // without a reload: the list refreshes and a pop-up tells you about it. This
+  // is the only place incoming events become pop-ups.
+  useRealtimeInserts<NotificationInsert & Record<string, unknown>>({
+    table: "notifications",
+    filter: playerId ? `user_id=eq.${playerId}` : undefined,
+    enabled: Boolean(playerId),
+    onInsert: (row) => {
+      if (!playerId) return;
+      fetchNotifications(createClient()).then((rows) => setNotifications(rows));
+      pushToast(incomingToast(row));
+    },
+  });
 
   // Clear any pending timers if the provider unmounts.
   useEffect(() => {
@@ -161,8 +180,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
   const notify = useCallback<NotificationContextValue["notify"]>(
     ({ kind, actorId, ...toastInput }) => {
-      pushToast(toastInput);
-      if (!playerId) return;
+      // Signed-in players get their pop-up from the realtime insert below, the
+      // same way an event from someone else does; staff have no feed, so
+      // they get it directly.
+      if (!playerId) {
+        pushToast(toastInput);
+        return;
+      }
 
       insertNotification(createClient(), playerId, {
         kind,
