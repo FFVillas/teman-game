@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { LfgTeam } from "@/data/lfg-teams";
+import type { LfgMode, LfgTeam } from "@/data/lfg-teams";
 import { coverSrc } from "@/data/lfg-covers";
 import { rankIconFor } from "@/data/rank-icons";
 import { roleIconFor } from "@/data/role-icons";
@@ -35,6 +35,17 @@ const lobbyErrors: Record<string, string> = {
   application_declined: "The leader declined your earlier application.",
   rank_not_eligible: "Your rank doesn't fit this lobby right now.",
   not_leader: "Only the lobby leader can do that.",
+  // Invite codes come before `not_pending`: the lookup is by substring, and
+  // `invite_not_pending` contains it.
+  invite_not_found: "That invitation no longer exists.",
+  invite_not_pending: "That invitation was already answered or taken back.",
+  player_not_found: "That player doesn't exist.",
+  already_member: "They're already in this lobby.",
+  invitee_applied: "They already asked to join. Accept their application instead.",
+  no_invite_slots: "Every open slot already has an invitation out.",
+  already_invited: "You've already invited this player.",
+  invite_declined: "They declined your invitation to this lobby.",
+  invite_rate_limited: "You've sent a lot of invitations. Try again later.",
   not_pending: "That application was already decided.",
   applicant_busy: "That player is already in another live lobby.",
   not_in_lobby: "You're not in that lobby.",
@@ -132,7 +143,7 @@ const jakartaDay = (date: Date) =>
   new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(date);
 
 /** "Today 8:00 PM", "Tomorrow 8:00 PM" or "Fri 8:00 PM", in UTC+7 like the form. */
-function startLabel(iso: string): string {
+export function startLabel(iso: string): string {
   const start = new Date(iso);
   const now = new Date();
   const time = new Intl.DateTimeFormat("en-US", {
@@ -358,6 +369,44 @@ export async function respondToApplication(
   return error ? leaderErrorMessage(error) : null;
 }
 
+/** The leader asks a player to join. Returns an error message, or null when sent. */
+export async function inviteToLobby(
+  supabase: SupabaseClient,
+  lobbyId: string,
+  userId: string,
+): Promise<string | null> {
+  const { error } = await supabase.rpc("invite_to_lobby", {
+    p_lobby_id: lobbyId,
+    p_user_id: userId,
+  });
+  if (error?.message?.includes("rank_not_eligible")) {
+    return "This player's rank doesn't fit the lobby right now.";
+  }
+  return error ? leaderErrorMessage(error) : null;
+}
+
+/** The invited player accepts (and joins the roster) or declines. */
+export async function respondToInvite(
+  supabase: SupabaseClient,
+  inviteId: string,
+  accept: boolean,
+): Promise<string | null> {
+  const { error } = await supabase.rpc("respond_to_invite", {
+    p_invite_id: inviteId,
+    p_accept: accept,
+  });
+  return error ? lobbyErrorMessage(error) : null;
+}
+
+/** The leader takes an invitation back before it was answered. */
+export async function cancelInvite(
+  supabase: SupabaseClient,
+  inviteId: string,
+): Promise<string | null> {
+  const { error } = await supabase.rpc("cancel_invite", { p_invite_id: inviteId });
+  return error ? lobbyErrorMessage(error) : null;
+}
+
 /** An applicant withdraws, or a joined player leaves. */
 export async function leaveLobby(
   supabase: SupabaseClient,
@@ -466,6 +515,18 @@ export interface LobbyApplicationView extends LobbyPerson {
   createdAt: string;
 }
 
+/** An invitation the leader has sent and nobody has answered yet. */
+export interface LobbyInviteView extends LobbyPerson {
+  inviteId: string;
+}
+
+/** An invitation addressed to the viewer. */
+export interface MyInvite {
+  id: string;
+  inviterName: string;
+  createdAt: string;
+}
+
 export interface LobbyDetailData {
   team: LfgTeam;
   /** The Discord invite, for the leader and members only; null for everyone else. */
@@ -473,6 +534,10 @@ export interface LobbyDetailData {
   members: LobbyPerson[];
   /** What the viewer may see: every application for the leader, their own otherwise. */
   applications: LobbyApplicationView[];
+  /** Pending invitations, for the leader only; they hold open slots. */
+  invites: LobbyInviteView[];
+  /** The viewer's own pending invitation to this lobby, if there is one. */
+  myInvite: MyInvite | null;
 }
 
 /**
@@ -510,10 +575,29 @@ export async function fetchLobbyDetail(
     created_at: string;
   }>;
 
+  // Pending invitations: the database returns the leader's own and the ones
+  // addressed to the viewer, nobody else's.
+  const { data: inviteRows } = await supabase
+    .from("lobby_invites")
+    .select("id, invitee_id, inviter_id, created_at")
+    .eq("lobby_id", lobbyId)
+    .eq("status", "pending")
+    .order("created_at", { ascending: true });
+  const invites = (inviteRows ?? []) as Array<{
+    id: string;
+    invitee_id: string;
+    inviter_id: string;
+    created_at: string;
+  }>;
+  const sentInvites = invites.filter((invite) => invite.inviter_id === viewerId);
+  const receivedInvite = invites.find((invite) => invite.invitee_id === viewerId);
+
   const userIds = [
     ...new Set([
       ...team.members.map((member) => member.id),
       ...applications.map((application) => application.applicant_id),
+      ...sentInvites.map((invite) => invite.invitee_id),
+      ...(receivedInvite ? [receivedInvite.inviter_id] : []),
     ]),
   ];
   const [{ data: profileRows }, { data: rankRows }] = await Promise.all([
@@ -580,5 +664,174 @@ export async function fetchLobbyDetail(
       status: application.status,
       createdAt: application.created_at,
     })),
+    invites: sentInvites.map((invite) => ({
+      ...person(invite.invitee_id, null),
+      inviteId: invite.id,
+    })),
+    myInvite: receivedInvite
+      ? {
+          id: receivedInvite.id,
+          inviterName: profiles.get(receivedInvite.inviter_id)?.username ?? "The leader",
+          createdAt: receivedInvite.created_at,
+        }
+      : null,
+  };
+}
+
+/** A lobby the signed-in player leads or has joined, shaped for the banner. */
+export interface MyLobby {
+  id: string;
+  name: string;
+  /** `games.slug`. */
+  game: string;
+  cover: string;
+  mode: LfgMode;
+  /** Recruiting, playing, or waiting for its start time. */
+  status: "live" | "started" | "scheduled";
+  region: string;
+  slotsTotal: number;
+  members: { id: string; name?: string; avatar: string }[];
+  isLeader: boolean;
+  /** Applications waiting for an answer; only counted for a lobby they lead. */
+  pendingRequests: number;
+  scheduledFor?: string;
+}
+
+export interface MyLobbies {
+  /** The one live (recruiting or playing) lobby a player can be in. */
+  current: MyLobby | null;
+  /** Any number of scheduled ones, soonest first. */
+  scheduled: MyLobby[];
+}
+
+/** Just enough for the navbar: where "back to my lobby" goes. */
+export async function fetchMyCurrentLobby(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<{ id: string; name: string; game: string } | null> {
+  const { data: mine } = await supabase
+    .from("lobby_members")
+    .select("lobby_id")
+    .eq("user_id", userId);
+  const ids = (mine ?? []).map((row) => row.lobby_id as string);
+  if (ids.length === 0) return null;
+
+  const { data } = await supabase
+    .from("lobbies")
+    .select("id, name, games(slug)")
+    .in("id", ids)
+    .in("status", ["live", "started"])
+    .limit(1);
+  const row = (data ?? [])[0] as
+    | { id: string; name: string; games: { slug: string } | { slug: string }[] | null }
+    | undefined;
+  const game = Array.isArray(row?.games) ? row?.games[0] : row?.games;
+  return row && game ? { id: row.id, name: row.name, game: game.slug } : null;
+}
+
+/**
+ * Every open lobby the player is in, for the "Your lobby" banner. The roster
+ * comes from `lobby_members` (leader plus accepted), so a lobby you applied to
+ * but were not accepted into is not here.
+ */
+export async function fetchMyLobbies(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<MyLobbies> {
+  const none: MyLobbies = { current: null, scheduled: [] };
+  await supabase.rpc("expire_stale_lobbies");
+
+  const { data: mine } = await supabase
+    .from("lobby_members")
+    .select("lobby_id")
+    .eq("user_id", userId);
+  const ids = (mine ?? []).map((row) => row.lobby_id as string);
+  if (ids.length === 0) return none;
+
+  const { data: lobbyRows } = await supabase
+    .from("lobbies")
+    .select(
+      "id, leader_id, mode_id, name, region, capacity, status, starts_at, cover, game_id, games(slug)",
+    )
+    .in("id", ids)
+    .in("status", ["live", "started", "scheduled"]);
+  const lobbies = (lobbyRows ?? []) as unknown as Array<{
+    id: string;
+    leader_id: string;
+    mode_id: number;
+    name: string;
+    region: string;
+    capacity: number;
+    status: MyLobby["status"];
+    starts_at: string | null;
+    cover: string | null;
+    games: { slug: string } | { slug: string }[] | null;
+  }>;
+  if (lobbies.length === 0) return none;
+
+  const lobbyIds = lobbies.map((lobby) => lobby.id);
+  const ledIds = lobbies.filter((lobby) => lobby.leader_id === userId).map((lobby) => lobby.id);
+
+  const [{ data: roster }, { data: modes }, { data: pendingRows }] = await Promise.all([
+    supabase.from("lobby_members").select("lobby_id, user_id, is_leader").in("lobby_id", lobbyIds),
+    supabase
+      .from("game_modes")
+      .select("id, kind")
+      .in("id", [...new Set(lobbies.map((lobby) => lobby.mode_id))]),
+    ledIds.length > 0
+      ? supabase
+          .from("applications")
+          .select("lobby_id")
+          .in("lobby_id", ledIds)
+          .eq("status", "pending")
+      : Promise.resolve({ data: [] as Array<{ lobby_id: string }> }),
+  ]);
+
+  const memberRows = (roster ?? []) as Array<{ lobby_id: string; user_id: string; is_leader: boolean }>;
+  const { data: profileRows } = await supabase
+    .from("profiles")
+    .select("id, username, avatar_path")
+    .in("id", [...new Set(memberRows.map((member) => member.user_id))]);
+  const profiles = new Map(
+    ((profileRows ?? []) as Array<{ id: string; username: string; avatar_path: string | null }>).map(
+      (profile) => [profile.id, profile],
+    ),
+  );
+  const kindOf = new Map(
+    ((modes ?? []) as Array<{ id: number; kind: LfgMode }>).map((mode) => [mode.id, mode.kind]),
+  );
+
+  // Soonest first, by the real start time (the label is only for display).
+  lobbies.sort((a, b) => (a.starts_at ?? "").localeCompare(b.starts_at ?? ""));
+
+  const shaped = lobbies.map((lobby): MyLobby => {
+    const game = Array.isArray(lobby.games) ? lobby.games[0] : lobby.games;
+    const slug = game?.slug ?? "";
+    return {
+      id: lobby.id,
+      name: lobby.name,
+      game: slug,
+      cover: coverSrc(slug, lobby.cover),
+      mode: kindOf.get(lobby.mode_id) ?? "casual",
+      status: lobby.status,
+      region: lobby.region,
+      slotsTotal: lobby.capacity,
+      members: memberRows
+        .filter((member) => member.lobby_id === lobby.id)
+        .sort((a, b) => Number(b.is_leader) - Number(a.is_leader))
+        .map((member) => {
+          const profile = profiles.get(member.user_id);
+          return { id: member.user_id, name: profile?.username, avatar: avatarUrl(profile?.avatar_path) };
+        }),
+      isLeader: lobby.leader_id === userId,
+      pendingRequests: (pendingRows ?? []).filter((row) => row.lobby_id === lobby.id).length,
+      scheduledFor:
+        lobby.status === "scheduled" && lobby.starts_at ? startLabel(lobby.starts_at) : undefined,
+    };
+  });
+
+  return {
+    current: shaped.find((lobby) => lobby.status !== "scheduled") ?? null,
+    scheduled: shaped.filter((lobby) => lobby.status === "scheduled"),
   };
 }

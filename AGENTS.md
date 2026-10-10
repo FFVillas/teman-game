@@ -1,8 +1,9 @@
 # TemanGame — Agent Notes
 
 Mostly frontend on mock data; the backend is being added in small vertical
-slices on Supabase — Auth, `profiles` and `admins` are real, everything else
-(lobbies, social, messages, reviews, reports) is still mock.
+slices on Supabase — Auth, `profiles`, `admins`, lobbies (with invites and
+chat), notifications and direct messages are real; reviews and reports are
+still mock, and social is partly so.
 
 ## What this is
 
@@ -63,6 +64,9 @@ src/components/auth/     auth UI (AuthShell, AuthField, OAuthButtons, AuthPanelC
 src/contexts/AuthContext.tsx  Supabase session — see "Auth" below
 src/lib/supabase/        browser + server Supabase clients; src/proxy.ts refreshes sessions
 supabase/migrations/     schema, applied manually in the Supabase SQL editor
+supabase/dev-seed/       demo players and lobbies to look at the app with (seed.sql, cleanup.sql);
+                         NOT migrations, run by hand, safe to re-run, all fake data is
+                         demo_xxx / @demo.temangame.test and removed by cleanup.sql
 src/lib/                 small shared helpers (auth redirect)
 src/app/admin/           admin console (overview, reports, players, lobbies, audit-log) — see docs/admin-console.md
 src/components/admin/    admin UI (AdminGate, AdminShell, AdminUi primitives, modals, one view per page)
@@ -110,23 +114,24 @@ accept. Swap `CURRENT_PLAYER_ID` for the session's user id when auth is real.
 ## Lobby screen behaviour
 
 - **Invite players** (leader only): the open-slot rows and the "Invite
-  players" button open `InvitePlayersModal`, which is where the
-  recommendation engine lives. It orders `lfgCandidates` by `S_total`
-  (`src/lib/recommendation.ts`, Persamaan 3.1–3.5) under "Sort by:
-  Recommended", and lets the leader filter by role, rating, online and mic.
-  The score and its breakdown are **deliberately not shown** to players —
-  only the order. Hard filters run first: already in the lobby, already
-  applied, or suspended/banned. Pending invites fill open slots on the roster.
-- **Chat**: every lobby automatically has a chat page at
-  `/lfg/<game>/lobby/<id>/chat`; the lobby page shows a compact panel with a
-  button that opens it, and `/messages` lists it under "Lobby chats" above
-  your DMs (only lobbies you lead or have joined — not pending invites).
-  `/messages?lobby=<id>` opens one directly. Both read the same state from
-  `src/lib/lobby-session.ts` (sessionStorage, standing in for
-  `lobby_messages` + realtime). **Lobby chats are temporary**: ending the
-  lobby closes the chat, clears its messages, and drops it from
-  `/messages`. Backend TODO: keep a
-  moderator-only copy, since reports use the chat log as evidence.
+  players" button open a picker, which is where the recommendation engine
+  lives. It orders players by `S_total` (`src/lib/recommendation.ts`,
+  Persamaan 3.1–3.5) under "Sort by: Recommended". The score and its breakdown
+  are **deliberately not shown** to players — only the order. Hard filters run
+  first: already in the lobby, applied or invited, or a rank the lobby wouldn't
+  accept. Pending invites fill open slots on the roster. Two versions: the real
+  lobby's is `RealInvitePlayersModal` over real profiles (`lib/invite-candidates.ts`;
+  no online/mic filters, nothing records them; the leader's playstyle stands in
+  for the lobby's, tags are left open); the mock lobby's is `InvitePlayersModal`
+  over `lfgCandidates`, and inviting there reaches nobody.
+- **Chat**: every lobby has a chat, in three places that show the same
+  conversation: a panel on the lobby page, its own page at
+  `/lfg/<game>/lobby/<id>/chat`, and "Lobby chats" at the top of `/messages`
+  (`/messages?lobby=<id>` opens one directly). For real lobbies it is the
+  `lobby_messages` table with realtime (see "Messages" below). The mock lobbies
+  (`lobby-1` and so on) still use the sessionStorage store in
+  `src/lib/lobby-session.ts`. **Lobby chats are temporary for players**: once the
+  lobby ends the chat is closed and drops off `/messages`.
 - **After a lobby ends**, the notice counts down 8s and returns to the LFG
   page, with "Stay here" to cancel. Skipping the rating does the same.
 
@@ -202,23 +207,34 @@ Two limits worth knowing:
 - **Delivery is still "on page load".** Push (FCM + service worker, per the
   proposal) and PWA are not built. A Supabase realtime subscription on this
   table is the cheaper first step.
-- **The insert policy only allows rows addressed to yourself.** That covers
-  today's frontend-driven flows, but real cross-player notifications ("X
-  applied to your lobby") must be written server-side — a trigger on
-  `applications` or an edge function — once the Lobby slice exists.
-  Otherwise any account could spam anyone. The mock lobby flows therefore
-  file their notifications to the acting user, and the actor's name lives in
-  the title rather than in `actor_id`.
+- **The insert policy only allows rows addressed to yourself.** So
+  cross-player notifications are written by the database, never by the browser.
+  The lobby ones are triggers (`20261010000000_lobby_notifications.sql`): an
+  application tells the leader (`join_request`), the leader's answer tells the
+  applicant (`application_accepted` / `application_declined`), starting a lobby
+  tells its members (`lobby_started`). Requests nobody can accept any more
+  (withdrawn, or the lobby started or ended) are deleted. `notifications.ref_id`
+  is the application a join request is about; Accept and Decline on
+  `/notifications` call `respond_to_application` with it, and show the
+  database's reason if it refuses (lobby full, the player no longer fits).
+  Invites work the same way (`20261012000000_lobby_invites.sql`): `lobby_invites`
+  rows trigger a `lobby_invite` to the invitee, `ref_id` is the invite, and
+  Accept calls `respond_to_invite`. `notify_user` is now **friend requests
+  only**; never widen it to lobby kinds, a player could forge one. There is no
+  `message` kind (DMs have their own unread count). Only the old mock flows
+  still file a notification to the acting user.
 
 `ToastHost` is mounted once in the root layout — don't add another.
 
 Join requests and lobby invites are **actionable**: they render accept /
 decline icon buttons in the row (`actionableKinds` in
-`src/data/notifications.ts`) and store the outcome on `resolution`. Friend
+`src/data/notifications.ts`) and store the outcome on `resolution`. A join
+request answers the real application and a lobby invite the real invite; the
+database resolves the notification itself. Friend
 requests deliberately aren't — `/social/pending` already owns that action,
 and having it in two places invites them drifting apart.
 
-## Messages: DMs are real, lobby chat is not
+## Messages: DMs and lobby chat are both real
 
 Two different entities, deliberately split so two people can work at once:
 
@@ -229,14 +245,21 @@ Two different entities, deliberately split so two people can work at once:
   conversation is just every row between two people. RLS lets only the two
   participants read it, only the sender insert, and only the receiver set
   `read_at`. **No delete policy**: a sent message can't be unsent.
-- **Lobby chat** is `lobby_messages` in the proposal, which needs the
-  `lobbies` table nobody has built yet. It is still the sessionStorage
-  stand-in (`src/lib/lobby-session.ts`) and must stay that way until the
-  Lobby slice lands — building a second lobby schema alongside someone
-  else's is how the games slice ended up with two parallel versions.
+- **Lobby chat** is `lobby_messages`
+  (`20261011000000_lobby_messages.sql`), read and written through
+  `src/lib/lobby-chat.ts` and the `useLobbyChat` hook, drawn by `RealLobbyChat`
+  (the shared `LobbyChat` panel). Only the leader and accepted members of an
+  open lobby (live, scheduled or started) can read or write; a pending
+  applicant, someone who left, and everyone else cannot. **When the lobby ends
+  the chat closes for players but the rows are kept, and an admin can read
+  them** as evidence for reports (the opposite of DMs, which nobody can read
+  through the API). Rows are `message` (a player) or `system` ("X joined the
+  lobby", "The lobby has started"); system rows are written only by triggers, so
+  nobody can fake one. There is no edit or delete, and 30 messages a minute is
+  the limit per player. Unread counts for lobby chat are not built (the
+  navbar badge counts DMs only).
 
-`/messages` shows both in one list: lobby chats on top (session store), DMs
-below (database). The `?user=<username>` deep link resolves to a real
+`/messages` shows both in one list: lobby chats on top, DMs below. The `?user=<username>` deep link resolves to a real
 profile; names that only exist in the social mock data get an empty state
 saying so, rather than opening a conversation that can't be sent to.
 
@@ -441,9 +464,16 @@ confidence marks and open questions before changing any of them.
   always select lobby columns explicitly, never `*`). The leader edits a lobby
   at `/lfg/<game>/lobby/<id>/edit` (the create form with the lobby's values;
   `update_lobby`, with group size, range, roles and schedule locked once started)
-  and can remove a member (they may apply again). Still mock or missing: chat
-  (the panel is shown disabled), invites, ratings, the Valorant banner above the
-  list, and live updates (refresh to see changes).
+  and can remove a member (they may apply again). The chat on the lobby page is
+  live. **Invites are real** (`lobby_invites`; `invite_to_lobby`,
+  `respond_to_invite`, `cancel_invite`): a pending invite holds an open slot,
+  accepting joins as an accepted application and re-checks capacity, rank and the
+  one-live-lobby rule, a declined invite can't be repeated, and invites lapse when
+  the lobby starts or ends. The invited player answers on the lobby page or the
+  bell. Still mock or missing: ratings, and live updates of the rest of
+  the lobby page (refresh to see changes; the bell and the chat are live). The navbar lobby button
+  and the "Your lobby" banner read the player's real lobbies
+  (`fetchMyCurrentLobby`, `fetchMyLobbies`) and show nothing when they are in none.
 - The old single region list (`regions.ts`: `SG2`, `NA East`, `EU West`) is
   gone. The create-lobby form now uses the Valorant list from
   `game-regions.ts`, with the labels as its values; once lobbies are real, the

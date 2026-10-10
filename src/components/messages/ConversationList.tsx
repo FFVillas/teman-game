@@ -3,17 +3,14 @@
 import UserAvatar from "@/components/UserAvatar";
 import { useState } from "react";
 import { CURRENT_USER_ID, unreadCountFor, type Conversation } from "@/data/lfg-messages";
-import {
-  CURRENT_PLAYER_ID,
-  type Lobby,
-  type LobbyMessage,
-} from "@/data/lfg-lobby";
 
 /** A lobby you're in, listed alongside DMs. Keyed as `lobby:<id>`. */
 export interface LobbyChatEntry {
   key: string;
-  lobby: Lobby;
-  lastMessage?: LobbyMessage;
+  name: string;
+  cover: string;
+  /** Its latest line, already worded ("You: gg", "chat1: ready?"). */
+  preview: string;
 }
 
 interface ConversationListProps {
@@ -44,7 +41,7 @@ export default function ConversationList({
     conversation.participant.name.toLowerCase().includes(needle),
   );
   const filteredLobbies = lobbyChats.filter((entry) =>
-    entry.lobby.name.toLowerCase().includes(needle),
+    entry.name.toLowerCase().includes(needle),
   );
 
   return (
@@ -83,13 +80,8 @@ export default function ConversationList({
             so they're what you most likely came here for. They drop off this
             list the moment the lobby ends. */}
         {filteredLobbies.length > 0 && <SectionLabel>Lobby chats</SectionLabel>}
-        {filteredLobbies.map(({ key, lobby, lastMessage }) => {
+        {filteredLobbies.map(({ key, name, cover, preview }) => {
           const active = key === activeId;
-          const preview = lastMessage
-            ? lastMessage.isSystem
-              ? lastMessage.body
-              : `${lastMessage.authorId === CURRENT_PLAYER_ID ? "You" : lastMessage.authorName}: ${lastMessage.body}`
-            : "No messages yet";
           return (
             <button
               key={key}
@@ -102,13 +94,13 @@ export default function ConversationList({
             >
               {/* eslint-disable-next-line @next/next/no-img-element -- small cover thumbnail, no benefit from next/image optimization */}
               <img
-                src={lobby.cover}
+                src={cover}
                 alt=""
                 className="size-9 shrink-0 rounded-lg object-cover object-top"
               />
               <div className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate text-[13px] font-bold text-white">
-                  {lobby.name}
+                  {name}
                 </span>
                 <span className="truncate text-[11px] text-text-muted">
                   {preview}

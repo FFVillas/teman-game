@@ -51,9 +51,9 @@ interface NotificationContextValue {
     }
   ) => void;
   /**
-   * Notifies a DIFFERENT player (invited them, applied to their lobby) —
-   * no local toast, since the caller already shows their own confirmation.
-   * Not wired into any lobby UI yet; see `notifyUser` in `@/lib/notifications`.
+   * Notifies a DIFFERENT player (a friend request) — no local toast, since
+   * the caller already shows their own confirmation. See `notifyUser` in
+   * `@/lib/notifications`.
    */
   notifyPlayer: (
     targetUserId: string,

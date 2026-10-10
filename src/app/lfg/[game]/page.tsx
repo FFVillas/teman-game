@@ -6,11 +6,12 @@ import LfgHero from "@/components/lfg/LfgHero";
 import LfgSearchBar from "@/components/lfg/LfgSearchBar";
 import LfgToolbar from "@/components/lfg/LfgToolbar";
 import LfgTeamGrid from "@/components/lfg/LfgTeamGrid";
+import ActiveLobbyBanner from "@/components/lfg/ActiveLobbyBanner";
 import { gameBySlug } from "@/data/games";
 import { navLinkFor } from "@/data/nav-links";
 import { createClient } from "@/lib/supabase/server";
 import { fetchGameCatalog, fetchMyRankName } from "@/lib/games";
-import { fetchLobbyTeams } from "@/lib/lobbies";
+import { fetchLobbyTeams, fetchMyLobbies } from "@/lib/lobbies";
 
 interface LfgGamePageProps {
   params: Promise<{ game: string }>;
@@ -50,6 +51,7 @@ export default async function LfgGamePage({ params }: LfgGamePageProps) {
   const teams = game
     ? await fetchLobbyTeams(supabase, game, { viewerId: user?.id ?? null })
     : [];
+  const mine = user ? await fetchMyLobbies(supabase, user.id) : null;
 
   return (
     <>
@@ -60,6 +62,11 @@ export default async function LfgGamePage({ params }: LfgGamePageProps) {
             gameIcon={navLinkFor(slug)?.icon ?? ""}
             gameName={meta.name}
             description={description}
+          />
+
+          <ActiveLobbyBanner
+            lobby={mine?.current ?? null}
+            scheduled={mine?.scheduled}
           />
 
           <LfgSearchBar gameSlug={slug} game={game} myRank={myRank} />

@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import LobbyChatRoom from "@/components/lobby/LobbyChatRoom";
+import RealLobbyChatPage from "@/components/lobby/RealLobbyChatPage";
+import { isLobbyId } from "@/lib/lobbies";
 import {
   CURRENT_PLAYER_ID,
   allLobbies,
@@ -20,6 +22,7 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
+  if (isLobbyId(id)) return { title: "Lobby chat — TemanGame" };
   const lobby = lobbyById(id);
   return {
     title: lobby ? `${lobby.name} chat — TemanGame` : "Chat not found — TemanGame",
@@ -32,6 +35,9 @@ export default async function LobbyChatPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  // A uuid is a real lobby; "lobby-1" and friends are the mock ones.
+  if (isLobbyId(id)) return <RealLobbyChatPage slug="valorant" id={id} />;
+
   const lobby = lobbyById(id);
   // Same rule as the lobby page: only the leader, members and invitees get
   // in. TODO: use the real session's user id.

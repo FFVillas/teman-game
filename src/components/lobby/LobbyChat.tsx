@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import type { LobbyMessage } from "@/data/lfg-lobby";
 import { findProfileByUsername } from "@/data/player-profiles";
+import PlayerAvatar from "@/components/lfg/PlayerAvatar";
 
 interface LobbyChatProps {
   messages: LobbyMessage[];
@@ -94,8 +95,8 @@ export default function LobbyChat({
         <div className="flex flex-1 flex-col items-center justify-center gap-1.5 p-6 text-center">
           <p className="text-xs font-bold text-white">Chat closed</p>
           <p className="max-w-[260px] text-[11px] leading-relaxed text-text-muted">
-            Lobby chats only last as long as the lobby. This one ended, so
-            its messages were cleared.
+            Lobby chats only last as long as the lobby. This one ended, so its
+            messages are no longer shown.
           </p>
         </div>
       ) : (
@@ -119,10 +120,14 @@ export default function LobbyChat({
               }
 
               const isMine = message.authorId === currentUserId;
+              // Real players carry their username; mock ones are looked up.
+              const slug =
+                message.profileSlug ??
+                findProfileByUsername(message.authorName)?.slug;
               const profileHref = isMine
                 ? "/profile/me"
-                : findProfileByUsername(message.authorName)
-                  ? `/profile/${findProfileByUsername(message.authorName)!.slug}`
+                : slug
+                  ? `/profile/${slug}`
                   : undefined;
 
               return (
@@ -132,19 +137,17 @@ export default function LobbyChat({
                 >
                   {profileHref ? (
                     <Link href={profileHref} className="shrink-0">
-                      {/* eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization */}
-                      <img
+                      <PlayerAvatar
                         src={message.avatar}
-                        alt=""
-                        className="size-7 rounded-full object-cover transition-opacity hover:opacity-80"
+                        name={message.authorName}
+                        className="size-7 transition-opacity hover:opacity-80"
                       />
                     </Link>
                   ) : (
-                    // eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization
-                    <img
+                    <PlayerAvatar
                       src={message.avatar}
-                      alt=""
-                      className="size-7 shrink-0 rounded-full object-cover"
+                      name={message.authorName}
+                      className="size-7 shrink-0"
                     />
                   )}
                   <div

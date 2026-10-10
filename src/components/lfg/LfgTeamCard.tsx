@@ -125,11 +125,12 @@ export default function LfgTeamCard({
 
         <div className="flex flex-1 items-center gap-2.5">
           <div className="flex items-center">
-            {team.members.map((member) => (
+            {team.members.map((member, index) => (
               <PlayerAvatar
                 key={member.id}
                 src={member.avatar}
                 name={member.name}
+                style={{ zIndex: team.members.length - index }}
                 className="-ml-3.5 size-10 border-2 border-bg-card-alt text-sm first:ml-0"
               />
             ))}

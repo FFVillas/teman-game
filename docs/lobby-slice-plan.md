@@ -10,8 +10,8 @@ against Supabase**. The screens still run on mock data. Divergences from the pro
 
 **In:** create a lobby, real lobby lists on all six LFG pages, apply, the
 leader accepts or declines, members, leave and close.
-**Out (stay mock until a later slice):** chat, ratings, invites, the full lobby
-detail screen.
+**Out (stay mock until a later slice):** ratings. (Chat and invites were built
+later; see below.)
 
 ## Tables
 
@@ -67,6 +67,25 @@ Update that count and rows 10 and 11 there when this is built.
   one was due (`expire_stale_lobbies`, no scheduler). `joined_at` / `left_at`
   record who played, so leavers after the start stay ratable. Optional private
   Discord link (`lobby_voice_link`).
+- **Notifications** (`20261010000000_lobby_notifications.sql`, needs the
+  teammates' notifications migration): triggers on `applications` and `lobbies`
+  tell the leader about applications, the applicant about the answer, and
+  members when the lobby starts. The navbar button and the "Your lobby" banner
+  now read the player's real lobbies.
+- **Chat** (`20261011000000_lobby_messages.sql`): the `lobby_messages` table with
+  realtime. Members of an open lobby read and write; after it ends the chat is
+  closed for players, kept for admins. System lines come from triggers. Shown on
+  the lobby page, `/lfg/<game>/lobby/<id>/chat` and `/messages`.
+- **Invites** (`20261012000000_lobby_invites.sql`, run after the notifications
+  one): the `lobby_invites` table and `invite_to_lobby` / `respond_to_invite` /
+  `cancel_invite`. The leader picks players in `RealInvitePlayersModal` (the
+  recommendation order, over real profiles); each pending invite holds an open
+  slot. The player answers from the bell or the lobby page; accepting is an
+  accepted application. Pending invites lapse when the lobby starts or ends.
+  The same migration drops the `message` notification kind and limits
+  `notify_user` to friend requests. Gaps: the leader gets no notification when
+  an invite is accepted or declined (the roster shows it), an invited player
+  can't pick a role on accepting, and the picker has no online or mic filters.
 - **Editing** (`20261009000000_lobby_edit.sql`): `update_lobby()` and
   `remove_member()`; the create form doubles as the edit form at
   `/lfg/<game>/lobby/<id>/edit`. Run it after the lifecycle migration.

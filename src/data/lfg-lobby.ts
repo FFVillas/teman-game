@@ -73,6 +73,8 @@ export interface LobbyMessage {
   authorId: string;
   authorName: string;
   avatar?: string;
+  /** Real players: their profile URL segment (their username). */
+  profileSlug?: string;
   body: string;
   sentAt: string;
   /** Lifecycle events rendered inline (member joined, lobby started, …). */

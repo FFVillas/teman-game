@@ -422,11 +422,12 @@ export default function RequestToJoinModal({
                       </span>
                     </div>
                     <div className="flex items-center">
-                      {team.members.map((member) => (
+                      {team.members.map((member, index) => (
                         <PlayerAvatar
                           key={member.id}
                           src={member.avatar}
                           name={member.name}
+                          style={{ zIndex: team.members.length - index }}
                           className="-ml-2 size-7 border-2 border-bg-card-alt first:ml-0"
                         />
                       ))}

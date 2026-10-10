@@ -15,11 +15,13 @@ import type {
 import { roleIconFor } from "@/data/role-icons";
 import type { GameInfo } from "@/lib/games";
 import {
+  cancelInvite,
   closeLobby,
   leaveLobby,
   removeMember,
   reopenLobby,
   respondToApplication,
+  respondToInvite,
   startLobby,
   type LobbyDetailData,
   type LobbyPerson,
@@ -27,9 +29,10 @@ import {
 import { withNext } from "@/lib/auth-redirect";
 import { createClient } from "@/lib/supabase/client";
 import LobbyApplications from "./LobbyApplications";
-import LobbyChat from "./LobbyChat";
+import RealLobbyChat from "./RealLobbyChat";
 import LobbyHeader from "./LobbyHeader";
 import LobbyMembers from "./LobbyMembers";
+import RealInvitePlayersModal from "./RealInvitePlayersModal";
 
 /** "Oct 6, 9:12 PM" in UTC+7, the same clock the create form uses. */
 function when(iso: string): string {
@@ -47,8 +50,11 @@ function when(iso: string): string {
  * (`LobbyDetail`): header, roster, join requests. The statuses line up like
  * this: recruiting (live in the database) is the screen's "Forming", started
  * is its "Live", an ended lobby is "Completed", a cancelled one "Closed".
- * Left out because nothing real backs them yet: chat (the panel is shown
- * disabled), invitations, ratings, editing a lobby, and microphone state.
+ * Invitations are real: the leader picks players in `RealInvitePlayersModal`,
+ * each pending one holds an open slot on the roster, and the invited player
+ * answers here or from the bell. Left out because nothing real backs them yet:
+ * ratings and microphone state. The chat on the right is real (see
+ * RealLobbyChat).
  */
 export default function RealLobbyDetail({
   data,
@@ -61,7 +67,7 @@ export default function RealLobbyDetail({
   viewerId: string | null;
   myRank: string;
 }) {
-  const { team, members: people, applications, voiceUrl } = data;
+  const { team, members: people, applications, voiceUrl, invites, myInvite } = data;
   const router = useRouter();
   const { toast } = useNotifications();
   const [busy, setBusy] = useState(false);
@@ -73,6 +79,7 @@ export default function RealLobbyDetail({
     null,
   );
   const [applying, setApplying] = useState(false);
+  const [inviting, setInviting] = useState(false);
 
   const state = team.viewerState;
   const isLeader = state === "leader";
@@ -81,6 +88,8 @@ export default function RealLobbyDetail({
   const started = Boolean(team.started);
   const over = closed || started;
   const isFull = people.length >= team.slotsTotal;
+  // A pending invitation holds a slot, so the leader can't send more than fit.
+  const invitesLeft = Math.max(team.slotsTotal - people.length - invites.length, 0);
   const lobbiesHref = `/lfg/${team.game}`;
   const status = completed
     ? "completed"
@@ -162,6 +171,15 @@ export default function RealLobbyDetail({
     );
   };
 
+  // The page updates in place (the roster gains you, or the banner goes), so
+  // neither answer needs a toast.
+  const answerInvite = (accept: boolean) => {
+    if (myInvite) run(() => respondToInvite(createClient(), myInvite.id, accept));
+  };
+
+  const takeBackInvite = (inviteId: string) =>
+    run(() => cancelInvite(createClient(), inviteId));
+
   function start() {
     run(
       () => startLobby(createClient(), team.id),
@@ -228,7 +246,7 @@ export default function RealLobbyDetail({
       >
         Withdraw application
       </button>
-    ) : state === "declined" || started ? null : !viewerId ? (
+    ) : state === "declined" || started || myInvite ? null : !viewerId ? (
       <Link
         href={withNext("/login", `/lfg/${team.game}/lobby/${team.id}`)}
         className={`${topButton} bg-brand text-white hover:opacity-90`}
@@ -309,6 +327,38 @@ export default function RealLobbyDetail({
         </div>
       )}
 
+      {myInvite && !over && !isLeader && state !== "member" && (
+        <div className={`${banner} border-brand/30 bg-brand/[0.07]`}>
+          <div className="flex flex-col gap-0.5">
+            <p className="text-xs font-bold text-white">
+              {myInvite.inviterName} invited you to this lobby
+            </p>
+            <p className="text-[11px] text-text-muted">
+              Sent {when(myInvite.createdAt)}.{" "}
+              {isFull ? "The lobby is full right now." : "Accepting puts you on the roster."}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={busy || isFull}
+              onClick={() => answerInvite(true)}
+              className="flex h-9 items-center rounded-lg bg-brand px-4 text-xs font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Accept
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => answerInvite(false)}
+              className="flex h-9 items-center rounded-lg border border-border-strong px-4 text-xs font-semibold text-text-muted transition-colors hover:text-white disabled:opacity-50"
+            >
+              Decline
+            </button>
+          </div>
+        </div>
+      )}
+
       {myApplication && (
         <div className={`${banner} border-brand/30 bg-brand/[0.07]`}>
           <div className="flex flex-col gap-0.5">
@@ -384,6 +434,13 @@ export default function RealLobbyDetail({
               setRemoveTarget({ id, name: member?.name ?? "this player" });
               setConfirming("remove");
             }}
+            pendingInvites={invites.map((invite) => ({
+              id: invite.inviteId,
+              name: invite.username,
+              avatar: invite.avatar,
+            }))}
+            onCancelInvite={isLeader && !over ? takeBackInvite : undefined}
+            onInvite={isLeader && !over ? () => setInviting(true) : undefined}
           />
 
           {isLeader ? (
@@ -424,14 +481,36 @@ export default function RealLobbyDetail({
           )}
         </div>
 
-        <LobbyChat
-          messages={[]}
-          currentUserId={viewerId ?? ""}
-          disabled
-          disabledLabel="Lobby chat isn't available yet"
-          onSend={() => {}}
+        <RealLobbyChat
+          lobbyId={team.id}
+          viewerId={viewerId}
+          canChat={(isLeader || state === "member") && !closed}
+          closed={closed}
+          expandHref={`/lfg/${team.game}/lobby/${team.id}/chat`}
+          disabledLabel={
+            state === "pending"
+              ? "Chat opens once the leader accepts you"
+              : "Join the lobby to chat"
+          }
         />
       </div>
+
+      {inviting && (
+        <RealInvitePlayersModal
+          team={team}
+          game={game}
+          excludeIds={[
+            ...people.map((person) => person.id),
+            ...invites.map((invite) => invite.id),
+            ...applications
+              .filter((entry) => entry.status === "pending")
+              .map((entry) => entry.id),
+          ]}
+          invitesLeft={invitesLeft}
+          onInvited={() => router.refresh()}
+          onClose={() => setInviting(false)}
+        />
+      )}
 
       {applying && (
         <RequestToJoinModal

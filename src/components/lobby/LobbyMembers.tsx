@@ -3,8 +3,14 @@
 import Link from "next/link";
 import type { LobbyMember } from "@/data/lfg-lobby";
 import { findProfileByUsername } from "@/data/player-profiles";
-import type { LfgCandidate } from "@/data/lfg-candidates";
 import PlayerAvatar from "@/components/lfg/PlayerAvatar";
+
+/** Someone invited who hasn't answered: the mock candidates and real invitees both fit. */
+export interface PendingInvite {
+  id: string;
+  name: string;
+  avatar: string;
+}
 
 interface LobbyMembersProps {
   members: LobbyMember[];
@@ -14,7 +20,7 @@ interface LobbyMembersProps {
   canManage: boolean;
   onRemove?: (memberId: string) => void;
   /** Invites that are out but not answered. They sit in open slots. */
-  pendingInvites?: LfgCandidate[];
+  pendingInvites?: PendingInvite[];
   onCancelInvite?: (candidateId: string) => void;
   /** Present only when the viewer may invite (leader, lobby not over). */
   onInvite?: () => void;
@@ -172,11 +178,10 @@ export default function LobbyMembers({
             key={invite.id}
             className="flex items-center gap-3 rounded-xl border border-dashed border-brand/40 bg-brand/[0.04] p-3"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization */}
-            <img
+            <PlayerAvatar
               src={invite.avatar}
-              alt=""
-              className="size-10 shrink-0 rounded-full object-cover opacity-60"
+              name={invite.name}
+              className="size-10 shrink-0 text-sm opacity-60"
             />
             <div className="flex min-w-0 flex-1 flex-col gap-0.5">
               <span className="truncate text-sm font-bold text-white/80">

@@ -2,15 +2,16 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import Logo from "./Logo";
 import UserMenu from "./UserMenu";
 import { navLinks } from "@/data/nav-links";
 import { useAuth } from "@/contexts/AuthContext";
-import { activeLobby } from "@/data/lfg-lobby";
 import NavAuthButtons from "./NavAuthButtons";
 import NotificationBell from "./NotificationBell";
 import { createClient } from "@/lib/supabase/client";
 import { fetchUnreadMessageCount } from "@/lib/direct-messages";
+import { fetchMyCurrentLobby } from "@/lib/lobbies";
 import { useRealtimeInserts } from "@/lib/realtime";
 
 export default function Navbar() {
@@ -21,6 +22,26 @@ export default function Navbar() {
   // TODO: a Supabase realtime subscription would make both live.
   const [unreadMessages, setUnreadMessages] = useState(0);
   const playerId = isPlayer ? user!.id : null;
+
+  // The live lobby you're in, if any, so there's a way back from every page.
+  // Read again when you change page (joining, leaving or ending a lobby all
+  // happen on a page), so it follows you without a subscription.
+  const pathname = usePathname();
+  const [myLobby, setMyLobby] = useState<{ id: string; name: string; game: string } | null>(
+    null
+  );
+  useEffect(() => {
+    let cancelled = false;
+    const lookup = playerId
+      ? fetchMyCurrentLobby(createClient(), playerId)
+      : Promise.resolve(null);
+    lookup.then((value) => {
+      if (!cancelled) setMyLobby(value);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [playerId, pathname]);
 
   useEffect(() => {
     let cancelled = false;
@@ -78,9 +99,10 @@ export default function Navbar() {
             user can only be in one live lobby at a time, so this is either
             present or absent — never a list.
           */}
+          {myLobby && (
           <Link
-            href={`/lfg/${activeLobby.game}/lobby/${activeLobby.id}`}
-            title={`Your lobby: ${activeLobby.name}`}
+            href={`/lfg/${myLobby.game}/lobby/${myLobby.id}`}
+            title={`Your lobby: ${myLobby.name}`}
             className="flex h-8 items-center gap-2 rounded-lg border border-brand/40 bg-brand/10 px-2.5 transition-colors hover:border-brand/70 sm:px-3"
           >
             <span className="relative flex size-2 shrink-0">
@@ -88,12 +110,13 @@ export default function Navbar() {
               <span className="relative inline-flex size-2 rounded-full bg-success" />
             </span>
             <span className="hidden max-w-[130px] truncate text-xs font-bold text-white lg:block">
-              {activeLobby.name}
+              {myLobby.name}
             </span>
             <span className="text-xs font-bold text-white lg:hidden">
               Lobby
             </span>
           </Link>
+          )}
 
           {isPlayer && <NotificationBell />}
 

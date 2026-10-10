@@ -1,14 +1,14 @@
 import Link from "next/link";
 import Image from "next/image";
-import { CURRENT_PLAYER_ID, type Lobby } from "@/data/lfg-lobby";
+import type { MyLobby } from "@/lib/lobbies";
 import { modeStyles } from "./LfgTeamCard";
+import PlayerAvatar from "./PlayerAvatar";
 
-function lobbyHref(lobby: Lobby) {
+function lobbyHref(lobby: MyLobby) {
   return `/lfg/${lobby.game}/lobby/${lobby.id}`;
 }
 
-function ScheduledRow({ lobby }: { lobby: Lobby }) {
-  const leads = lobby.leaderId === CURRENT_PLAYER_ID;
+function ScheduledRow({ lobby }: { lobby: MyLobby }) {
   return (
     <Link
       href={lobbyHref(lobby)}
@@ -20,7 +20,7 @@ function ScheduledRow({ lobby }: { lobby: Lobby }) {
         {lobby.name}
       </span>
       <span className="shrink-0 rounded bg-white/5 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-text-muted">
-        {leads ? "Leader" : "Member"}
+        {lobby.isLeader ? "Leader" : "Member"}
       </span>
       <span className="shrink-0 text-[11px] text-text-muted">
         {lobby.scheduledFor}
@@ -33,24 +33,50 @@ function ScheduledRow({ lobby }: { lobby: Lobby }) {
 const MAX_SCHEDULED = 4;
 
 interface ActiveLobbyBannerProps {
-  lobby: Lobby;
-  scheduled?: Lobby[];
+  /** The live (recruiting or playing) lobby the player is in, if any. */
+  lobby: MyLobby | null;
+  scheduled?: MyLobby[];
 }
 
+/**
+ * "Your lobby" at the top of the LFG pages, from the player's real lobbies
+ * (`fetchMyLobbies`). Shows nothing when they are in none, so a player who
+ * isn't in a lobby never sees one that isn't theirs.
+ */
 export default function ActiveLobbyBanner({
   lobby,
   scheduled = [],
 }: ActiveLobbyBannerProps) {
-  // Drives the crown and the "N requests" badge — only the leader sees those.
-  const isLeader = lobby.leaderId === CURRENT_PLAYER_ID;
-  const mode = modeStyles[lobby.mode];
-  const pending = lobby.applications.filter((a) => a.status === "pending");
-  const emptySlots = Math.max(lobby.slotsTotal - lobby.members.length, 0);
+  if (!lobby && scheduled.length === 0) return null;
 
   return (
     // Deliberately low-contrast: this sits at the top of the page, so
     // position already gives it prominence — it doesn't need colour too.
     <section className="flex flex-col gap-3 rounded-2xl border border-border-subtle bg-bg-surface/40 p-4">
+      {lobby && <CurrentLobby lobby={lobby} />}
+
+      {scheduled.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
+            Scheduled
+          </span>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {scheduled.slice(0, MAX_SCHEDULED).map((entry) => (
+              <ScheduledRow key={entry.id} lobby={entry} />
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function CurrentLobby({ lobby }: { lobby: MyLobby }) {
+  const mode = modeStyles[lobby.mode];
+  const emptySlots = Math.max(lobby.slotsTotal - lobby.members.length, 0);
+
+  return (
+    <>
       <div className="flex items-center gap-2">
         <span className="relative flex size-2">
           <span className="absolute inline-flex size-full animate-ping rounded-full bg-success opacity-60" />
@@ -88,7 +114,7 @@ export default function ActiveLobbyBanner({
           <div className="flex min-w-[180px] flex-1 flex-col gap-1.5">
             <h3 className="flex items-center gap-1.5 text-base font-bold tracking-tight text-white">
               {lobby.name}
-              {isLeader && (
+              {lobby.isLeader && (
                 // eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization
                 <img
                   src="/icons/lfg-crown.svg"
@@ -96,6 +122,11 @@ export default function ActiveLobbyBanner({
                   title="You lead this lobby"
                   className="size-3.5 shrink-0"
                 />
+              )}
+              {lobby.status === "started" && (
+                <span className="rounded border border-success/60 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-success">
+                  Playing
+                </span>
               )}
             </h3>
             <div className="flex flex-wrap items-center gap-3 text-[11px] text-text-muted">
@@ -111,34 +142,36 @@ export default function ActiveLobbyBanner({
           </div>
 
           <div className="flex items-center">
-            {lobby.members.map((member) => (
-              // eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnails, no benefit from next/image optimization
-              <img
+            {lobby.members.map((member, index) => (
+              <PlayerAvatar
                 key={member.id}
                 src={member.avatar}
-                alt=""
-                className="-ml-3 size-9 rounded-full border-2 border-bg-card-alt object-cover first:ml-0"
+                name={member.name}
+                style={{ zIndex: lobby.members.length - index }}
+                className="-ml-3 size-9 border-2 border-bg-card-alt text-xs first:ml-0"
               />
             ))}
-            {Array.from({ length: emptySlots }).map((_, index) => (
-              <div
-                key={index}
-                className="-ml-3 flex size-9 items-center justify-center rounded-full border-2 border-bg-card-alt bg-[#272c33]"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
-                <img
-                  src="/icons/lfg-avatar-more.svg"
-                  alt=""
-                  className="size-2.5"
-                />
-              </div>
-            ))}
+            {lobby.status !== "started" &&
+              Array.from({ length: emptySlots }).map((_, index) => (
+                <div
+                  key={index}
+                  className="-ml-3 flex size-9 items-center justify-center rounded-full border-2 border-bg-card-alt bg-[#272c33]"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
+                  <img
+                    src="/icons/lfg-avatar-more.svg"
+                    alt=""
+                    className="size-2.5"
+                  />
+                </div>
+              ))}
           </div>
 
           <div className="flex items-center gap-3">
-            {isLeader && pending.length > 0 && (
+            {lobby.isLeader && lobby.pendingRequests > 0 && (
               <span className="rounded-md bg-brand/15 px-2.5 py-1 text-[11px] font-bold text-brand">
-                {pending.length} request{pending.length === 1 ? "" : "s"}
+                {lobby.pendingRequests} request
+                {lobby.pendingRequests === 1 ? "" : "s"}
               </span>
             )}
             <span className="flex h-9 items-center justify-center rounded-lg bg-brand px-4 text-xs font-bold text-white">
@@ -147,19 +180,6 @@ export default function ActiveLobbyBanner({
           </div>
         </div>
       </Link>
-
-      {scheduled.length > 0 && (
-        <div className="flex flex-col gap-2">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
-            Scheduled
-          </span>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {scheduled.slice(0, MAX_SCHEDULED).map((lobby) => (
-              <ScheduledRow key={lobby.id} lobby={lobby} />
-            ))}
-          </div>
-        </div>
-      )}
-    </section>
+    </>
   );
 }
