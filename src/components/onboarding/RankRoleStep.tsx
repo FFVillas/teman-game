@@ -1,33 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import AuthField from "@/components/auth/AuthField";
-import { fieldLabelClass } from "@/components/auth/fieldStyles";
-import FormDropdown from "@/components/FormDropdown";
-import { regionsFor } from "@/data/game-regions";
+import GameDetailsFields from "@/components/profile/GameDetailsFields";
+import { emptyGameProfile, type GameProfile } from "@/lib/game-profile";
 import type { GameInfo } from "@/lib/games";
 
-/**
- * What a player enters for one game during onboarding. Values are names and
- * codes as shown in the UI; they are turned into database ids when saved
- * (OnboardingFlow), because rank and role names are unique within a game.
- */
-export interface GameProfile {
-  username: string;
-  /** A value from game-regions.ts. Empty means "the game's default". */
-  region: string;
-  /** Rank name, e.g. "Gold 2". Empty means not set. */
-  rank: string;
-  /** Role names. Only games that define roles have any. */
-  roles: string[];
-}
-
-export const emptyGameProfile: GameProfile = {
-  username: "",
-  region: "",
-  rank: "",
-  roles: [],
-};
+// Kept here so existing imports of these keep working.
+export { emptyGameProfile };
+export type { GameProfile };
 
 /**
  * A plain object patch races against itself if two updates for the same
@@ -72,16 +52,7 @@ function GameCard({
   onUpdate: (patch: ProfilePatch) => void;
 }) {
   const [status, setStatus] = useState<"idle" | "connecting" | "connected">("idle");
-  const regionList = regionsFor(game.slug);
   const hasRankLookup = GAMES_WITH_RANK_LOOKUP.has(game.slug);
-
-  function toggleRole(role: string) {
-    onUpdate((current) => ({
-      roles: current.roles.includes(role)
-        ? current.roles.filter((r) => r !== role)
-        : [...current.roles, role],
-    }));
-  }
 
   function handleDetect() {
     if (!profile.username.trim() || game.ranks.length === 0) return;
@@ -100,66 +71,12 @@ function GameCard({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_210px]">
-        <AuthField
-          label="In-game username"
-          value={profile.username}
-          onChange={(username) => onUpdate({ username })}
-          placeholder={hasRankLookup ? "e.g. Yonziii#NA1" : "e.g. Yonziii"}
-        />
-        <div className="flex flex-col gap-1.5">
-          <span className={fieldLabelClass}>Region</span>
-          <FormDropdown
-            size="md"
-            label="Region"
-            value={profile.region || regionList.default}
-            onChange={(region) => onUpdate({ region })}
-            options={regionList.options}
-            allowEmpty={false}
-          />
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-1.5">
-        <span className={fieldLabelClass}>Rank</span>
-        <FormDropdown
-          size="md"
-          label="Rank"
-          placeholder="Not sure yet"
-          value={profile.rank}
-          onChange={(rank) => onUpdate({ rank })}
-          options={game.ranks.map((rank) => ({
-            value: rank.name,
-            label: rank.name,
-          }))}
-        />
-      </div>
-
-      {game.roles.length > 0 && (
-        <div className="flex flex-col gap-1.5">
-          <span className={fieldLabelClass}>Roles you play</span>
-          <div className="flex flex-wrap gap-2">
-            {game.roles.map((role) => {
-              const isSelected = profile.roles.includes(role.name);
-              return (
-                <button
-                  key={role.id}
-                  type="button"
-                  onClick={() => toggleRole(role.name)}
-                  aria-pressed={isSelected}
-                  className={`rounded-full border px-4 py-1.5 text-xs transition-colors ${
-                    isSelected
-                      ? "border-brand text-brand"
-                      : "border-border-strong text-text-muted hover:border-white/30"
-                  }`}
-                >
-                  {role.name}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      <GameDetailsFields
+        game={game}
+        profile={profile}
+        onUpdate={onUpdate}
+        size="md"
+      />
 
       {hasRankLookup && (
         <div className="flex flex-col gap-1.5 rounded-lg border border-dashed border-border-strong p-3">

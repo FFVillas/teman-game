@@ -1,5 +1,6 @@
 "use client";
 
+import { EmptyState } from "@/components/EmptyState";
 import UserAvatar from "@/components/UserAvatar";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -37,10 +38,13 @@ export default function MessageThread({
 
   if (!conversation) {
     return (
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
-        <p className="text-sm text-text-muted">
-          Select a conversation to start chatting.
-        </p>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col p-6">
+        <EmptyState
+          fill
+          icon="/icons/nav-chat.svg"
+          title="Select a conversation"
+          description="Pick a chat on the left to read it and reply."
+        />
       </div>
     );
   }
@@ -61,9 +65,12 @@ export default function MessageThread({
 
       <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-6">
         {conversation.messages.length === 0 && (
-          <p className="text-center text-[11px] italic text-text-muted">
-            No messages yet — say hi to {conversation.participant.name}.
-          </p>
+          <EmptyState
+            fill
+            icon="/icons/nav-chat.svg"
+            title="No messages yet"
+            description={`Say hi to ${conversation.participant.name}.`}
+          />
         )}
 
         {conversation.messages.map((message) => {

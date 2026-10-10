@@ -4,8 +4,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { useNotifications } from "@/contexts/NotificationContext";
 import {
+  gameOfNotification,
   isActionable,
   notificationStyles,
+  titleSegments,
   type AppNotification,
 } from "@/data/notifications";
 import { EmptyState } from "@/components/EmptyState";
@@ -51,37 +53,40 @@ function ActionButtons({
   const isInvite = notification.kind === "lobby_invite";
 
   return (
-    <div className="flex shrink-0 items-center gap-2">
+    // Under the text, not beside it: the right edge is left to the time, so
+    // the time sits in the same place on every row.
+    <div className="mt-2 flex items-center gap-2">
       <button
         type="button"
         onClick={() => onResolve("accepted")}
         disabled={busy}
         aria-label={isInvite ? "Accept invitation" : "Accept request"}
-        className="flex h-8 items-center justify-center gap-1.5 rounded-lg bg-brand px-2.5 text-[11px] font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex h-8 items-center justify-center gap-1.5 rounded-lg bg-brand px-3 text-[11px] font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
         <img src="/icons/action-accept.svg" alt="" className="size-3" />
-        <span className="hidden sm:inline">Accept</span>
+        Accept
       </button>
       <button
         type="button"
         onClick={() => onResolve("declined")}
         disabled={busy}
         aria-label={isInvite ? "Decline invitation" : "Decline request"}
-        className="flex h-8 items-center justify-center gap-1.5 rounded-lg bg-danger px-2.5 text-[11px] font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex h-8 items-center justify-center gap-1.5 rounded-lg bg-danger px-3 text-[11px] font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
         <img src="/icons/action-decline.svg" alt="" className="size-3" />
-        <span className="hidden sm:inline">Decline</span>
+        Decline
       </button>
     </div>
   );
 }
 
-function Row({ notification }: { notification: AppNotification }) {
+export function Row({ notification }: { notification: AppNotification }) {
   const { markRead, resolve, toast } = useNotifications();
   const style = notificationStyles[notification.kind];
   const actionable = isActionable(notification);
+  const game = gameOfNotification(notification);
   const [busy, setBusy] = useState(false);
 
   async function handleResolve(resolution: "accepted" | "declined") {
@@ -113,45 +118,20 @@ function Row({ notification }: { notification: AppNotification }) {
       }
     }
 
+    // No pop-up on success: the row turns into "accepted" / "declined".
     resolve(notification.id, resolution);
-
-    toast({
-      tone: resolution === "accepted" ? "success" : "info",
-      title:
-        resolution === "accepted"
-          ? notification.kind === "lobby_invite"
-            ? "Invitation accepted"
-            : "Request accepted"
-          : notification.kind === "lobby_invite"
-            ? "Invitation declined"
-            : "Request declined",
-      body: notification.actorName
-        ? `${notification.actorName} has been notified.`
-        : undefined,
-      href: resolution === "accepted" ? notification.href : undefined,
-    });
   }
 
   const inner = (
     <>
-      <div className="relative shrink-0">
+      <div className="shrink-0">
         {notification.actorAvatar ? (
-          <>
-            {/* eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization */}
-            <img
-              src={notification.actorAvatar}
-              alt=""
-              className="size-10 rounded-full object-cover"
-            />
-            {/* The kind icon rides the avatar, so you can tell an invite
-                from a review without reading either. */}
-            <span
-              className={`absolute -bottom-0.5 -right-0.5 flex size-[18px] items-center justify-center rounded-full border border-bg-card-alt ${toneSolid[style.tone]}`}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
-              <img src={style.icon} alt="" className="h-2.5 w-auto brightness-0 invert" />
-            </span>
-          </>
+          // eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization
+          <img
+            src={notification.actorAvatar}
+            alt=""
+            className="size-10 rounded-full object-cover"
+          />
         ) : (
           <div
             className={`flex size-10 items-center justify-center rounded-full border ${toneSolid[style.tone]}`}
@@ -162,13 +142,40 @@ function Row({ notification }: { notification: AppNotification }) {
         )}
       </div>
 
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+      {/* At least as tall as the avatar and centred in it, so a title with no
+          subtitle sits level with the picture instead of hugging the top.
+          Longer text just grows the column; the avatar stays at the top. */}
+      <div className="flex min-h-10 min-w-0 flex-1 flex-col justify-center gap-0.5">
         <div className="flex items-baseline justify-between gap-3">
-          <span className="min-w-0 text-sm font-bold text-white">
-            {notification.title}
+          {/* The sentence is regular weight and a soft grey; names (the person
+              and the lobby) are a step heavier and white, so they stand out. */}
+          <span className="min-w-0 text-sm font-normal text-text-subtle">
+            {game && (
+              // eslint-disable-next-line @next/next/no-img-element -- static SVG logo, no benefit from next/image optimization
+              <img
+                src={game.icon}
+                alt={game.name}
+                title={game.name}
+                className="mr-1.5 inline-block h-3.5 w-auto align-[-2px]"
+              />
+            )}
+            {titleSegments(notification).map((segment, index) =>
+              segment.name ? (
+                <span key={index} className="font-medium text-white">
+                  {segment.text}
+                </span>
+              ) : (
+                segment.text
+              ),
+            )}
           </span>
-          <span className="shrink-0 text-[11px] text-text-muted">
+          <span className="flex shrink-0 items-center gap-1.5 text-[11px] text-text-muted">
             {notification.createdAgo}
+            {/* Unread is a small dot after the time. Only unread rows have one,
+                so a read row's time sits flush against the right edge. */}
+            {!notification.read && (
+              <span aria-label="Unread" className="size-1.5 rounded-full bg-brand" />
+            )}
           </span>
         </div>
         {notification.body && (
@@ -176,27 +183,29 @@ function Row({ notification }: { notification: AppNotification }) {
             {notification.body}
           </span>
         )}
+        {actionable ? (
+          <ActionButtons
+            notification={notification}
+            onResolve={handleResolve}
+            busy={busy}
+          />
+        ) : notification.resolution ? (
+          <span
+            className={`mt-2 w-fit rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${
+              notification.resolution === "accepted"
+                ? "bg-success/10 text-success"
+                : "bg-danger/10 text-danger"
+            }`}
+          >
+            {notification.resolution}
+          </span>
+        ) : null}
       </div>
     </>
   );
 
   return (
-    <li
-      className={`relative flex items-start gap-3 overflow-hidden rounded-xl border p-4 pl-5 transition-colors ${
-        notification.read
-          ? "border-border-default bg-bg-page hover:border-border-strong"
-          : "border-brand/25 bg-brand/[0.04] hover:border-brand/50"
-      }`}
-    >
-      {/* Unread marker as an edge bar rather than a dot: it survives a long
-          title wrapping, and it lines the unread ones up down the list. */}
-      {!notification.read && (
-        <span
-          aria-label="Unread"
-          className="absolute inset-y-0 left-0 w-1 bg-brand"
-        />
-      )}
-
+    <li className="flex items-start gap-3 overflow-hidden rounded-xl border border-border-default bg-bg-page p-4 transition-colors hover:border-border-strong">
       {notification.href && !actionable ? (
         <Link
           href={notification.href}
@@ -208,24 +217,6 @@ function Row({ notification }: { notification: AppNotification }) {
       ) : (
         <div className="flex min-w-0 flex-1 items-start gap-3">{inner}</div>
       )}
-
-      {actionable ? (
-        <ActionButtons
-          notification={notification}
-          onResolve={handleResolve}
-          busy={busy}
-        />
-      ) : notification.resolution ? (
-        <span
-          className={`mt-1 shrink-0 rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${
-            notification.resolution === "accepted"
-              ? "bg-success/10 text-success"
-              : "bg-danger/10 text-danger"
-          }`}
-        >
-          {notification.resolution}
-        </span>
-      ) : null}
     </li>
   );
 }

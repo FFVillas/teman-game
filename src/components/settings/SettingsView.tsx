@@ -98,7 +98,11 @@ export default function SettingsView({ email }: { email: string }) {
     if (error) return setPasswordError(error.message);
     setPassword("");
     setConfirm("");
-    toast({ tone: "success", title: "Password updated" });
+    toast({
+      tone: "success",
+      title: "Password updated",
+      body: "Use it the next time you log in.",
+    });
   }
 
   function handleLogout() {

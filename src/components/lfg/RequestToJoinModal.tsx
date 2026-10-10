@@ -9,7 +9,6 @@ import { findProfileByUsername } from "@/data/player-profiles";
 import { modeStyles } from "./LfgTeamCard";
 import RankRangeBadge from "./RankRangeBadge";
 import PlayerAvatar from "./PlayerAvatar";
-import { useNotifications } from "@/contexts/NotificationContext";
 import { roleIconFor } from "@/data/role-icons";
 import { useAuth } from "@/contexts/AuthContext";
 import { createClient } from "@/lib/supabase/client";
@@ -90,7 +89,6 @@ export default function RequestToJoinModal({
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
-  const { toast } = useNotifications();
   const { user } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -161,11 +159,7 @@ export default function RequestToJoinModal({
       router.refresh();
     }
 
-    toast({
-      tone: "success",
-      title: "Request sent",
-      body: `${team.leaderName} will get back to you. You'll be notified either way.`,
-    });
+    // No pop-up: closing the dialog shows the lobby with "Application sent".
     onClose();
   }
 

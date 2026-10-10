@@ -34,11 +34,15 @@ export default function SocialBlockedPanel() {
   async function handleUnblock(row: BlockedRow) {
     const ok = await unblockUser(createClient(), row.blockId);
     if (!ok) {
-      toast({ tone: "danger", title: "Couldn't unblock that player" });
+      toast({
+        tone: "danger",
+        title: "Couldn't unblock that player",
+        body: "Try again in a moment.",
+      });
       return;
     }
+    // No pop-up: the row leaves the blocked list.
     setBlocked((prev) => prev.filter((b) => b.blockId !== row.blockId));
-    toast({ tone: "info", title: `${row.username} unblocked` });
   }
 
   return (
@@ -46,7 +50,7 @@ export default function SocialBlockedPanel() {
       <div className="flex items-center gap-2 border-b border-border-default px-6 py-4">
         {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
         <img src="/icons/social-blocked.svg" alt="" className="h-auto w-4 opacity-70" />
-        <span className="text-base font-bold text-white">Blocked</span>
+        <span className="text-sm font-bold text-white">Blocked</span>
       </div>
 
       <div className="px-6 pb-2 pt-4">
@@ -59,6 +63,7 @@ export default function SocialBlockedPanel() {
       <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto p-6 pt-2">
         {loading ? null : blocked.length === 0 ? (
           <EmptyState
+            fill
             icon="/icons/social-blocked.svg"
             title="No blocked players"
             description="Players you block will show up here."

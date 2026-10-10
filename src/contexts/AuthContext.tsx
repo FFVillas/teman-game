@@ -86,7 +86,10 @@ async function buildAuthUser(
 
   return {
     id: authUser.id,
-    name: profile?.username ?? authUser.email ?? "Player",
+    // Never the whole email: it would end up on screen (the Social sidebar,
+    // the account menu). The part before the @ is what signup would have
+    // used as the username anyway.
+    name: profile?.username ?? authUser.email?.split("@")[0] ?? "Player",
     avatar: avatarUrl(profile?.avatar_path),
     profileHref: "/profile/me",
     role: "player",

@@ -10,7 +10,6 @@ import {
   type SanctionType,
 } from "@/data/admin-moderation";
 import { useAdminData } from "@/contexts/AdminDataContext";
-import { useNotifications } from "@/contexts/NotificationContext";
 import { describeSanction, suggestedSanction } from "@/lib/admin";
 import { AdminModal, NoteField } from "./AdminModal";
 import { Avatar, adminButton, adminFieldClass } from "./AdminUi";
@@ -38,7 +37,6 @@ export default function SanctionModal({
   onIssued,
 }: SanctionModalProps) {
   const { sanctions, issueSanction } = useAdminData();
-  const { toast } = useNotifications();
   const suggestion = suggestedSanction(player.id, sanctions);
 
   const [type, setType] = useState<SanctionType>(suggestion.type);
@@ -49,7 +47,6 @@ export default function SanctionModal({
   const [note, setNote] = useState("");
   const [attempted, setAttempted] = useState(false);
 
-  const summary = describeSanction({ type, durationDays });
   const confirmLabel =
     type === "warning"
       ? "Issue warning"
@@ -69,14 +66,6 @@ export default function SanctionModal({
       reason,
       note: note.trim(),
       reportIds,
-    });
-    toast({
-      tone: "success",
-      title: `${summary} issued to ${player.username}`,
-      body:
-        reportIds.length > 0
-          ? `${reportIds.length} report${reportIds.length === 1 ? "" : "s"} closed as actioned.`
-          : "Logged to the audit trail.",
     });
     onIssued?.();
     onClose();

@@ -359,6 +359,26 @@ the same ladder.
 
 ---
 
+## Accounts (what the form asks for)
+
+What a player enters to identify themselves in each game. ⚠️ From guides and
+news pages (Riot ID rules, PUBG and Free Fire ID guides, Mobile Legends top-up
+guides), **not** the publishers' own documentation: check each in the game
+before tightening a rule. The checks in `src/data/game-accounts.ts` are
+deliberately loose (digits only) for that reason.
+
+| Game | Asked for | Stored in |
+|---|---|---|
+| Valorant, League of Legends | Riot ID, `Name#TAG` (name 3 to 16 characters, tag 3 to 5; one ID covers both games) | `in_game_name` |
+| Counter-Strike 2 | Steam name (no separate in-game ID) | `in_game_name` |
+| Mobile Legends | Nickname, Player ID and Zone ID (the game shows `12345678 (1234)`, and people swap the two) | `in_game_name`, `account_id`, `zone_id` |
+| PUBG Mobile | Character name and Character ID (the ID can't change, the name can) | `in_game_name`, `account_id` |
+| Free Fire | Nickname and UID (about 9 to 10 digits, never changes) | `in_game_name`, `account_id` |
+
+Everything is optional and self-reported; nothing is verified. Not asked for on
+purpose: peak rank (current rank only), hero or agent pools (no list in the
+catalog), and any "verified" mark.
+
 ## Game modes
 
 What each game lets you queue for, researched 2026-10-06 from web sources

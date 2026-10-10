@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AppNotification, NotificationKind } from "@/data/notifications";
+import type { Toast, ToastAction, ToastTone } from "@/contexts/NotificationContext";
 import { avatarUrl } from "@/lib/avatar";
 import { formatAgo } from "@/lib/relative-time";
 
@@ -41,6 +42,68 @@ function rowToNotification(row: NotificationRow): AppNotification {
     read: row.read_at !== null,
     resolution: row.resolution ?? undefined,
     refId: row.ref_id ?? undefined,
+  };
+}
+
+/** A freshly inserted `notifications` row, as realtime delivers it. */
+export interface NotificationInsert {
+  id: string;
+  kind: NotificationKind;
+  title: string;
+  body: string | null;
+  href: string | null;
+  actor_id: string | null;
+  ref_id: string | null;
+}
+
+/** What the pop-up says when a notification has no body of its own, so every pop-up has a subtitle. */
+const defaultBody: Partial<Record<NotificationKind, string>> = {
+  application_declined: "You can still look for another lobby.",
+  friend_request: "Wants to be your friend.",
+  rating_due: "Rate your teammates to build their reputation.",
+  review_received: "Open your profile to see it.",
+  removed_from_lobby: "The leader removed you from the lobby.",
+};
+
+/** Colour of the pop-up for each kind: good news green, bad news red, the rest blue. */
+const incomingTone: Partial<Record<NotificationKind, ToastTone>> = {
+  application_accepted: "success",
+  lobby_started: "success",
+  review_received: "success",
+  removed_from_lobby: "danger",
+};
+
+/** Kinds that carry Accept / Decline buttons in the pop-up. */
+const answerableKinds: readonly string[] = ["lobby_invite", "join_request", "friend_request"];
+
+/** How long a pop-up with buttons stays up: long enough to read it and decide. */
+const ACTION_TOAST_MS = 12_000;
+
+/**
+ * The pop-up for a notification that just arrived (realtime). Invites, join
+ * requests and friend requests get Accept / Decline; everything else is a
+ * plain pop-up that links to where the notification points.
+ */
+export function incomingToast(row: NotificationInsert): Omit<Toast, "id"> {
+  // Buttons only when there is something to answer: an invite or request
+  // needs its row id, a friend request needs to know who sent it.
+  const answerable =
+    answerableKinds.includes(row.kind) &&
+    (row.kind === "friend_request" ? Boolean(row.actor_id) : Boolean(row.ref_id));
+  return {
+    tone: incomingTone[row.kind] ?? "info",
+    title: row.title,
+    body: row.body ?? defaultBody[row.kind] ?? "Open it to see more.",
+    href: row.href ?? undefined,
+    duration: answerable ? ACTION_TOAST_MS : undefined,
+    action: answerable
+      ? {
+          kind: row.kind as ToastAction["kind"],
+          notificationId: row.id,
+          refId: row.ref_id ?? undefined,
+          actorId: row.actor_id ?? undefined,
+        }
+      : undefined,
   };
 }
 

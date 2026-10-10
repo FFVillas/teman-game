@@ -119,6 +119,30 @@ export async function acceptFriendRequest(
   return !error;
 }
 
+/**
+ * Answers the pending request a given player sent you. For the pop-up, which
+ * knows who sent it (the notification's actor) but not the friendship's id.
+ * Returns false if there is no such request or the write was refused.
+ */
+export async function answerFriendRequestFrom(
+  supabase: SupabaseClient,
+  requesterId: string,
+  userId: string,
+  accept: boolean,
+): Promise<boolean> {
+  const { data } = await supabase
+    .from("friendships")
+    .select("id")
+    .eq("requester_id", requesterId)
+    .eq("addressee_id", userId)
+    .eq("status", "pending")
+    .maybeSingle();
+  if (!data) return false;
+  return accept
+    ? acceptFriendRequest(supabase, data.id as string)
+    : removeFriendship(supabase, data.id as string);
+}
+
 /** Declining a pending request and unfriending are the same operation: the row goes away. */
 export async function removeFriendship(
   supabase: SupabaseClient,

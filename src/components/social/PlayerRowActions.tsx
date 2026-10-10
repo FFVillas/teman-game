@@ -87,16 +87,12 @@ export default function PlayerRowActions({
       return;
     }
 
+    // No pop-up: the button flips to its "sent" state.
     setSent(true);
     notifyPlayer(target.id, {
       kind: "friend_request",
       title: `${user.name} sent you a friend request`,
       href: "/social/pending",
-    });
-    toast({
-      tone: "success",
-      title: "Friend request sent",
-      body: `${target.name} has been notified.`,
     });
   }
 
@@ -110,10 +106,14 @@ export default function PlayerRowActions({
     setBlocking(false);
 
     if (!ok) {
-      toast({ tone: "danger", title: "Couldn't block that player" });
+      toast({
+        tone: "danger",
+        title: "Couldn't block that player",
+        body: "Try again in a moment.",
+      });
       return;
     }
-    toast({ tone: "info", title: `${target.name} blocked` });
+    // No pop-up: the row disappears from the list.
     onBlocked?.();
   }
 

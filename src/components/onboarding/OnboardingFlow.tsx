@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import { DEFAULT_TIMEZONE, MAX_PERSONALITY_TAGS } from "@/data/profile-options";
 import { regionsFor } from "@/data/game-regions";
 import { saveGameSetup, type GameInfo } from "@/lib/games";
+import { gameProfileProblem } from "@/lib/game-profile";
 import { saveDateOfBirth } from "@/lib/profiles";
 import { emptyDateParts, joinDate } from "@/lib/age";
 import { validateDossier } from "@/components/profile/DossierFields";
@@ -172,6 +173,20 @@ export default function OnboardingFlow({ catalog }: { catalog: GameInfo[] }) {
     // insert, roles replaced as a set), so a retry after a partial failure
     // simply redoes the lot. Connected accounts still have no table, so
     // that step is not saved yet.
+    // Check every game's account fields first, so a typo in the last game
+    // doesn't leave the earlier ones half saved.
+    for (const slug of selectedGames) {
+      const problem = gameProfileProblem(slug, gameDetails[slug] ?? emptyGameProfile);
+      if (problem) {
+        setSaving(false);
+        setSaveError(
+          `${catalog.find((g) => g.slug === slug)?.name ?? slug}: ${problem}`,
+        );
+        setStepIndex(steps.indexOf("rank"));
+        return;
+      }
+    }
+
     for (const slug of selectedGames) {
       const game = catalog.find((g) => g.slug === slug);
       if (!game) continue;
@@ -180,10 +195,15 @@ export default function OnboardingFlow({ catalog }: { catalog: GameInfo[] }) {
       const failure = await saveGameSetup(supabase, userId, {
         gameId: game.id,
         inGameName: details.username,
+        accountId: details.accountId,
+        zoneId: details.zoneId,
         region: details.region || regionsFor(slug).default,
         rankId: game.ranks.find((rank) => rank.name === details.rank)?.id ?? null,
         roleIds: game.roles
           .filter((role) => details.roles.includes(role.name))
+          .map((role) => role.id),
+        favoriteRoleIds: game.roles
+          .filter((role) => details.favoriteRoles.includes(role.name))
           .map((role) => role.id),
       });
       if (failure) {

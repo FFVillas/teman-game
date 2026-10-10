@@ -28,7 +28,11 @@ export default function PendingRequestRow({
     const ok = await acceptFriendRequest(createClient(), request.friendshipId);
     setBusy(false);
     if (!ok) {
-      toast({ tone: "danger", title: "Couldn't accept that request" });
+      toast({
+        tone: "danger",
+        title: "Couldn't accept that request",
+        body: "Try again in a moment.",
+      });
       return;
     }
     setResolved("accepted");
@@ -40,7 +44,11 @@ export default function PendingRequestRow({
     const ok = await removeFriendship(createClient(), request.friendshipId);
     setBusy(false);
     if (!ok) {
-      toast({ tone: "danger", title: "Couldn't decline that request" });
+      toast({
+        tone: "danger",
+        title: "Couldn't decline that request",
+        body: "Try again in a moment.",
+      });
       return;
     }
     setResolved("declined");

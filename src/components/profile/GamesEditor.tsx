@@ -2,13 +2,9 @@
 
 import FormDropdown from "@/components/FormDropdown";
 import { EmptyState } from "@/components/EmptyState";
-import { regionsFor } from "@/data/game-regions";
 import type { GameInfo } from "@/lib/games";
-import {
-  emptyGameProfile,
-  type GameProfile,
-} from "@/components/onboarding/RankRoleStep";
-import { Field, controlClass } from "./DossierFields";
+import { emptyGameProfile, type GameProfile } from "@/lib/game-profile";
+import GameDetailsFields from "./GameDetailsFields";
 
 /** One game on the form: which game, plus what the player entered for it. */
 export interface GameDraft extends GameProfile {
@@ -54,16 +50,6 @@ export default function GamesEditor({
     );
   }
 
-  function toggleRole(slug: string, role: string) {
-    const game = games.find((entry) => entry.slug === slug);
-    if (!game) return;
-    update(slug, {
-      roles: game.roles.includes(role)
-        ? game.roles.filter((item) => item !== role)
-        : [...game.roles, role],
-    });
-  }
-
   return (
     <div className="flex flex-col gap-3">
       {games.length === 0 && (
@@ -77,7 +63,6 @@ export default function GamesEditor({
       {games.map((draft) => {
         const game = catalog.find((entry) => entry.slug === draft.slug);
         if (!game) return null;
-        const regionList = regionsFor(game.slug);
 
         return (
           <section
@@ -97,69 +82,11 @@ export default function GamesEditor({
               </button>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="In-game name">
-                <input
-                  value={draft.username}
-                  onChange={(event) =>
-                    update(draft.slug, { username: event.target.value })
-                  }
-                  maxLength={40}
-                  placeholder={
-                    game.slug === "valorant" ? "e.g. Yonziii#SG2" : "e.g. Yonziii"
-                  }
-                  className={controlClass}
-                />
-              </Field>
-
-              <Field label="Region">
-                <FormDropdown
-                  label={`${game.name} region`}
-                  value={draft.region || regionList.default}
-                  onChange={(region) => update(draft.slug, { region })}
-                  options={regionList.options}
-                  allowEmpty={false}
-                />
-              </Field>
-            </div>
-
-            <Field label="Rank">
-              <FormDropdown
-                label={`${game.name} rank`}
-                placeholder="Not sure yet"
-                value={draft.rank}
-                onChange={(rank) => update(draft.slug, { rank })}
-                options={game.ranks.map((rank) => ({
-                  value: rank.name,
-                  label: rank.name,
-                }))}
-              />
-            </Field>
-
-            {game.roles.length > 0 && (
-              <Field label="Roles you play">
-                <div className="flex flex-wrap gap-1.5">
-                  {game.roles.map((role) => {
-                    const isSelected = draft.roles.includes(role.name);
-                    return (
-                      <button
-                        key={role.id}
-                        type="button"
-                        onClick={() => toggleRole(draft.slug, role.name)}
-                        aria-pressed={isSelected}
-                        className={`rounded-full border px-3 py-1.5 text-[11px] transition-colors ${
-                          isSelected
-                            ? "border-brand bg-brand/10 text-brand"
-                            : "border-border-strong text-text-muted hover:border-white/30"
-                        }`}
-                      >
-                        {role.name}
-                      </button>
-                    );
-                  })}
-                </div>
-              </Field>
-            )}
+            <GameDetailsFields
+              game={game}
+              profile={{ ...emptyGameProfile, ...draft }}
+              onUpdate={(patch) => update(draft.slug, patch)}
+            />
           </section>
         );
       })}
