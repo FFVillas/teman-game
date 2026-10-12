@@ -14,8 +14,10 @@ export default function MessagesPage() {
   return (
     <>
       <Navbar />
-      <main className="flex h-[calc(100vh-60px)] flex-col items-center py-8">
-        <div className="mx-auto flex w-full max-w-[1000px] flex-1 flex-col gap-3 px-6">
+      {/* dvh, not vh: `vh` includes the strip a mobile browser's URL bar
+          covers, which pushed the composer off the bottom of the screen. */}
+      <main className="flex h-[calc(100dvh-60px)] flex-col items-center py-4 sm:py-8">
+        <div className="mx-auto flex w-full max-w-[1000px] flex-1 flex-col gap-3 px-4 sm:px-6">
           {/* Reachable from the chat icon on any page, so "back" should
               return there rather than to a fixed destination. */}
           <BackLink label="Back" href="/lfg/valorant" useHistory />

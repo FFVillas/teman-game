@@ -9,6 +9,7 @@ import { navLinks } from "@/data/nav-links";
 import { useAuth } from "@/contexts/AuthContext";
 import NavAuthButtons from "./NavAuthButtons";
 import NotificationBell from "./NotificationBell";
+import MobileNavMenu from "./MobileNavMenu";
 import { createClient } from "@/lib/supabase/client";
 import { fetchUnreadMessageCount } from "@/lib/direct-messages";
 import { fetchMyCurrentLobby } from "@/lib/lobbies";
@@ -65,10 +66,12 @@ export default function Navbar() {
   });
 
   return (
-    <header className="sticky top-0 z-50 flex h-[60px] w-full items-center justify-center border-b border-border-subtle bg-bg-nav px-6">
-      <div className="flex w-full max-w-[1440px] flex-1 items-center gap-6">
-        <div className="flex items-center gap-3">
-          <Logo compact />
+    <header className="sticky top-0 z-50 flex h-[60px] w-full items-center justify-center border-b border-border-subtle bg-bg-nav px-4 sm:px-6">
+      <div className="flex w-full max-w-[1440px] flex-1 items-center gap-3 lg:gap-6">
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+          {/* Below lg the game links live behind this button instead. */}
+          <MobileNavMenu />
+          <Logo compact hideWordmarkUntilXs />
 
           <nav className="hidden flex-col items-start pl-5 lg:flex">
             <ul className="flex items-center gap-6">
@@ -117,7 +120,7 @@ export default function Navbar() {
           </nav>
         </div>
 
-        <div className="flex flex-1 items-center justify-end gap-3">
+        <div className="flex flex-1 items-center justify-end gap-2 sm:gap-3">
           {/*
             Persistent way back into the lobby you're in, from any page. A
             user can only be in one live lobby at a time, so this is either
