@@ -82,7 +82,10 @@ export default function MatchHistoryList({
                 </div>
               </div>
 
-              <div className="flex shrink-0 items-center">
+              {/* The teammate faces are decoration — on a phone they and the
+                  fixed-width timestamp between them left about 130px for the
+                  lobby name, which truncated almost every title. */}
+              <div className="hidden shrink-0 items-center sm:flex">
                 {match.teammates.slice(0, 3).map((teammate) => (
                   // eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization
                   <img
@@ -99,7 +102,7 @@ export default function MatchHistoryList({
                 )}
               </div>
 
-              <span className="w-[76px] shrink-0 text-right text-[11px] text-text-muted">
+              <span className="shrink-0 text-right text-[11px] text-text-muted sm:w-[76px]">
                 {match.endedAgo}
               </span>
             </Link>

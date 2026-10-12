@@ -172,7 +172,7 @@ export default function RequestToJoinModal({
         role="dialog"
         aria-modal="true"
         aria-label={`Request to join ${team.name}`}
-        className="max-h-[95vh] w-full max-w-[750px] overflow-y-auto"
+        className="max-h-[95dvh] w-full max-w-[750px] overflow-y-auto"
         onClick={(event) => event.stopPropagation()}
       >
         <button

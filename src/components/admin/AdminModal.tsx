@@ -42,7 +42,7 @@ export function AdminModal({
         aria-modal="true"
         aria-label={title}
         onClick={(event) => event.stopPropagation()}
-        className="flex max-h-[92vh] w-full max-w-[520px] flex-col gap-5 overflow-y-auto rounded-2xl border border-border-strong bg-bg-card-alt p-6"
+        className="flex max-h-[92dvh] w-full max-w-[520px] flex-col gap-5 overflow-y-auto rounded-2xl border border-border-strong bg-bg-card-alt p-6"
       >
         <div className="flex flex-col gap-1.5">
           <h2 className="font-heading text-lg font-extrabold text-white">

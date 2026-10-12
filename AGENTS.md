@@ -181,6 +181,45 @@ tracking-widest text-text-muted`, header actions `h-10 text-xs`. If a
 page starts feeling like a different product, check it against these
 first.
 
+## Responsive layout
+
+Breakpoints are Tailwind's, plus one: **`xs` = 368px**, defined in
+`globals.css`'s `@theme`. It exists for the navbar, where the logo, the menu
+button and the auth buttons fit a 375px phone but not a 320px one; `sm`
+(640px) reacts far too late and would strip the wordmark from every phone.
+
+Three screens change shape rather than just reflow, and each hid something
+before:
+
+- **Navbar.** The six game links are `hidden lg:flex` — they don't fit beside
+  the account controls. Below `lg` they live behind `MobileNavMenu`, a
+  hamburger that opens a full-width panel under the bar. Without it a phone
+  had no route into any game but the landing page's grid.
+- **Social** (`/social/*`) is a sidebar beside a panel from `sm` up. Below
+  that the layout stacks (`flex-col sm:flex-row`) and `SocialSidebar` renders
+  a scrolling strip of the same five destinations instead, using each item's
+  `shortLabel`. It used to be `hidden sm:flex`, which left Pending, Discover,
+  Recent and Blocked unreachable on a phone.
+- **Messages** is master-detail below `sm`: the conversation list, then the
+  thread with a back arrow (`BackToList`, exported from `MessageThread` and
+  shared with `LobbyChatThread`). `MessagesView` holds `threadOpenOnMobile`;
+  a `?user=` or `?lobby=` deep link starts on the thread, since it asked for
+  one conversation. From `sm` up both panes show and the state is ignored.
+
+Two rules worth keeping:
+
+- **`dvh`, never `vh`,** for anything sized to the window. `vh` counts the
+  strip a mobile browser's URL bar covers, so a chat composer pinned to the
+  bottom sits off-screen. Used by `/messages`, the Social layout, the lobby
+  chat pages and every modal's `max-h`.
+- **A fixed-height control must not wrap.** `h-8` plus a label that wraps to
+  two lines spills text outside its own border — that's what `shrink-0
+  whitespace-nowrap` on the nav auth buttons is for.
+
+Tables stay wide and scroll: `AdminTable` wraps a `min-w-[720px]` table in
+`overflow-x-auto`, because a moderation queue reads worse as stacked cards
+than as a table you nudge sideways.
+
 ## Notifications vs. toasts
 
 Two different things, deliberately:
@@ -542,7 +581,8 @@ counts), then the account chip. **Social lives in the account menu**
 (`src/data/user-menu.ts`), not as its own icon — it's somewhere you go, not
 something you monitor, and four icons next to the chip read as clutter.
 Messages use a single speech bubble (`/icons/nav-chat.svg`); the old
-two-bubble icon competed with the bell.
+two-bubble icon competed with the bell. Below `lg` the game links move into
+`MobileNavMenu` and the wordmark drops below `xs` — see "Responsive layout".
 
 Use **`<UserAvatar src name />`** for any person whose picture may be
 missing — which is every real account, since `avatar_path` starts null and

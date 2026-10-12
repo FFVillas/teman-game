@@ -1,8 +1,20 @@
 import Link from "next/link";
 
-export default function Logo({ compact = false }: { compact?: boolean }) {
+/**
+ * `hideWordmarkUntilXs` drops the "TemanGame" text below 400px.
+ * In the navbar the mark, the menu button and the auth buttons together
+ * overran 320px, and the wordmark is the one piece that repeats the page's
+ * own branding — the mark alone still goes home.
+ */
+export default function Logo({
+  compact = false,
+  hideWordmarkUntilXs = false,
+}: {
+  compact?: boolean;
+  hideWordmarkUntilXs?: boolean;
+}) {
   return (
-    <Link href="/" className="flex items-center gap-2">
+    <Link href="/" className="flex shrink-0 items-center gap-2">
       <div
         className={`flex shrink-0 items-center justify-center rounded-lg bg-brand ${
           compact ? "size-6" : "size-8"
@@ -19,7 +31,7 @@ export default function Logo({ compact = false }: { compact?: boolean }) {
       <span
         className={`font-display font-black italic tracking-[-1px] text-white ${
           compact ? "text-sm" : "text-base"
-        }`}
+        } ${hideWordmarkUntilXs ? "hidden xs:inline" : ""}`}
       >
         TemanGame
       </span>
