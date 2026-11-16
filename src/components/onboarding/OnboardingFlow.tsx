@@ -6,11 +6,17 @@ import Logo from "@/components/Logo";
 import { sanitizeNextPath } from "@/lib/auth-redirect";
 import { useNotifications } from "@/contexts/NotificationContext";
 import { createClient } from "@/lib/supabase/client";
-import { DEFAULT_TIMEZONE, MAX_PERSONALITY_TAGS } from "@/data/profile-options";
+import {
+  DEFAULT_TIMEZONE,
+  MAX_PERSONALITY_TAGS,
+  MIN_PERSONALITY_TAGS,
+} from "@/data/profile-options";
 import { regionsFor } from "@/data/game-regions";
 import { saveGameSetup, type GameInfo } from "@/lib/games";
 import { gameProfileProblem } from "@/lib/game-profile";
 import { saveDateOfBirth } from "@/lib/profiles";
+import { saveUserTags } from "@/lib/tags";
+import type { PersonalityTag } from "@/data/player-profiles";
 import { emptyDateParts, joinDate } from "@/lib/age";
 import { validateDossier } from "@/components/profile/DossierFields";
 import GamesStep from "./GamesStep";
@@ -55,8 +61,10 @@ export default function OnboardingFlow({ catalog }: { catalog: GameInfo[] }) {
     dateOfBirth?: string;
     schedule?: string;
   }>({});
-  const [playstyle, setPlaystyle] = useState(3);
-  const [personalityTags, setPersonalityTags] = useState<string[]>([]);
+  // null, not 3: pre-selecting "Seimbang" wrote a playstyle the player never
+  // chose, and Pa carries the heaviest weight in Persamaan 3.1 (0.40).
+  const [playstyle, setPlaystyle] = useState<number | null>(null);
+  const [personalityTags, setPersonalityTags] = useState<PersonalityTag[]>([]);
   const [connected, setConnected] = useState<Set<ConnectedProvider>>(new Set());
   const [stepIndex, setStepIndex] = useState(0);
 
@@ -94,7 +102,7 @@ export default function OnboardingFlow({ catalog }: { catalog: GameInfo[] }) {
     setAbout((prev) => ({ ...prev, ...patch }));
   }
 
-  function toggleTag(tag: string) {
+  function toggleTag(tag: PersonalityTag) {
     setPersonalityTags((prev) => {
       if (prev.includes(tag)) return prev.filter((t) => t !== tag);
       // At the cap, further picks are ignored — PlaystyleStep says so and
@@ -138,7 +146,6 @@ export default function OnboardingFlow({ catalog }: { catalog: GameInfo[] }) {
       .from("profiles")
       .update({
         playstyle,
-        personality_tags: personalityTags,
         gender: about.gender || null,
         languages: about.languages,
         play_days: about.schedule.days,
@@ -152,6 +159,14 @@ export default function OnboardingFlow({ catalog }: { catalog: GameInfo[] }) {
     if (profileError) {
       setSaving(false);
       setSaveError("Couldn't save your setup. Check your connection and try again.");
+      return;
+    }
+
+    // Tags are rows in `user_tag` now, so they save on their own.
+    const tagError = await saveUserTags(supabase, userId, personalityTags);
+    if (tagError) {
+      setSaving(false);
+      setSaveError(tagError);
       return;
     }
 
@@ -250,20 +265,37 @@ export default function OnboardingFlow({ catalog }: { catalog: GameInfo[] }) {
     setStepIndex((i) => Math.max(0, i - 1));
   }
 
+  /**
+   * The playstyle step feeds the recommendation formula — Pa in Persamaan 3.2
+   * and the tags in Persamaan 3.14 — so it is the one step that cannot be
+   * skipped or left half-filled. Everything else on this flow stays optional.
+   */
+  const playstyleStepProblem =
+    playstyle === null
+      ? "Pick how you play before continuing."
+      : personalityTags.length < MIN_PERSONALITY_TAGS
+        ? `Pick at least ${MIN_PERSONALITY_TAGS} tags that describe you.`
+        : null;
+  const blockedHere = step === "playstyle" ? playstyleStepProblem : null;
+
   return (
     <div className="relative flex min-h-screen flex-col items-center px-4 py-8 sm:px-6 sm:py-12">
       <div className="absolute left-4 top-4 sm:left-6 sm:top-6">
         <Logo />
       </div>
 
-      <button
-        type="button"
-        onClick={skip}
-        disabled={saving}
-        className="absolute right-4 top-4 text-xs font-semibold text-text-muted transition-colors hover:text-white sm:right-6 sm:top-6"
-      >
-        Skip for now
-      </button>
+      {/* Hidden on the playstyle step: skipping there would leave the
+          formula without Pa and without tags. */}
+      {step !== "playstyle" && (
+        <button
+          type="button"
+          onClick={skip}
+          disabled={saving}
+          className="absolute right-4 top-4 text-xs font-semibold text-text-muted transition-colors hover:text-white sm:right-6 sm:top-6"
+        >
+          Skip for now
+        </button>
+      )}
 
       <div className="flex w-full max-w-[600px] flex-1 flex-col justify-center gap-6 py-16">
         <div className="flex flex-col gap-3">
@@ -336,14 +368,19 @@ export default function OnboardingFlow({ catalog }: { catalog: GameInfo[] }) {
               <span />
             )}
 
-            <button
-              type="button"
-              onClick={handleContinue}
-              disabled={saving}
-              className="flex h-10 items-center justify-center rounded-lg bg-brand px-6 text-xs font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {saving ? "Saving…" : isLastStep ? "Finish setup" : "Continue"}
-            </button>
+            <div className="flex items-center gap-3">
+              {blockedHere && (
+                <span className="text-xs text-text-muted">{blockedHere}</span>
+              )}
+              <button
+                type="button"
+                onClick={handleContinue}
+                disabled={saving || Boolean(blockedHere)}
+                className="flex h-10 items-center justify-center rounded-lg bg-brand px-6 text-xs font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {saving ? "Saving…" : isLastStep ? "Finish setup" : "Continue"}
+              </button>
+            </div>
           </div>
         </div>
       </div>

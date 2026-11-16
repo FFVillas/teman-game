@@ -42,10 +42,10 @@ export const reportStatusMeta: Record<
   ReportStatus,
   { label: string; tone: AdminTone }
 > = {
-  open: { label: "Open", tone: "brand" },
+  pending: { label: "Pending", tone: "brand" },
   in_review: { label: "In review", tone: "warning" },
   resolved: { label: "Actioned", tone: "success" },
-  dismissed: { label: "Dismissed", tone: "muted" },
+  rejected: { label: "Rejected", tone: "muted" },
 };
 
 export const accountStatusMeta: Record<
@@ -55,7 +55,6 @@ export const accountStatusMeta: Record<
   active: { label: "Active", tone: "success" },
   warned: { label: "Warned", tone: "warning" },
   suspended: { label: "Suspended", tone: "danger" },
-  banned: { label: "Banned", tone: "danger" },
 };
 
 export const lobbyStatusMeta: Record<
@@ -86,7 +85,7 @@ export const adminActionLabels: Record<AdminActionType, string> = {
 /** Sentence form for activity feeds: "<admin> <verb> <target>". */
 export const adminActionVerbs: Record<AdminActionType, string> = {
   report_claimed: "claimed",
-  report_dismissed: "dismissed",
+  report_dismissed: "rejected",
   sanction_issued: "sanctioned",
   sanction_lifted: "lifted a sanction on",
   lobby_closed: "closed",

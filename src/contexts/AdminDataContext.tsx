@@ -116,10 +116,10 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
           report.id === reportId
             ? {
                 ...report,
-                status: "dismissed",
+                status: "rejected",
                 assignedTo: report.assignedTo ?? adminId,
                 resolution: {
-                  outcome: "dismissed",
+                  outcome: "rejected",
                   note,
                   resolvedBy: adminId,
                   resolvedAt: now,

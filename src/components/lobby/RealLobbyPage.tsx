@@ -16,7 +16,7 @@ import { fetchLobbyDetail } from "@/lib/lobbies";
 export async function realLobbyMetadata(id: string): Promise<Metadata> {
   const supabase = await createClient();
   const { data } = await supabase
-    .from("lobbies")
+    .from("lobby")
     .select("name, description")
     .eq("id", id)
     .maybeSingle();

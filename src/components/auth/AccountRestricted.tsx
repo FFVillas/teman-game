@@ -50,12 +50,11 @@ export default function AccountRestricted() {
   }
 
   const copy = restrictionCopy[notice.type];
-  const isBan = notice.type === "ban";
 
   const details = [
     { label: "Rule broken", value: notice.reason },
     {
-      label: isBan ? "Banned on" : "Started",
+      label: "Started",
       value: formatDateTime(notice.issuedAt),
     },
     ...(notice.expiresAt
@@ -86,13 +85,9 @@ export default function AccountRestricted() {
           {notice.username}
         </span>
         <span
-          className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-            isBan
-              ? "border-danger/30 bg-danger/10 text-danger"
-              : "border-warning/30 bg-warning/10 text-warning"
-          }`}
+          className="rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-warning"
         >
-          {isBan ? "Banned" : "Suspended"}
+          Suspended
         </span>
       </div>
 

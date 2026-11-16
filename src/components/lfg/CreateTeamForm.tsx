@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { roleIconFor } from "@/data/role-icons";
@@ -10,6 +10,7 @@ import { randomCoverKey } from "@/data/lfg-covers";
 import { useAuth } from "@/contexts/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import { createLobby, updateLobby } from "@/lib/lobbies";
+import { fetchTagCatalog } from "@/lib/tags";
 import type { GameInfo } from "@/lib/games";
 import {
   OPEN_BOUNDS,
@@ -98,7 +99,7 @@ function clockLabel(iso: string): string {
 /** What the form starts from when it edits an existing lobby. */
 export interface EditLobbyInit {
   lobbyId: string;
-  status: "live" | "scheduled" | "started";
+  status: "open" | "scheduled" | "in_progress";
   name: string;
   description: string;
   modeId: number;
@@ -113,6 +114,10 @@ export interface EditLobbyInit {
   discordUrl: string;
   startsAt: string | null;
   endsAt: string | null;
+  /** Pb in Persamaan 3.2 — the lobby's, not the leader's. */
+  playstyle: number | null;
+  /** Set B in Persamaan 3.14, at most three tag ids. */
+  wantedTagIds: number[];
 }
 
 function FormField({ label, children }: { label: string; children: ReactNode }) {
@@ -182,7 +187,7 @@ export default function CreateTeamForm({
   // Editing: the mode never changes, and once the lobby is playing the group
   // size, rank range, roles and schedule are locked too.
   const lockMode = Boolean(edit);
-  const lockRest = edit?.status === "started";
+  const lockRest = edit?.status === "in_progress";
   const leaveHref = edit ? `${lobbiesHref}/lobby/${edit.lobbyId}` : lobbiesHref;
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -213,6 +218,33 @@ export default function CreateTeamForm({
   );
   const [description, setDescription] = useState(edit?.description ?? "");
   const [vibeTags, setVibeTags] = useState<string[]>(edit?.tags ?? ["Competitive"]);
+  // Nothing is pre-selected: an unanswered playstyle must stay null rather
+  // than quietly becoming "Seimbang", the same mistake onboarding used to make.
+  const [playstyle, setPlaystyle] = useState<number | null>(edit?.playstyle ?? null);
+  const [wantedTagIds, setWantedTagIds] = useState<number[]>(edit?.wantedTagIds ?? []);
+  const [tagCatalog, setTagCatalog] = useState<{ id: number; name: string }[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchTagCatalog(createClient()).then((rows) => {
+      if (!cancelled) setTagCatalog(rows);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  function toggleWantedTag(id: number) {
+    setWantedTagIds((prev) =>
+      prev.includes(id)
+        ? prev.filter((value) => value !== id)
+        : // Three is the cap: |B| is the denominator in Persamaan 3.14, so a
+          // longer list only makes it harder for anyone to score well.
+          prev.length >= 3
+          ? prev
+          : [...prev, id],
+    );
+  }
   const [discordUrl, setDiscordUrl] = useState(edit?.discordUrl ?? "");
 
   const [region, setRegion] = useState<string>(
@@ -314,6 +346,8 @@ export default function CreateTeamForm({
         languages: language.split(" / "),
         micRequired,
         tags: vibeTags,
+        playstyle,
+        wantedTagIds,
         capacity: groupSize,
         startsAt: keepStart ? edit.startsAt : (startsAt?.toISOString() ?? null),
         endsAt: keepEnd ? edit.endsAt : (endsAt?.toISOString() ?? null),
@@ -350,6 +384,8 @@ export default function CreateTeamForm({
       languages: language.split(" / "),
       micRequired,
       tags: vibeTags,
+      playstyle,
+      wantedTagIds,
       capacity: groupSize,
       startsAt: startsAt?.toISOString() ?? null,
       endsAt: endsAt?.toISOString() ?? null,
@@ -495,6 +531,75 @@ export default function CreateTeamForm({
                 Only you and the players you accept can see this link.
               </span>
             </FormField>
+
+            {/*
+              Two inputs the recommendation formula reads from the lobby
+              itself: Pb (Persamaan 3.2) and set B (Persamaan 3.14). Separate
+              from Vibe Tags below, which describe the lobby to readers and
+              have their own vocabulary — they are not scored.
+            */}
+            <div className="flex flex-col gap-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-text-muted">
+                How this lobby plays
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {[1, 2, 3, 4, 5].map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={playstyle === value}
+                    onClick={() => setPlaystyle(value)}
+                    className={`flex h-9 w-12 items-center justify-center rounded-lg border text-xs font-bold transition-colors ${
+                      playstyle === value
+                        ? "border-brand bg-brand/10 text-white"
+                        : "border-border-strong text-text-muted hover:border-white/30"
+                    }`}
+                  >
+                    {value}
+                  </button>
+                ))}
+              </div>
+              <div className="flex justify-between text-[11px] text-text-muted">
+                <span>Very casual</span>
+                <span>Very competitive</span>
+              </div>
+              <p className="text-[11px] text-text-muted">
+                The lobby&apos;s own answer, not yours — a competitive player
+                can still run a relaxed lobby. Leave it unset to skip it.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-text-muted">
+                Teammates you&apos;re looking for
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {tagCatalog.map((tag) => {
+                  const picked = wantedTagIds.includes(tag.id);
+                  const full = wantedTagIds.length >= 3 && !picked;
+                  return (
+                    <button
+                      key={tag.id}
+                      type="button"
+                      aria-pressed={picked}
+                      disabled={full}
+                      onClick={() => toggleWantedTag(tag.id)}
+                      className={`rounded-full border px-4 py-1.5 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                        picked
+                          ? "border-brand text-brand"
+                          : "border-border-strong text-text-muted hover:border-white/30"
+                      }`}
+                    >
+                      {tag.name}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] text-text-muted">
+                {wantedTagIds.length}/3 picked. Players carrying these rank
+                higher in your suggestions. Leave it empty to stay open.
+              </p>
+            </div>
 
             <div className="flex flex-col gap-3">
               <span className="text-xs font-bold uppercase tracking-wider text-text-muted">

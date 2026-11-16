@@ -60,6 +60,10 @@ export interface LfgTeam {
   tags?: string[];
   startsAt?: string | null;
   endsAt?: string | null;
+  /** Pb in Persamaan 3.2. Real lobbies only; null until the leader sets it. */
+  playstyle?: number | null;
+  /** Set B in Persamaan 3.14 — tag ids, at most three. Real lobbies only. */
+  wantedTagIds?: number[];
 }
 
 export const lfgTeams: LfgTeam[] = [

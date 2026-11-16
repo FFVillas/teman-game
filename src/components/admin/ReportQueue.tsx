@@ -42,10 +42,10 @@ export default function ReportQueue() {
       label: "Unresolved",
       count: reports.filter(isUnresolved).length,
     },
-    { value: "open", label: "Open", count: count((s) => s === "open") },
+    { value: "pending", label: "Open", count: count((s) => s === "pending") },
     { value: "in_review", label: "In review", count: count((s) => s === "in_review") },
     { value: "resolved", label: "Actioned", count: count((s) => s === "resolved") },
-    { value: "dismissed", label: "Dismissed", count: count((s) => s === "dismissed") },
+    { value: "rejected", label: "Dismissed", count: count((s) => s === "rejected") },
     { value: "all", label: "All", count: reports.length },
   ];
 

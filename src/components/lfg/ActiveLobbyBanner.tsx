@@ -123,7 +123,7 @@ function CurrentLobby({ lobby }: { lobby: MyLobby }) {
                   className="size-3.5 shrink-0"
                 />
               )}
-              {lobby.status === "started" && (
+              {lobby.status === "in_progress" && (
                 <span className="rounded border border-success/60 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-success">
                   Playing
                 </span>
@@ -151,7 +151,7 @@ function CurrentLobby({ lobby }: { lobby: MyLobby }) {
                 className="-ml-3 size-9 border-2 border-bg-card-alt text-xs first:ml-0"
               />
             ))}
-            {lobby.status !== "started" &&
+            {lobby.status !== "in_progress" &&
               Array.from({ length: emptySlots }).map((_, index) => (
                 <div
                   key={index}

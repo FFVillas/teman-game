@@ -52,7 +52,7 @@ export default async function RealLobbyEditPage({
             leaderRank={await fetchMyRankName(supabase, catalog, slug)}
             edit={{
               lobbyId: team.id,
-              status: team.started ? "started" : team.status.isLive ? "live" : "scheduled",
+              status: team.started ? "in_progress" : team.status.isLive ? "open" : "scheduled",
               name: team.name,
               description: team.bio ?? "",
               modeId: team.modeId,
@@ -66,6 +66,8 @@ export default async function RealLobbyEditPage({
               discordUrl: voiceUrl ?? "",
               startsAt: team.startsAt ?? null,
               endsAt: team.endsAt ?? null,
+              playstyle: team.playstyle ?? null,
+              wantedTagIds: team.wantedTagIds ?? [],
             }}
           />
         </div>
