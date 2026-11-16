@@ -112,7 +112,7 @@ export default function ReportCase({ reportId }: { reportId: string }) {
         actions={
           unresolved && (
             <>
-              {report.status === "open" && (
+              {report.status === "pending" && (
                 <button type="button" onClick={handleClaim} className={adminButton.secondary}>
                   Claim case
                 </button>
@@ -374,7 +374,7 @@ export default function ReportCase({ reportId }: { reportId: string }) {
             <AdminCard title="Decision">
               <div className="flex flex-col gap-1">
                 <span className="text-sm font-bold text-white">
-                  {report.resolution.outcome === "dismissed"
+                  {report.resolution.outcome === "rejected"
                     ? "Dismissed, no action"
                     : linkedSanction
                       ? describeSanction(linkedSanction)

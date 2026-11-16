@@ -1,13 +1,17 @@
 "use client";
 
-import { personalityTagOptions } from "@/data/player-profiles";
+import {
+  personalityTagOptions,
+  type PersonalityTag,
+} from "@/data/player-profiles";
 import { MAX_PERSONALITY_TAGS } from "@/data/profile-options";
 
 interface PlaystyleStepProps {
-  playstyle: number;
+  /** null until the player picks — nothing is pre-selected on their behalf. */
+  playstyle: number | null;
   onPlaystyleChange: (value: number) => void;
-  tags: string[];
-  onToggleTag: (tag: string) => void;
+  tags: readonly PersonalityTag[];
+  onToggleTag: (tag: PersonalityTag) => void;
 }
 
 const playstyleScale = [1, 2, 3, 4, 5];

@@ -1,5 +1,5 @@
 /**
- * What a suspended or banned player sees when they try to log in.
+ * What a suspended player sees when they try to log in.
  *
  * Deliberately limited to what the player is entitled to know: the rule they
  * broke and the dates. The moderator's internal note, the moderator's name
@@ -9,10 +9,9 @@
 export interface RestrictionNotice {
   username: string;
   avatar: string;
-  type: "suspension" | "ban";
+  type: "suspension";
   reason: string;
   issuedAt: string;
-  /** Suspensions only. */
   expiresAt?: string;
 }
 
@@ -31,15 +30,6 @@ export const restrictionCopy = {
       "Your profile, reviews and match history stay as they are.",
     ],
     next: "You can log in again as soon as the suspension ends.",
-  },
-  ban: {
-    title: "Your account has been banned",
-    subtitle: "A moderator closed this account permanently.",
-    effects: [
-      "You can no longer log in or use TemanGame with this account.",
-      "Other players can't find you in lobbies or search.",
-    ],
-    next: "This decision is final.",
   },
   missing: {
     title: "Nothing to show",

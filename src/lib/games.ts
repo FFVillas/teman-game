@@ -3,7 +3,7 @@ import { regionLabel } from "@/data/game-regions";
 
 /**
  * The games catalog (games, their rank ladders and roles) and what each
- * player has set up per game. Backed by `games`, `game_ranks`, `game_roles`,
+ * player has set up per game. Backed by `game`, `rank_tier`, `game_role`,
  * `user_game_mapping` and `user_game_roles` (20261003000200_games.sql).
  * Researched values and open questions: docs/game-reference.md.
  */
@@ -62,8 +62,8 @@ interface GameRowFromApi {
   name: string;
   platform: "pc" | "mobile";
   genre: string;
-  game_ranks: Array<Omit<GameRank, "partyBand"> & { party_band: number | null }> | null;
-  game_roles: GameRole[] | null;
+  rank_tier: Array<Omit<GameRank, "partyBand"> & { party_band: number | null }> | null;
+  game_role: GameRole[] | null;
   game_modes: Array<{
     id: number;
     value: string;
@@ -83,9 +83,9 @@ export async function fetchGameCatalog(
   supabase: SupabaseClient,
 ): Promise<GameInfo[]> {
   const { data } = await supabase
-    .from("games")
+    .from("game")
     .select(
-      "id, slug, name, platform, genre, sort_order, game_ranks(id, tier, name, ordinal, party_band), game_roles(id, name), game_modes(id, value, label, kind, max_party, rotating, sort_order, party_rule, party_max_apart, party_rule_max_capacity)",
+      "id, slug, name, platform, genre, sort_order, rank_tier(id, tier, name, ordinal, party_band), game_role(id, name), game_modes(id, value, label, kind, max_party, rotating, sort_order, party_rule, party_max_apart, party_rule_max_capacity)",
     )
     .order("sort_order");
 
@@ -95,7 +95,7 @@ export async function fetchGameCatalog(
     name: game.name,
     platform: game.platform,
     genre: game.genre,
-    ranks: (game.game_ranks ?? [])
+    ranks: (game.rank_tier ?? [])
       .map((rank) => ({
         id: rank.id,
         tier: rank.tier,
@@ -104,7 +104,7 @@ export async function fetchGameCatalog(
         partyBand: rank.party_band,
       }))
       .sort((a, b) => a.ordinal - b.ordinal),
-    roles: [...(game.game_roles ?? [])].sort((a, b) => a.id - b.id),
+    roles: [...(game.game_role ?? [])].sort((a, b) => a.id - b.id),
     modes: [...(game.game_modes ?? [])]
       .sort((a, b) => a.sort_order - b.sort_order)
       .map((mode) => ({

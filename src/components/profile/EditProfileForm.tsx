@@ -12,6 +12,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   personalityTagOptions,
+  type PersonalityTag,
   type PlayerProfile,
 } from "@/data/player-profiles";
 import { useNotifications } from "@/contexts/NotificationContext";
@@ -39,6 +40,7 @@ import { emptyGameProfile } from "@/components/onboarding/RankRoleStep";
 import {
   DEFAULT_TIMEZONE,
   MAX_PERSONALITY_TAGS,
+  MIN_PERSONALITY_TAGS,
   timezoneOptions,
 } from "@/data/profile-options";
 import BackLink from "@/components/BackLink";
@@ -53,8 +55,10 @@ import {
   validateDossier,
 } from "./DossierFields";
 import GamesEditor, { type GameDraft } from "./GamesEditor";
+import { saveUserTags } from "@/lib/tags";
 
 const MAX_TAGS = MAX_PERSONALITY_TAGS;
+const MIN_TAGS = MIN_PERSONALITY_TAGS;
 const playstyleScale = [1, 2, 3, 4, 5];
 
 function Card({ title, children }: { title: string; children: ReactNode }) {
@@ -109,7 +113,7 @@ export default function EditProfileForm({
   const [playstyle, setPlaystyle] = useState<number | undefined>(
     profile.playstyle
   );
-  const [tags, setTags] = useState<string[]>([...profile.personalityTags]);
+  const [tags, setTags] = useState<PersonalityTag[]>([...profile.personalityTags]);
   // The games on the form, in the order they were added. A game that was
   // saved before (`savedGameSlugs`) but is no longer in the list has been
   // taken off, and Save deletes it.
@@ -168,7 +172,7 @@ export default function EditProfileForm({
     setSchedule((prev) => ({ ...prev, ...patch }));
   }
 
-  function toggleTag(tag: string) {
+  function toggleTag(tag: PersonalityTag) {
     setErrors((prev) => ({ ...prev, tags: undefined }));
     setTags((prev) => {
       if (prev.includes(tag)) return prev.filter((t) => t !== tag);
@@ -215,6 +219,13 @@ export default function EditProfileForm({
     if (usernameError) nextErrors.username = usernameError;
     const dateOfBirth = joinDate(dobParts);
 
+    // Tags feed Persamaan 3.14, so a half-filled set would quietly skew T.
+    // Empty stays allowed: an account that never picked any is a real state,
+    // and the database's deferred trigger draws the same line.
+    if (tags.length > 0 && tags.length < MIN_TAGS) {
+      nextErrors.tags = `Pick at least ${MIN_TAGS} tags, or none at all.`;
+    }
+
     // A typo in a game's account fields is caught here, before anything is
     // saved, rather than as a database error on the first game.
     for (const draft of games) {
@@ -229,7 +240,8 @@ export default function EditProfileForm({
       nextErrors.username ||
       nextErrors.dateOfBirth ||
       nextErrors.schedule ||
-      nextErrors.games
+      nextErrors.games ||
+      nextErrors.tags
     ) {
       setErrors(nextErrors);
       return;
@@ -346,7 +358,6 @@ export default function EditProfileForm({
         timezone:
           schedule.days.length > 0 || schedule.start ? schedule.timezone : null,
         playstyle: playstyle ?? null,
-        personality_tags: tags,
       })
       .eq("id", userId);
 
@@ -362,6 +373,16 @@ export default function EditProfileForm({
           ? { username: "That username is already taken." }
           : { form: "Couldn't save your changes. Try again." }
       );
+      return;
+    }
+
+    // Tags are rows in `user_tag` now, so they save separately from the
+    // profile row. After it, deliberately: a tag failure then leaves the rest
+    // of the profile saved and only this message to act on.
+    const tagError = await saveUserTags(supabase, userId, tags);
+    if (tagError) {
+      setSaving(false);
+      setErrors({ tags: tagError });
       return;
     }
 

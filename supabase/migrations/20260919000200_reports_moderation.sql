@@ -1,10 +1,14 @@
--- Reports/sanctions/moderation — NOT run yet as of 2026-09-19. Hold off
--- applying this migration until the report feature is actually being
--- built; the Account/Login/Profile/Roles slice (this migration's only
+-- Reports/sanction/moderation. Written 2026-09-19, deliberately left unrun
+-- until the report feature was being built; applied November 2026 as Fase 1
+-- §6.1e (docs/proposal-revision-2026-10.md). Edited before it ran, which is
+-- why this file carries later decisions: `sanction` singular to match the
+-- thesis ERD, no `ban` sanction type, and a real `lobby_id` foreign key.
+--
+-- Original note: the Account/Login/Profile/Roles slice (this migration's only
 -- dependency, `20260919000100_admin_roles.sql`'s `admins` table plus
 -- `profiles`) doesn't need any of this to work.
 --
--- DIVERGES from the proposal's entity count: adds `sanctions`,
+-- DIVERGES from the proposal's entity count: adds `sanction`,
 -- `sanction_reports`, and `admin_actions` — three tables not in the
 -- original 13-entity ERD — plus extra columns on `reports` beyond what
 -- the proposal's data dictionary describes. The proposal's own `reports`
@@ -20,21 +24,23 @@ create table public.reports (
   id uuid primary key default gen_random_uuid(),
   reporter_id uuid not null references public.profiles (id),
   target_id uuid not null references public.profiles (id),
-  -- No FK yet — `lobbies` doesn't exist until the Lobby slice lands.
-  -- Add `references public.lobbies (id)` then; the column exists now so
-  -- reports can already record lobby context.
-  lobby_id uuid,
+  -- The Lobby slice has landed, so this is a real foreign key now. Null
+  -- stays allowed: a report from a profile page has no lobby context.
+  lobby_id uuid references public.lobby (id) on delete set null,
   reason text not null,
   details text,
   evidence_url text,
-  status text not null default 'open'
-    check (status in ('open', 'in_review', 'resolved', 'dismissed')),
+  -- Nama mengikuti ERD skripsi: pending -> resolved (terbukti) atau
+  -- rejected (tidak terbukti). `in_review` adalah tambahan — admin mengklaim
+  -- kasus supaya dua moderator tidak mengerjakan laporan yang sama.
+  status text not null default 'pending'
+    check (status in ('pending', 'in_review', 'resolved', 'rejected')),
   assigned_to uuid references public.admins (user_id),
   resolution_outcome text,
   resolution_note text,
   resolved_by uuid references public.admins (user_id),
   resolved_at timestamptz,
-  -- FK added after `sanctions` is created below (forward reference).
+  -- FK added after `sanction` is created below (forward reference).
   sanction_id uuid,
   created_at timestamptz not null default now()
 );
@@ -66,10 +72,14 @@ grant update (status, assigned_to, resolution_outcome, resolution_note, resolved
   on public.reports to authenticated;
 
 -- ─── Sanctions ──────────────────────────────────────────────────────
-create table public.sanctions (
+create table public.sanction (
   id uuid primary key default gen_random_uuid(),
   player_id uuid not null references public.profiles (id),
-  type text not null check (type in ('warning', 'suspension', 'ban')),
+  -- Two kinds only, per the October 2026 proposal revision: a warning, or a
+  -- suspension with a start and an end. A permanent ban has no duration, so
+  -- the thesis' `sanction` entity cannot express one. Reputation is never
+  -- adjusted by a moderator either — it moves only through player ratings.
+  type text not null check (type in ('warning', 'suspension')),
   duration_days integer,
   reason text not null,
   note text,
@@ -81,17 +91,17 @@ create table public.sanctions (
   lift_reason text
 );
 
-alter table public.sanctions enable row level security;
+alter table public.sanction enable row level security;
 
 alter table public.reports
   add constraint reports_sanction_id_fkey
-  foreign key (sanction_id) references public.sanctions (id);
+  foreign key (sanction_id) references public.sanction (id);
 
 -- A player can see their own sanction history (this is exactly the
 -- "sanction history" transparency respondents rated highest in the
 -- survey — BAB 3.2.1). Admins see everyone's.
 create policy "Players can view their own sanctions, admins view all"
-  on public.sanctions for select
+  on public.sanction for select
   to authenticated
   using (player_id = auth.uid() or public.is_admin(auth.uid()));
 
@@ -100,23 +110,23 @@ create policy "Players can view their own sanctions, admins view all"
 -- the API, only "lifted" (an update). Matches admin-console.md: "Nothing
 -- is deleted."
 create policy "Admins can issue sanctions"
-  on public.sanctions for insert
+  on public.sanction for insert
   to authenticated
   with check (public.is_admin(auth.uid()));
 
 create policy "Admins can update sanctions (e.g. lifting one)"
-  on public.sanctions for update
+  on public.sanction for update
   to authenticated
   using (public.is_admin(auth.uid()))
   with check (public.is_admin(auth.uid()));
 
-grant select, insert, update on public.sanctions to authenticated;
+grant select, insert, update on public.sanction to authenticated;
 
 -- One decision can close several reports against the same player
 -- (admin-console.md) — join table rather than a single FK on reports,
 -- since it's genuinely many-to-many.
 create table public.sanction_reports (
-  sanction_id uuid not null references public.sanctions (id),
+  sanction_id uuid not null references public.sanction (id),
   report_id uuid not null references public.reports (id),
   primary key (sanction_id, report_id)
 );

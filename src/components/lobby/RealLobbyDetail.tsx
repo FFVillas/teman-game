@@ -91,6 +91,9 @@ export default function RealLobbyDetail({
   // A pending invitation holds a slot, so the leader can't send more than fit.
   const invitesLeft = Math.max(team.slotsTotal - people.length - invites.length, 0);
   const lobbiesHref = `/lfg/${team.game}`;
+  // LobbyHeader's own display vocabulary, not the database's. The two differ
+  // on purpose: a lobby the database calls `open` (recruiting) reads as
+  // "Forming" on screen, and one it calls `in_progress` reads as "Live".
   const status = completed
     ? "completed"
     : closed

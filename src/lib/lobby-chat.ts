@@ -122,7 +122,7 @@ export async function fetchMyLobbyChats(
   userId: string,
 ): Promise<MyLobbyChat[]> {
   const { data: mine } = await supabase
-    .from("lobby_members")
+    .from("lobby_member")
     .select("lobby_id")
     .eq("user_id", userId);
   const ids = (mine ?? []).map((row) => row.lobby_id as string);
@@ -130,11 +130,11 @@ export async function fetchMyLobbyChats(
 
   const [{ data: lobbyRows }, { data: roster }, { data: recent }] = await Promise.all([
     supabase
-      .from("lobbies")
+      .from("lobby")
       .select("id, name, cover, created_at, games(slug)")
       .in("id", ids)
-      .in("status", ["live", "scheduled", "started"]),
-    supabase.from("lobby_members").select("lobby_id").in("lobby_id", ids),
+      .in("status", ["open", "scheduled", "in_progress"]),
+    supabase.from("lobby_member").select("lobby_id").in("lobby_id", ids),
     supabase
       .from("lobby_messages")
       .select(COLUMNS)

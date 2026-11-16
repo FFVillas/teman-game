@@ -79,6 +79,10 @@ export interface CreateLobbyInput {
   roleIds: number[];
   /** Optional Discord invite; only the leader and members can ever see it. */
   discordUrl: string;
+  /** Pb in Persamaan 3.2 — the lobby's own playstyle, not the leader's. */
+  playstyle: number | null;
+  /** Set B in Persamaan 3.14, at most three. */
+  wantedTagIds: number[];
 }
 
 export async function createLobby(
@@ -104,7 +108,36 @@ export async function createLobby(
     p_discord_url: input.discordUrl.trim() || null,
   });
   if (error || !data) return { error: lobbyErrorMessage(error) };
-  return { id: data as string };
+
+  const id = data as string;
+  // A second call rather than more parameters on create_lobby: that function
+  // is 106 lines and changing its signature means rewriting it whole, with no
+  // way to test the result before it reaches the database. See
+  // 20261116000400_lobby_preferences.sql.
+  //
+  // A failure here leaves the lobby without preferences, which is a legal
+  // state — |B| = 0 falls back to Persamaan 3.15 and playstyle may be null —
+  // so the lobby is still returned and the leader can set them from Edit.
+  await setLobbyPreferences(supabase, id, input.playstyle, input.wantedTagIds);
+  return { id };
+}
+
+/**
+ * The lobby's own playstyle and the tags it looks for: the two inputs the
+ * recommendation formula reads from a lobby rather than from a player.
+ */
+export async function setLobbyPreferences(
+  supabase: SupabaseClient,
+  lobbyId: string,
+  playstyle: number | null,
+  wantedTagIds: number[],
+): Promise<string | null> {
+  const { error } = await supabase.rpc("set_lobby_preferences", {
+    p_lobby: lobbyId,
+    p_playstyle: playstyle,
+    p_tag_ids: wantedTagIds.length > 0 ? wantedTagIds : null,
+  });
+  return error ? lobbyErrorMessage(error) : null;
 }
 
 /** Real lobbies have uuid ids; the mock ones in src/data are "lobby-1" and so on. */
@@ -173,12 +206,13 @@ interface LobbyRow {
   mic_required: boolean;
   tags: string[];
   capacity: number;
-  status: "live" | "started" | "scheduled" | "completed" | "closed";
+  status: "open" | "in_progress" | "scheduled" | "completed" | "cancelled";
   starts_at: string | null;
   ends_at: string | null;
   min_rank_id: number | null;
   max_rank_id: number | null;
   cover: string | null;
+  playstyle: number | null;
 }
 
 /**
@@ -195,16 +229,16 @@ export async function fetchLobbyTeams(
   // Lobbies the leader forgot to end drop out as soon as anyone looks.
   await supabase.rpc("expire_stale_lobbies");
   const columns =
-    "id, leader_id, mode_id, name, description, region, languages, mic_required, tags, capacity, status, starts_at, ends_at, min_rank_id, max_rank_id, cover";
+    "id, leader_id, mode_id, name, description, region, languages, mic_required, tags, capacity, status, starts_at, ends_at, min_rank_id, max_rank_id, cover, playstyle";
   // One lobby by id (any status, so a closed one can still be opened), or the
   // game's open lobbies, newest first.
   const { data: lobbies } = lobbyId
-    ? await supabase.from("lobbies").select(columns).eq("game_id", game.id).eq("id", lobbyId)
+    ? await supabase.from("lobby").select(columns).eq("game_id", game.id).eq("id", lobbyId)
     : await supabase
-        .from("lobbies")
+        .from("lobby")
         .select(columns)
         .eq("game_id", game.id)
-        .in("status", ["live", "scheduled"])
+        .in("status", ["open", "scheduled"])
         .order("created_at", { ascending: false })
         .limit(60);
 
@@ -212,13 +246,19 @@ export async function fetchLobbyTeams(
   if (rows.length === 0) return [];
   const ids = rows.map((row) => row.id);
 
-  const [{ data: roster }, { data: roleRows }, { data: ownApplications }] =
+  const [
+    { data: roster },
+    { data: roleRows },
+    { data: wantedTagRows },
+    { data: ownApplications },
+  ] =
     await Promise.all([
       supabase
-        .from("lobby_members")
+        .from("lobby_member")
         .select("lobby_id, user_id, is_leader, joined_at")
         .in("lobby_id", ids),
-      supabase.from("lobby_roles").select("lobby_id, role_id").in("lobby_id", ids),
+      supabase.from("lobby_required_role").select("lobby_id, role_id").in("lobby_id", ids),
+      supabase.from("lobby_tag").select("lobby_id, tag_id").in("lobby_id", ids),
       viewerId
         ? supabase
             .from("applications")
@@ -300,20 +340,26 @@ export async function fetchLobbyTeams(
       modeValue: mode?.value,
       modeId: row.mode_id,
       tags: row.tags,
+      playstyle: row.playstyle,
+      wantedTagIds: (
+        (wantedTagRows ?? []) as Array<{ lobby_id: string; tag_id: number }>
+      )
+        .filter((entry) => entry.lobby_id === row.id)
+        .map((entry) => entry.tag_id),
       startsAt: row.starts_at,
       endsAt: row.ends_at,
-      closed: row.status === "closed" || row.status === "completed",
+      closed: row.status === "cancelled" || row.status === "completed",
       completed: row.status === "completed",
-      started: row.status === "started",
+      started: row.status === "in_progress",
       viewerState,
       status:
         row.status === "completed"
           ? { label: "Ended", isLive: false }
-          : row.status === "closed"
+          : row.status === "cancelled"
             ? { label: "Closed", isLive: false }
-            : row.status === "started"
+            : row.status === "in_progress"
             ? { label: "In progress", isLive: true }
-            : row.status === "live" || !row.starts_at
+            : row.status === "open" || !row.starts_at
             ? { label: "Active Now", isLive: true }
             : { label: startLabel(row.starts_at), isLive: false },
       region: row.region,
@@ -450,6 +496,8 @@ export interface UpdateLobbyInput {
   maxRankId: number | null;
   roleIds: number[];
   discordUrl: string;
+  playstyle: number | null;
+  wantedTagIds: number[];
 }
 
 export async function updateLobby(
@@ -472,7 +520,14 @@ export async function updateLobby(
     p_role_ids: input.roleIds,
     p_discord_url: input.discordUrl.trim() || null,
   });
-  return error ? lobbyErrorMessage(error) : null;
+  if (error) return lobbyErrorMessage(error);
+
+  return setLobbyPreferences(
+    supabase,
+    input.lobbyId,
+    input.playstyle,
+    input.wantedTagIds,
+  );
 }
 
 /** The leader removes a member. It is recorded like leaving, and they may apply again. */
@@ -687,7 +742,7 @@ export interface MyLobby {
   cover: string;
   mode: LfgMode;
   /** Recruiting, playing, or waiting for its start time. */
-  status: "live" | "started" | "scheduled";
+  status: "open" | "in_progress" | "scheduled";
   region: string;
   slotsTotal: number;
   members: { id: string; name?: string; avatar: string }[];
@@ -710,17 +765,17 @@ export async function fetchMyCurrentLobby(
   userId: string,
 ): Promise<{ id: string; name: string; game: string } | null> {
   const { data: mine } = await supabase
-    .from("lobby_members")
+    .from("lobby_member")
     .select("lobby_id")
     .eq("user_id", userId);
   const ids = (mine ?? []).map((row) => row.lobby_id as string);
   if (ids.length === 0) return null;
 
   const { data } = await supabase
-    .from("lobbies")
+    .from("lobby")
     .select("id, name, games(slug)")
     .in("id", ids)
-    .in("status", ["live", "started"])
+    .in("status", ["open", "in_progress"])
     .limit(1);
   const row = (data ?? [])[0] as
     | { id: string; name: string; games: { slug: string } | { slug: string }[] | null }
@@ -731,7 +786,7 @@ export async function fetchMyCurrentLobby(
 
 /**
  * Every open lobby the player is in, for the "Your lobby" banner. The roster
- * comes from `lobby_members` (leader plus accepted), so a lobby you applied to
+ * comes from `lobby_member` (leader plus accepted), so a lobby you applied to
  * but were not accepted into is not here.
  */
 export async function fetchMyLobbies(
@@ -742,19 +797,19 @@ export async function fetchMyLobbies(
   await supabase.rpc("expire_stale_lobbies");
 
   const { data: mine } = await supabase
-    .from("lobby_members")
+    .from("lobby_member")
     .select("lobby_id")
     .eq("user_id", userId);
   const ids = (mine ?? []).map((row) => row.lobby_id as string);
   if (ids.length === 0) return none;
 
   const { data: lobbyRows } = await supabase
-    .from("lobbies")
+    .from("lobby")
     .select(
       "id, leader_id, mode_id, name, region, capacity, status, starts_at, cover, game_id, games(slug)",
     )
     .in("id", ids)
-    .in("status", ["live", "started", "scheduled"]);
+    .in("status", ["open", "in_progress", "scheduled"]);
   const lobbies = (lobbyRows ?? []) as unknown as Array<{
     id: string;
     leader_id: string;
@@ -773,7 +828,7 @@ export async function fetchMyLobbies(
   const ledIds = lobbies.filter((lobby) => lobby.leader_id === userId).map((lobby) => lobby.id);
 
   const [{ data: roster }, { data: modes }, { data: pendingRows }] = await Promise.all([
-    supabase.from("lobby_members").select("lobby_id, user_id, is_leader").in("lobby_id", lobbyIds),
+    supabase.from("lobby_member").select("lobby_id, user_id, is_leader").in("lobby_id", lobbyIds),
     supabase
       .from("game_modes")
       .select("id, kind")

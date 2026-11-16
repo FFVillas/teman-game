@@ -45,10 +45,9 @@ export function formatDateTime(iso: string): string {
 // Sanctions and account status
 // ---------------------------------------------------------------------------
 
-/** A ban or an unexpired suspension that hasn't been lifted. */
+/** An unexpired suspension that hasn't been lifted. */
 export function isRestricting(sanction: Sanction, now = Date.now()): boolean {
   if (sanction.liftedAt) return false;
-  if (sanction.type === "ban") return true;
   if (sanction.type === "suspension" && sanction.expiresAt) {
     return new Date(sanction.expiresAt).getTime() > now;
   }
@@ -67,10 +66,11 @@ export function activeRestriction(
   sanctions: Sanction[],
   now = Date.now()
 ): Sanction | undefined {
-  const current = sanctionsFor(playerId, sanctions).filter((sanction) =>
+  // Newest first (sanctionsFor sorts that way), so the most recent
+  // suspension is the one that explains why they are locked out.
+  return sanctionsFor(playerId, sanctions).find((sanction) =>
     isRestricting(sanction, now)
   );
-  return current.find((s) => s.type === "ban") ?? current[0];
 }
 
 /**
@@ -84,7 +84,6 @@ export function accountStatus(
   now = Date.now()
 ): AccountStatus {
   const restriction = activeRestriction(playerId, sanctions, now);
-  if (restriction?.type === "ban") return "banned";
   if (restriction?.type === "suspension") return "suspended";
 
   const recentWarning = sanctionsFor(playerId, sanctions).some(
@@ -97,8 +96,9 @@ export function accountStatus(
 }
 
 /**
- * Graduated enforcement: warning → suspension → ban. Only a suggestion — the
- * admin always picks, and severe first offences can skip straight up.
+ * Graduated enforcement: warning → short suspension → long suspension. Only a
+ * suggestion — the admin always picks, and a severe first offence can skip
+ * straight to a suspension.
  */
 export function suggestedSanction(
   playerId: string,
@@ -110,7 +110,8 @@ export function suggestedSanction(
 
   if (suspensions > 0) {
     return {
-      type: "ban",
+      type: "suspension",
+      durationDays: 30,
       because: `${suspensions} previous suspension${suspensions === 1 ? "" : "s"}`,
     };
   }
@@ -170,7 +171,7 @@ export function actionTarget(
 // ---------------------------------------------------------------------------
 
 export function isUnresolved(report: AdminReport): boolean {
-  return report.status === "open" || report.status === "in_review";
+  return report.status === "pending" || report.status === "in_review";
 }
 
 export function reportsAgainst(playerId: string, reports: AdminReport[]) {
@@ -192,7 +193,7 @@ export function reportsFiledBy(playerId: string, reports: AdminReport[]) {
  */
 export function reporterCredibility(playerId: string, reports: AdminReport[]) {
   const filed = reportsFiledBy(playerId, reports);
-  const dismissed = filed.filter((r) => r.status === "dismissed").length;
+  const dismissed = filed.filter((r) => r.status === "rejected").length;
   const upheld = filed.filter((r) => r.status === "resolved").length;
   const decided = dismissed + upheld;
   return {
