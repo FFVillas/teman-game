@@ -167,6 +167,7 @@ export function profileFromRow(
   const knownTags = new Set<string>(personalityTagOptions);
 
   return {
+    userId: row.id,
     slug: row.username,
     username: row.username,
     avatar: avatarUrl(row.avatar_path),

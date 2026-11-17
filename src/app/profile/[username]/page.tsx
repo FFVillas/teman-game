@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import PlayerProfileView from "@/components/profile/PlayerProfileView";
-import { loadProfile } from "@/lib/profile-loader";
+import { loadMatches, loadProfile } from "@/lib/profile-loader";
 
 interface ProfilePageProps {
   params: Promise<{ username: string }>;
@@ -34,13 +34,14 @@ export default async function PlayerProfilePage({
   if (!profile) {
     notFound();
   }
+  const matches = await loadMatches(profile);
 
   return (
     <>
       <Navbar />
       <main className="flex flex-1 flex-col">
         <div className="mx-auto flex w-full max-w-[1000px] flex-col gap-4 px-6 py-10">
-          <PlayerProfileView profile={profile} />
+          <PlayerProfileView profile={profile} matches={matches} />
         </div>
       </main>
       <Footer />

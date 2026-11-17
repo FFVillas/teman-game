@@ -17,8 +17,10 @@ export interface MatchTeammate {
   /** Set when we have a profile on file, so the row can link through. */
   slug?: string;
   avatar: string;
-  rank: LfgRank;
-  role: LfgRole;
+  /** Missing for a real teammate with no rank set in that game. */
+  rank?: LfgRank;
+  /** Missing for the leader and in games without roles. */
+  role?: LfgRole;
   wasLeader: boolean;
   /** Has the viewer already left a review for this teammate? */
   reviewed: boolean;
@@ -39,6 +41,11 @@ export interface MatchRecord {
   duration: string;
   viewerWasLeader: boolean;
   teammates: MatchTeammate[];
+  /**
+   * Whether ratings are open for this match: false when it ran under 15
+   * minutes (the database refuses those). Mock matches leave it out.
+   */
+  rateable?: boolean;
 }
 
 function teammate(
@@ -245,5 +252,6 @@ export function matchById(slug: string, matchId: string): MatchRecord | undefine
 
 /** Teammates from this match the viewer never got round to rating. */
 export function pendingReviews(match: MatchRecord): MatchTeammate[] {
+  if (match.rateable === false) return [];
   return match.teammates.filter((teammate) => !teammate.reviewed);
 }

@@ -43,6 +43,8 @@ export interface TeamHistoryEntry {
 }
 
 export interface PlayerProfile {
+  /** The account's id; only real profiles carry it. */
+  userId?: string;
   slug: string;
   username: string;
   avatar: string;

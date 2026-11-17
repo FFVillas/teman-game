@@ -578,6 +578,10 @@ export interface LobbyDetailData {
   invites: LobbyInviteView[];
   /** The viewer's own pending invitation to this lobby, if there is one. */
   myInvite: MyInvite | null;
+  /** Teammates the viewer can still rate; only once the lobby has ended. */
+  ratingQueue: LobbyPerson[];
+  /** The viewer played here, but ratings are closed: it ran under 15 minutes. */
+  ratingsClosed: boolean;
 }
 
 /**
@@ -596,7 +600,7 @@ export async function fetchLobbyDetail(
 
   // The link is private: the database answers only for people in the lobby.
   const inLobby = team.viewerState === "leader" || team.viewerState === "member";
-  const [voice, applicationResult, inviteResult] = await Promise.all([
+  const [voice, applicationResult, inviteResult, matchResult] = await Promise.all([
     viewerId && inLobby
       ? supabase.rpc("lobby_voice_link", { p_lobby_id: lobbyId })
       : Promise.resolve({ data: null }),
@@ -613,6 +617,10 @@ export async function fetchLobbyDetail(
       .eq("lobby_id", lobbyId)
       .eq("status", "pending")
       .order("created_at", { ascending: true }),
+    // Who the viewer played with and has not rated yet (20261118000000).
+    team.completed && viewerId
+      ? supabase.rpc("player_matches", { p_user: viewerId })
+      : Promise.resolve({ data: null }),
   ]);
   const voiceUrl = (voice.data as string | null) ?? null;
   const applications = (applicationResult.data ?? []) as Array<{
@@ -631,6 +639,15 @@ export async function fetchLobbyDetail(
   }>;
   const sentInvites = invites.filter((invite) => invite.inviter_id === viewerId);
   const receivedInvite = invites.find((invite) => invite.invitee_id === viewerId);
+  const teammates = (
+    (matchResult.data ?? []) as Array<{
+      lobby_id: string;
+      teammate_id: string;
+      rated: boolean | null;
+      can_rate: boolean;
+    }>
+  ).filter((row) => row.lobby_id === lobbyId);
+  const rateableIds = teammates.filter((row) => row.can_rate).map((row) => row.teammate_id);
 
   const userIds = [
     ...new Set([
@@ -638,6 +655,7 @@ export async function fetchLobbyDetail(
       ...applications.map((application) => application.applicant_id),
       ...sentInvites.map((invite) => invite.invitee_id),
       ...(receivedInvite ? [receivedInvite.inviter_id] : []),
+      ...rateableIds,
     ]),
   ];
   const [{ data: profileRows }, { data: rankRows }] = await Promise.all([
@@ -715,6 +733,9 @@ export async function fetchLobbyDetail(
           createdAt: receivedInvite.created_at,
         }
       : null,
+    ratingQueue: rateableIds.map((id) => person(id, null)),
+    ratingsClosed:
+      rateableIds.length === 0 && teammates.some((row) => row.rated === false),
   };
 }
 

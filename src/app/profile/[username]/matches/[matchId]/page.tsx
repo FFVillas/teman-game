@@ -3,29 +3,29 @@ import { notFound } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import MatchDetailView from "@/components/profile/MatchDetailView";
-import { playerProfiles } from "@/data/player-profiles";
-import { matchById, matchHistory } from "@/data/match-history";
+import { loadMatches, loadProfile } from "@/lib/profile-loader";
 
 interface MatchDetailPageProps {
   params: Promise<{ username: string; matchId: string }>;
 }
 
-export function generateStaticParams() {
-  return Object.entries(matchHistory).flatMap(([username, matches]) =>
-    matches.map((match) => ({ username, matchId: match.id }))
-  );
+async function loadMatch(username: string, matchId: string) {
+  const profile = await loadProfile(username);
+  if (!profile) return null;
+  const match = (await loadMatches(profile)).find((entry) => entry.id === matchId);
+  return match ? { profile, match } : null;
 }
 
 export async function generateMetadata({
   params,
 }: MatchDetailPageProps): Promise<Metadata> {
   const { username, matchId } = await params;
-  const match = matchById(username, matchId);
+  const found = await loadMatch(username, matchId);
 
   return {
-    title: match ? `${match.lobbyName} — TemanGame` : "Match Not Found — TemanGame",
-    description: match
-      ? `Completed ${match.lobbyType.toLowerCase()} on ${match.endedOn}.`
+    title: found ? `${found.match.lobbyName} — TemanGame` : "Match Not Found — TemanGame",
+    description: found
+      ? `Completed ${found.match.lobbyType.toLowerCase()} on ${found.match.endedOn}.`
       : undefined,
   };
 }
@@ -34,10 +34,9 @@ export default async function MatchDetailPage({
   params,
 }: MatchDetailPageProps) {
   const { username, matchId } = await params;
-  const profile = playerProfiles[username];
-  const match = matchById(username, matchId);
-
-  if (!profile || !match) notFound();
+  const found = await loadMatch(username, matchId);
+  if (!found) notFound();
+  const { profile, match } = found;
 
   return (
     <>
@@ -49,6 +48,7 @@ export default async function MatchDetailPage({
             slug={profile.slug}
             username={profile.username}
             isOwner={Boolean(profile.isOwner)}
+            live={Boolean(profile.userId)}
           />
         </div>
       </main>

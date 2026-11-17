@@ -493,10 +493,8 @@ stats — filler would undercut a product about trustworthy player data. That
 fallback goes away once the social/LFG screens read from the database too.
 `src/lib/profile-loader.ts` (`loadProfile`, cached per request) does that
 real-then-mock lookup for both `/profile/<user>` and `/profile/<user>/report`.
-`/matches` is still mock-only (real users have no match history yet, so the
-link never shows). The report form works for real players but **submitting
-saves nothing** — it only shows a toast until the `reports` migration is run
-and wired in.
+Match history is real for real players (see "Reporting and reviewing");
+mock profiles keep their mock history. Reports on real players are saved.
 
 ## Games, ranks, roles and regions
 
@@ -606,8 +604,8 @@ confidence marks and open questions before changing any of them.
   one-live-lobby rule, a declined invite can't be repeated, and invites lapse when
   the lobby starts or ends. The invited player answers on the lobby page or the
   bell. The lobby page re-reads itself when the lobby, its applications, invites
-  or system chat lines change (`LiveRefresh`, below). Still mock or missing:
-  ratings. The navbar lobby button
+  or system chat lines change (`LiveRefresh`, below). Once a lobby has ended,
+  the people who played rate each other from its page. The navbar lobby button
   and the "Your lobby" banner read the player's real lobbies
   (`fetchMyCurrentLobby`, `fetchMyLobbies`) and show nothing when they are in none.
 - The old single region list (`regions.ts`: `SG2`, `NA East`, `EU West`) is
@@ -626,8 +624,22 @@ end-of-lobby flow, `/profile/<user>/report`, and a past match. Pass
 live lobby members *and* for teammates pulled out of match history.
 Rating at the end of a lobby is skippable, so `MatchTeammate.reviewed`
 tracks who still needs rating — `/profile/<user>/matches/<id>` is where
-that gets picked back up. Reviews and reports return separately from the
-modal because they're separate tables.
+that gets picked back up. Reviews and reports are separate tables.
+
+**Both are real** for real lobbies. Pass `onSaveReview` / `onSaveReport`
+(from `useRating`, `lib/use-rating.ts`) and the queue saves each teammate as
+it goes, staying on them if the database refuses; without them it only
+collects (the mock lobbies). The database owns every rule (`submit_review`):
+the lobby ended after at least 15 minutes, both people played, one rating per
+teammate, and 1–2 stars need a reason (`data/review-options.ts`). The tags
+offered are the five personality tags, strongest first for that teammate,
+none pre-picked. Ratings are anonymous: `reviews` has no read policy, so
+"have I rated them" comes from `player_matches()`
+(`20261118000000_match_history.sql`), which answers only for the caller's own
+ratings. `lib/matches.ts` turns it into `MatchRecord`s for the profile, the
+match list and the match page. Reports insert only their own columns, and an
+evidence file goes to the private `report-evidence` bucket under the
+reporter's folder (`20261118000100_report_evidence.sql`, `lib/reports.ts`).
 
 ## Row actions and full-row links
 

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { PlayerProfile } from "@/data/player-profiles";
-import { matchesForSlug } from "@/data/match-history";
+import { matchesForSlug, type MatchRecord } from "@/data/match-history";
 import MatchHistoryList from "./MatchHistoryList";
 import BackLink from "@/components/BackLink";
 import { EmptyState, NotSet, NotSetOrAdd } from "@/components/EmptyState";
@@ -101,8 +101,11 @@ function gamesOf(profile: PlayerProfile): GameSummary[] {
 
 export default function PlayerProfileView({
   profile,
+  matches = matchesForSlug(profile.slug),
 }: {
   profile: PlayerProfile;
+  /** Real players' completed lobbies; mock profiles use their mock history. */
+  matches?: MatchRecord[];
 }) {
   // Only the games this player actually added — the tabs used to be a fixed
   // list of four titles, which left most profiles advertising games they
@@ -113,8 +116,8 @@ export default function PlayerProfileView({
     playerGames.find((game) => game.slug === activeSlug) ?? playerGames[0];
 
   const isOwner = Boolean(profile.isOwner);
-  const matches = matchesForSlug(profile.slug);
   const recentMatches = matches.slice(0, 3);
+  const lastMatch = matches[0] ? `Last match: ${matches[0].endedAgo}` : null;
   const editHref = "/profile/me/edit";
   const { percent, gaps } = profileCompleteness(profile);
   const hasReviews = profile.reviewCount > 0;
@@ -501,10 +504,8 @@ export default function PlayerProfileView({
           <div className="flex items-center gap-2.5 text-[11px] italic text-text-muted">
             <span>Member since {profile.memberSince}</span>
             <span className="size-1 rounded-full bg-border-strong" />
-            <span className={profile.lastMatch === "—" ? "opacity-60" : ""}>
-              {profile.lastMatch === "—"
-                ? "No matches yet"
-                : `Last match: ${profile.lastMatch}`}
+            <span className={lastMatch ? "" : "opacity-60"}>
+              {lastMatch ?? "No matches yet"}
             </span>
           </div>
           {profile.region !== "—" && (

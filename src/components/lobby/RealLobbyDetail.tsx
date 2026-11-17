@@ -12,6 +12,7 @@ import type {
   LobbyApplication,
   LobbyMember,
   LobbyViewerRole,
+  ReportTarget,
 } from "@/data/lfg-lobby";
 import { roleIconFor } from "@/data/role-icons";
 import type { GameInfo } from "@/lib/games";
@@ -29,11 +30,13 @@ import {
 } from "@/lib/lobbies";
 import { withNext } from "@/lib/auth-redirect";
 import { createClient } from "@/lib/supabase/client";
+import { useRating } from "@/lib/use-rating";
 import LobbyApplications from "./LobbyApplications";
 import RealLobbyChat from "./RealLobbyChat";
 import LobbyHeader from "./LobbyHeader";
 import LobbyMembers from "./LobbyMembers";
 import RealInvitePlayersModal from "./RealInvitePlayersModal";
+import RatingModal from "./RatingModal";
 
 /** "Oct 6, 9:12 PM" in UTC+7, the same clock the create form uses. */
 function when(iso: string): string {
@@ -53,9 +56,10 @@ function when(iso: string): string {
  * is its "Live", an ended lobby is "Completed", a cancelled one "Closed".
  * Invitations are real: the leader picks players in `RealInvitePlayersModal`,
  * each pending one holds an open slot on the roster, and the invited player
- * answers here or from the bell. Left out because nothing real backs them yet:
- * ratings and microphone state. The chat on the right is real (see
- * RealLobbyChat).
+ * answers here or from the bell. Once a lobby has ended, everyone who played
+ * rates the others here (`submit_review`), or later from their match
+ * history. Microphone state is left out: nothing records it. The chat on the
+ * right is real (see RealLobbyChat).
  */
 export default function RealLobbyDetail({
   data,
@@ -68,7 +72,16 @@ export default function RealLobbyDetail({
   viewerId: string | null;
   myRank: string;
 }) {
-  const { team, members: people, applications, voiceUrl, invites, myInvite } = data;
+  const {
+    team,
+    members: people,
+    applications,
+    voiceUrl,
+    invites,
+    myInvite,
+    ratingQueue,
+    ratingsClosed,
+  } = data;
   const router = useRouter();
   const { toast } = useNotifications();
   const [busy, setBusy] = useState(false);
@@ -81,6 +94,11 @@ export default function RealLobbyDetail({
   );
   const [applying, setApplying] = useState(false);
   const [inviting, setInviting] = useState(false);
+  const [rating, setRating] = useState(false);
+  const { tagsFor, saveReview, saveReport } = useRating(
+    team.id,
+    ratingQueue.map((person) => person.id),
+  );
 
   const state = team.viewerState;
   const isLeader = state === "leader";
@@ -123,6 +141,20 @@ export default function RealLobbyDetail({
     profileSlug: person.username,
   });
   const members = people.map(asMember);
+
+  const asTarget = (person: LobbyPerson): ReportTarget => ({
+    id: person.id,
+    name: person.username,
+    avatar: person.avatar,
+    rank: person.rankIcon
+      ? { name: person.rankName, icon: person.rankIcon, colorClass: "text-white/90" }
+      : undefined,
+  });
+
+  function finishRating() {
+    setRating(false);
+    router.refresh();
+  }
 
   const pending: LobbyApplication[] = applications
     .filter((entry) => entry.status === "pending")
@@ -295,17 +327,46 @@ export default function RealLobbyDetail({
       {closed && (
         <div className={`${banner} border-border-default bg-bg-card-alt`}>
           <p className="text-xs text-text-muted">
-            {completed
-              ? "This lobby has ended."
-              : "This lobby was closed before it started. It no longer accepts applications."}
+            {!completed
+              ? "This lobby was closed before it started. It no longer accepts applications."
+              : ratingQueue.length > 0
+                ? `This lobby has ended. Rate the ${ratingQueue.length === 1 ? "player" : `${ratingQueue.length} players`} you played with.`
+                : ratingsClosed
+                  ? "This lobby has ended. Ratings are closed: it ran less than 15 minutes."
+                  : "This lobby has ended."}
           </p>
-          <Link
-            href={lobbiesHref}
-            className="flex h-8 items-center rounded-lg border border-border-strong px-3 text-xs font-bold text-text-subtle transition-colors hover:text-white"
-          >
-            Back to lobbies
-          </Link>
+          <div className="flex items-center gap-2">
+            {ratingQueue.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setRating(true)}
+                className="flex h-8 items-center rounded-lg bg-brand px-3 text-xs font-bold text-white transition-opacity hover:opacity-90"
+              >
+                Rate teammates
+              </button>
+            )}
+            <Link
+              href={lobbiesHref}
+              className="flex h-8 items-center rounded-lg border border-border-strong px-3 text-xs font-bold text-text-subtle transition-colors hover:text-white"
+            >
+              Back to lobbies
+            </Link>
+          </div>
         </div>
+      )}
+
+      {rating && ratingQueue.length > 0 && (
+        <RatingModal
+          teammates={ratingQueue.map(asTarget)}
+          lobbyName={team.name}
+          game={game.name}
+          lobbyId={team.id}
+          tagsFor={tagsFor}
+          onSaveReview={saveReview}
+          onSaveReport={saveReport}
+          onClose={finishRating}
+          onComplete={finishRating}
+        />
       )}
 
       {started && (

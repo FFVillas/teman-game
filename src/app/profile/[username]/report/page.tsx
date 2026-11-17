@@ -3,10 +3,13 @@ import { notFound, redirect } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ReportPlayerPanel from "@/components/profile/ReportPlayerPanel";
+import { isLobbyId } from "@/lib/lobbies";
 import { loadProfile } from "@/lib/profile-loader";
 
 interface ReportPageProps {
   params: Promise<{ username: string }>;
+  /** `?lobby=<id>` when the report comes from a match they played together. */
+  searchParams: Promise<{ lobby?: string }>;
 }
 
 export async function generateMetadata({
@@ -22,8 +25,9 @@ export async function generateMetadata({
   };
 }
 
-export default async function ReportPlayerPage({ params }: ReportPageProps) {
+export default async function ReportPlayerPage({ params, searchParams }: ReportPageProps) {
   const { username } = await params;
+  const { lobby } = await searchParams;
   const profile = await loadProfile(username);
 
   if (!profile) notFound();
@@ -33,6 +37,7 @@ export default async function ReportPlayerPage({ params }: ReportPageProps) {
   if (profile.isOwner) redirect("/profile/me");
 
   const primaryStat = profile.gameStats[0];
+  const lobbyId = lobby && isLobbyId(lobby) ? lobby : undefined;
 
   return (
     <>
@@ -41,14 +46,17 @@ export default async function ReportPlayerPage({ params }: ReportPageProps) {
         <div className="mx-auto flex w-full max-w-[1000px] flex-col gap-4 px-6 py-10">
           <ReportPlayerPanel
             target={{
-              id: profile.slug,
+              id: profile.userId ?? profile.slug,
               name: profile.username,
               avatar: profile.avatar,
               rank: primaryStat?.rank,
             }}
-            game={primaryStat?.game ?? "Valorant"}
+            game={primaryStat?.game ?? profile.gameSetups?.[0]?.gameName ?? ""}
             backHref={`/profile/${profile.slug}`}
             backLabel={`Back to ${profile.username}`}
+            lobbyId={lobbyId}
+            context={lobbyId ? "Attached to the lobby you played together." : undefined}
+            live={Boolean(profile.userId)}
           />
         </div>
       </main>

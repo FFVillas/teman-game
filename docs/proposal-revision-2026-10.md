@@ -266,7 +266,7 @@ kodenya ikut dipindahkan.
 | 1 | §6.3a `tag_strengths()`, kekuatan tag di skor, `lobbyReputation()` | ✅ selesai |
 | 1 | §6.3b Form lobi ke `set_lobby_preferences` (+ UI playstyle & tag) | ✅ selesai |
 | 2 | Daftar lobi diurutkan `S_total` (+ `R_lobi`), filter rank/role/region/mode, `/api/lobbies/recommended`, Vitest, seed 30 lobi uji | ✅ selesai (17 Nov) |
-| 2 | Alur penilaian di lobi sungguhan ke `submit_review` | ⬜ belum (butuh UI baru) |
+| 2 | Alur penilaian di lobi sungguhan ke `submit_review` (+ alasan 1–2 bintang, tag urut kekuatan), riwayat match nyata (`player_matches`), laporan tersimpan + bukti | ✅ selesai (18 Nov) — migrasi `20261118000000`, `20261118000100` |
 | 2 | Tujuh lubang UI, admin ke Supabase, `AdminGate` ke RLS | ⬜ belum |
 | 3 | PWA, FCM, black-box test, deploy | ⬜ belum |
 
