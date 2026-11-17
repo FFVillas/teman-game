@@ -4,7 +4,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import CreateTeamForm from "@/components/lfg/CreateTeamForm";
 import { gameBySlug } from "@/data/games";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUserId } from "@/lib/supabase/server";
 import { fetchGameCatalog, fetchMyRankName } from "@/lib/games";
 
 interface CreateTeamPageProps {
@@ -32,7 +32,8 @@ export default async function CreateTeamPage({ params }: CreateTeamPageProps) {
   if (!meta) notFound();
 
   const supabase = await createClient();
-  const catalog = await fetchGameCatalog(supabase);
+  const [catalog, userId] = await Promise.all([fetchGameCatalog(supabase), getUserId()]);
+  const leaderRank = await fetchMyRankName(supabase, catalog, slug, userId);
 
   return (
     <>
@@ -43,7 +44,7 @@ export default async function CreateTeamPage({ params }: CreateTeamPageProps) {
             gameSlug={slug}
             gameName={meta.name}
             game={catalog.find((g) => g.slug === slug)}
-            leaderRank={await fetchMyRankName(supabase, catalog, slug)}
+            leaderRank={leaderRank}
           />
         </div>
       </main>

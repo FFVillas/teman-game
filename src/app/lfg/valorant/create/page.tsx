@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import CreateTeamForm from "@/components/lfg/CreateTeamForm";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUserId } from "@/lib/supabase/server";
 import { fetchGameCatalog, fetchMyRankName } from "@/lib/games";
 
 export const metadata: Metadata = {
@@ -12,7 +12,8 @@ export const metadata: Metadata = {
 
 export default async function CreateTeamPage() {
   const supabase = await createClient();
-  const catalog = await fetchGameCatalog(supabase);
+  const [catalog, userId] = await Promise.all([fetchGameCatalog(supabase), getUserId()]);
+  const leaderRank = await fetchMyRankName(supabase, catalog, "valorant", userId);
 
   return (
     <>
@@ -23,7 +24,7 @@ export default async function CreateTeamPage() {
             gameSlug="valorant"
             gameName="Valorant"
             game={catalog.find((g) => g.slug === "valorant")}
-            leaderRank={await fetchMyRankName(supabase, catalog, "valorant")}
+            leaderRank={leaderRank}
           />
         </div>
       </main>

@@ -333,7 +333,7 @@ export default function RequestToJoinModal({
                   <span
                     className={`absolute left-3 top-3 inline-flex w-fit items-center rounded-full border px-3 py-1 text-[9px] font-semibold uppercase tracking-wide ${mode.className}`}
                   >
-                    {mode.label}
+                    {team.modeLabel ?? mode.label}
                   </span>
                 </div>
 

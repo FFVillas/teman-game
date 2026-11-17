@@ -12,7 +12,7 @@ import NotificationBell from "./NotificationBell";
 import { createClient } from "@/lib/supabase/client";
 import { fetchUnreadMessageCount } from "@/lib/direct-messages";
 import { fetchMyCurrentLobby } from "@/lib/lobbies";
-import { useRealtimeInserts } from "@/lib/realtime";
+import { useRealtimeChanges, useRealtimeInserts } from "@/lib/realtime";
 
 export default function Navbar() {
   const { user, isAdmin } = useAuth();
@@ -62,6 +62,24 @@ export default function Navbar() {
     filter: playerId ? `receiver_id=eq.${playerId}` : undefined,
     enabled: Boolean(playerId),
     onInsert: () => setUnreadMessages((count) => count + 1),
+  });
+
+  // Being accepted into a lobby, or yours ending, changes the chip.
+  const reloadLobby = () => {
+    if (!playerId) return;
+    fetchMyCurrentLobby(createClient(), playerId).then(setMyLobby);
+  };
+  useRealtimeChanges({
+    table: "applications",
+    filter: playerId ? `applicant_id=eq.${playerId}` : undefined,
+    enabled: Boolean(playerId),
+    onChange: reloadLobby,
+  });
+  useRealtimeChanges({
+    table: "lobbies",
+    filter: playerId ? `leader_id=eq.${playerId}` : undefined,
+    enabled: Boolean(playerId),
+    onChange: reloadLobby,
   });
 
   return (

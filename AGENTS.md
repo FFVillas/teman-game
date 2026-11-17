@@ -145,7 +145,10 @@ Signup, login and logout go through Supabase Auth. Setup:
 - `src/lib/supabase/client.ts` (browser) and `server.ts` (Server
   Components / Route Handlers); `src/proxy.ts` refreshes the session on
   every request (Next 16 renamed `middleware.ts` → `proxy.ts`). Server-side,
-  trust `getUser()`, never `getSession()`.
+  never trust `getSession()`. To scope a query to the caller use `getUserId()`
+  (`lib/supabase/server.ts`): it verifies the token locally with `getClaims()`, so it
+  costs no round trip, and it is computed once per request. Use `getUser()` only
+  when you need the account itself (email). RLS is what protects data either way.
 - `supabase/migrations/` is the schema, applied **by hand** in the Supabase
   SQL editor (no CLI tracking). Never edit an applied migration — add a new
   timestamped one. `20260919000200_reports_moderation.sql` is written but
@@ -238,6 +241,16 @@ Two limits worth knowing:
   `lobbyNamePosition` together**.
 
 `ToastHost` is mounted once in the root layout — don't add another.
+
+**Live updates.** A Server Component page that should follow the database gets
+`<LiveRefresh subscriptions={[{ table, filter }]} />` (`src/components/LiveRefresh.tsx`):
+it re-renders the page on any change to those rows, debounced and paused while
+the tab is hidden. Used on the lobby page, the LFG lists, and (as client
+refetches via `useRealtimeChanges` / `useFriendshipChanges`) the navbar lobby
+chip and the Social lists and pending count. Needs the table in the realtime
+publication (`20261007000100`, `20261011000000`, `20261016000000`); realtime
+obeys RLS, so people only get changes to rows they can read, and a signed-out
+visitor gets none.
 
 Join requests and lobby invites are **actionable**: they render accept /
 decline icon buttons in the row (`actionableKinds` in
@@ -337,6 +350,20 @@ Two specific calls: an unrated player shows "No ratings yet" instead of 0.0
 with five grey stars (which reads as *bad*, not *new*), and the owner gets a
 completeness prompt — percentage, progress bar, and the named gaps — driven
 by `src/lib/profile-completeness.ts`.
+
+## Languages and schedules
+
+One list of languages (`languageOptions` in `src/data/profile-options.ts`) feeds
+profiles, onboarding and lobbies, all through `LanguagesField` (a lobby takes up
+to 4, the database limit). Regional languages like Javanese were dropped on
+purpose; values are plain names so older saved ones still show.
+
+A lobby's schedule is a **day plus a start and end time**, on the UTC+7 clock:
+the next seven days as chips above the time selects, like the profile's day
+chips. An end before the start means the next day (11 PM to 1 AM). A start that
+has already passed is refused in the form. The lobby badge shows the **mode's own
+name** ("Competitive", "Premier"), coloured by its kind (ranked, casual,
+tournament).
 
 ## Onboarding
 
@@ -493,8 +520,9 @@ confidence marks and open questions before changing any of them.
   accepting joins as an accepted application and re-checks capacity, rank and the
   one-live-lobby rule, a declined invite can't be repeated, and invites lapse when
   the lobby starts or ends. The invited player answers on the lobby page or the
-  bell. Still mock or missing: ratings, and live updates of the rest of
-  the lobby page (refresh to see changes; the bell and the chat are live). The navbar lobby button
+  bell. The lobby page re-reads itself when the lobby, its applications, invites
+  or system chat lines change (`LiveRefresh`, below). Still mock or missing:
+  ratings. The navbar lobby button
   and the "Your lobby" banner read the player's real lobbies
   (`fetchMyCurrentLobby`, `fetchMyLobbies`) and show nothing when they are in none.
 - The old single region list (`regions.ts`: `SG2`, `NA East`, `EU West`) is
@@ -551,6 +579,18 @@ current page (React warns about it), so an empty source has to render the
 initial tile instead. Mock data always has an avatar, so the plain `<img>`
 in those components is fine.
 
+## Speed
+
+Pages that load data are Server Components, so keep them to **two rounds**: read
+what everything else depends on together (`Promise.all([fetchGameCatalog(), getUserId()])`),
+then everything that depends on it together. Lists are one nested PostgREST
+select, not a query per table (`LOBBY_SELECT` in `lib/lobbies.ts`); stale lobbies
+are expired once per request (`expireStaleLobbies`); the game catalog is cached
+for ten minutes in memory (`fetchGameCatalog`). Each slow route has a
+`loading.tsx` using `PageSkeleton`. A route that serves both prerendered and
+per-request pages (`generateStaticParams` plus `cookies()`) fails in production
+with `DYNAMIC_SERVER_USAGE`; don't mix them.
+
 ## Back navigation
 
 `BackLink` is the shared back control. It's **sticky under the 60px
@@ -559,8 +599,12 @@ you don't scroll to the top just to go back. Sticky strip rather than a
 floating button: it keeps its place in the layout, covers no content, and
 sits where the eye already looks for back.
 
-Default to a semantic destination (`href`). `useHistory` pops one history
-entry — rarely what you want inside a multi-page section.
+**Back goes to the page you came from** (the default): a profile opened from a
+lobby returns to that lobby. `href` is only the fallback when there is no
+earlier page of the app (opened directly, from outside, new tab), detected with
+the Navigation API's `canGoBack` (falling back to `history.length`); the label
+reads "Back" once it knows. Pass `useHistory={false}` for a section that has to
+leave itself, like Social below.
 
 Social needs to leave the **whole section**: friends → discover → back
 should return to wherever you were before opening Social, not to friends.

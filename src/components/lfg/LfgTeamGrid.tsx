@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { LfgTeam } from "@/data/lfg-teams";
 import LfgTeamCard from "./LfgTeamCard";
@@ -13,13 +12,11 @@ const PAGE_SIZE = 6;
 
 export default function LfgTeamGrid({
   teams,
-  gameSlug,
   gameName,
   game,
   myRank,
 }: {
   teams: LfgTeam[];
-  gameSlug: string;
   gameName: string;
   /** The game's ranks, so the join dialog can check the viewer's rank fits. */
   game?: GameInfo;
@@ -48,15 +45,9 @@ export default function LfgTeamGrid({
           No {gameName} lobbies yet
         </h3>
         <p className="max-w-[420px] text-sm text-text-muted">
-          Nobody is looking for players right now. Start a lobby and others
-          can find you.
+          Nobody is looking for players right now. Start a lobby with Create
+          Team above and others can find you.
         </p>
-        <Link
-          href={`/lfg/${gameSlug}/create`}
-          className="mt-1 flex h-10 items-center justify-center rounded-lg bg-brand px-5 text-sm font-bold text-white transition-opacity hover:opacity-90"
-        >
-          Create a team
-        </Link>
       </div>
     );
   }

@@ -18,7 +18,7 @@ export default function NotificationsPage() {
         <div className="mx-auto flex w-full max-w-[1000px] flex-col gap-4 px-6 py-10">
           {/* Reachable from the bell icon on any page, so "back" should
               return there rather than to a fixed destination. */}
-          <BackLink label="Back" href="/lfg/valorant" useHistory />
+          <BackLink label="Back" href="/lfg/valorant" />
           <NotificationList />
         </div>
       </main>

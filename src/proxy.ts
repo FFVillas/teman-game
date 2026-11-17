@@ -37,8 +37,9 @@ export async function proxy(request: NextRequest) {
     },
   );
 
-  // Just touching the session is enough to trigger a refresh when needed.
-  await supabase.auth.getUser();
+  // Verifies the token locally and refreshes the cookie when it is close to
+  // expiring, without asking Supabase's auth server on every request.
+  await supabase.auth.getClaims();
 
   return response;
 }

@@ -26,7 +26,7 @@ export default function SupportPage() {
       <Navbar />
       <main className="flex flex-1 flex-col">
         <div className="mx-auto flex w-full max-w-[760px] flex-col px-6 py-12">
-          <BackLink label="Back" href="/" useHistory />
+          <BackLink label="Back" href="/" />
 
           <div className="flex flex-col gap-2">
             <h1 className="text-2xl font-extrabold tracking-tight text-white sm:text-3xl">

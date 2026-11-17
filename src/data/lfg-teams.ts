@@ -17,6 +17,8 @@ export interface LfgTeam {
   game: string;
   cover: string;
   mode: LfgMode;
+  /** The mode's own name ("Competitive", "Premier"…); real lobbies only. The badge shows this. */
+  modeLabel?: string;
   status: {
     label: string;
     isLive: boolean;

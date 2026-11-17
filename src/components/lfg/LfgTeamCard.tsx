@@ -68,7 +68,7 @@ export default function LfgTeamCard({
           <span
             className={`inline-flex w-fit items-center rounded-full border px-3 py-1 text-[9px] font-semibold uppercase tracking-wide ${mode.className}`}
           >
-            {mode.label}
+            {team.modeLabel ?? mode.label}
           </span>
           <span className="w-fit rounded border border-white/10 bg-[rgba(15,23,42,0.6)] px-2 py-1 text-[11px] font-semibold text-white opacity-80">
             {team.slotsFilled}/{team.slotsTotal}

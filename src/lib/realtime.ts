@@ -38,6 +38,53 @@ export function useRealtimeInserts<T extends Record<string, unknown>>({
   enabled?: boolean;
   onInsert: (row: T) => void;
 }) {
+  useRealtimeTable<T>({
+    event: "INSERT",
+    table,
+    filter,
+    enabled,
+    onEvent: onInsert,
+  });
+}
+
+/**
+ * Any change (insert, update or delete) to the rows of a table. For screens
+ * that only need to know "something changed, load it again" (a roster, a
+ * lobby list): the caller refetches rather than patching state from the row.
+ */
+export function useRealtimeChanges({
+  table,
+  filter,
+  enabled = true,
+  onChange,
+}: {
+  table: string;
+  filter?: string;
+  enabled?: boolean;
+  onChange: () => void;
+}) {
+  useRealtimeTable<Record<string, unknown>>({
+    event: "*",
+    table,
+    filter,
+    enabled,
+    onEvent: () => onChange(),
+  });
+}
+
+function useRealtimeTable<T extends Record<string, unknown>>({
+  event,
+  table,
+  filter,
+  enabled,
+  onEvent,
+}: {
+  event: "INSERT" | "*";
+  table: string;
+  filter?: string;
+  enabled: boolean;
+  onEvent: (row: T) => void;
+}) {
   const instanceId = useId();
 
   useEffect(() => {
@@ -57,11 +104,11 @@ export function useRealtimeInserts<T extends Record<string, unknown>>({
       if (cancelled) return;
 
       channel = supabase
-        .channel(`${table}:${filter ?? "all"}:${instanceId}`)
+        .channel(`${table}:${event}:${filter ?? "all"}:${instanceId}`)
         .on(
           "postgres_changes",
-          { event: "INSERT", schema: "public", table, filter },
-          (payload) => onInsert(payload.new as T),
+          { event, schema: "public", table, filter },
+          (payload) => onEvent(payload.new as T),
         )
         .subscribe();
     }
@@ -72,8 +119,8 @@ export function useRealtimeInserts<T extends Record<string, unknown>>({
       cancelled = true;
       if (channel) supabase.removeChannel(channel);
     };
-    // `onInsert` is intentionally not a dependency: callers pass an inline
+    // `onEvent` is intentionally not a dependency: callers pass an inline
     // closure, and re-subscribing on every render would churn the socket.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [table, filter, enabled, instanceId]);
+  }, [event, table, filter, enabled, instanceId]);
 }

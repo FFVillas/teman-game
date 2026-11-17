@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import BackLink from "@/components/BackLink";
+import LiveRefresh from "@/components/LiveRefresh";
 import RankRangeBadge from "@/components/lfg/RankRangeBadge";
 import RequestToJoinModal from "@/components/lfg/RequestToJoinModal";
 import { useNotifications } from "@/contexts/NotificationContext";
@@ -245,12 +246,25 @@ export default function RealLobbyDetail({
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Applications, invites, the lobby itself and its system chat lines
+          (someone joined, left, the lobby started) all change this page, so
+          it re-reads itself when any of them does. */}
+      <LiveRefresh
+        enabled={Boolean(viewerId)}
+        subscriptions={[
+          { table: "lobbies", filter: `id=eq.${team.id}` },
+          { table: "applications", filter: `lobby_id=eq.${team.id}` },
+          { table: "lobby_invites", filter: `lobby_id=eq.${team.id}` },
+          { table: "lobby_messages", filter: `lobby_id=eq.${team.id}` },
+        ]}
+      />
       <BackLink label="Back to lobbies" href={lobbiesHref} />
 
       <LobbyHeader
         lobby={{
           cover: team.cover,
           mode: team.mode,
+          modeLabel: team.modeLabel,
           name: team.name,
           bio: team.bio,
           region: team.region,

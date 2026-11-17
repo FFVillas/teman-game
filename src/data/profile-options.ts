@@ -16,25 +16,32 @@ export const MAX_LANGUAGES = 8;
  */
 export const MAX_PERSONALITY_TAGS = 5;
 
+/**
+ * The one list of languages, for profiles, onboarding and lobbies alike.
+ * It follows what most sites and games offer (and the regions our games run
+ * in: Southeast and East Asia, the Middle East), without regional languages
+ * like Javanese or Sundanese: someone who speaks those speaks Indonesian too.
+ * Indonesian first, because that is who the app is for. Values are plain
+ * names, so a language saved before this list changed still shows and can be
+ * removed; nothing needs a migration.
+ */
 export const languageOptions = [
   "Indonesian",
   "English",
-  "Javanese",
-  "Sundanese",
   "Malay",
-  "Mandarin",
-  "Cantonese",
+  "Chinese",
   "Japanese",
   "Korean",
-  "Tagalog",
   "Thai",
   "Vietnamese",
+  "Filipino",
   "Hindi",
   "Arabic",
+  "Turkish",
   "Spanish",
+  "Portuguese",
   "French",
   "German",
-  "Portuguese",
   "Russian",
 ] as const;
 

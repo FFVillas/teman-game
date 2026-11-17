@@ -1,3 +1,4 @@
+import { cache } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { LfgMode, LfgTeam } from "@/data/lfg-teams";
 import { coverSrc } from "@/data/lfg-covers";
@@ -162,6 +163,22 @@ export function startLabel(iso: string): string {
   return `${day} ${time}`;
 }
 
+type LobbyStatus = "live" | "started" | "scheduled" | "completed" | "closed";
+
+interface PersonRow {
+  id: string;
+  username: string;
+  avatar_path: string | null;
+  user_game_mapping: { game_id: number; rank_id: number | null }[];
+}
+
+interface ApplicationRow {
+  applicant_id: string;
+  status: string;
+  decided_at: string | null;
+  applicant: PersonRow | null;
+}
+
 interface LobbyRow {
   id: string;
   leader_id: string;
@@ -173,18 +190,141 @@ interface LobbyRow {
   mic_required: boolean;
   tags: string[];
   capacity: number;
-  status: "live" | "started" | "scheduled" | "completed" | "closed";
+  status: LobbyStatus;
   starts_at: string | null;
   ends_at: string | null;
   min_rank_id: number | null;
   max_rank_id: number | null;
   cover: string | null;
+  lobby_roles: { role_id: number }[];
+  leader: PersonRow | null;
+  applications: ApplicationRow[];
+}
+
+const PERSON = "id, username, avatar_path, user_game_mapping(game_id, rank_id)";
+
+/**
+ * A lobby with everything a card needs in one request: its roles, its leader
+ * and the applications the viewer may see (the roster is public; pending
+ * ones reach only the applicant and the leader), each with the person's
+ * profile and rank.
+ */
+const LOBBY_SELECT = `id, leader_id, mode_id, name, description, region, languages, mic_required, tags, capacity, status, starts_at, ends_at, min_rank_id, max_rank_id, cover, lobby_roles(role_id), leader:profiles!lobbies_leader_id_fkey(${PERSON}), applications(applicant_id, status, decided_at, applicant:profiles!applications_applicant_id_fkey(${PERSON}))`;
+
+/**
+ * Ends lobbies whose leader forgot them. Runs once per server request however
+ * many lists ask for it, so a page showing two lists doesn't pay for it twice.
+ */
+const expireStaleLobbies = cache(async (supabase: SupabaseClient) => {
+  await supabase.rpc("expire_stale_lobbies");
+});
+
+/** The roster in the order it should show: the leader, then members by join time. */
+function rosterOf(leader: PersonRow | null, applications: ApplicationRow[]): PersonRow[] {
+  const joined = applications
+    .filter((application) => application.status === "accepted")
+    .sort((a, b) => (a.decided_at ?? "").localeCompare(b.decided_at ?? ""))
+    .flatMap((application) => (application.applicant ? [application.applicant] : []));
+  return leader ? [leader, ...joined] : joined;
+}
+
+function toTeam(row: LobbyRow, game: GameInfo, viewerId?: string | null): LfgTeam {
+  const rankOf = (person: PersonRow | null) => {
+    const rankId = person?.user_game_mapping.find((entry) => entry.game_id === game.id)?.rank_id;
+    return game.ranks.find((rank) => rank.id === rankId);
+  };
+  const people = rosterOf(row.leader, row.applications);
+  const mode = game.modes.find((candidate) => candidate.id === row.mode_id);
+  const leaderRank = rankOf(row.leader);
+  const minRank = game.ranks.find((rank) => rank.id === row.min_rank_id);
+  const maxRank = game.ranks.find((rank) => rank.id === row.max_rank_id);
+  const ownStatus = row.applications.find(
+    (application) => application.applicant_id === viewerId,
+  )?.status;
+
+  const viewerState: LfgTeam["viewerState"] = !viewerId
+    ? undefined
+    : row.leader_id === viewerId
+      ? "leader"
+      : people.some((person) => person.id === viewerId)
+        ? "member"
+        : ownStatus === "pending" || ownStatus === "declined"
+          ? ownStatus
+          : undefined;
+
+  return {
+    id: row.id,
+    name: row.name,
+    game: game.slug,
+    cover: coverSrc(game.slug, row.cover),
+    mode: mode?.kind ?? "casual",
+    modeLabel: mode?.label,
+    modeValue: mode?.value,
+    modeId: row.mode_id,
+    tags: row.tags,
+    startsAt: row.starts_at,
+    endsAt: row.ends_at,
+    closed: row.status === "closed" || row.status === "completed",
+    completed: row.status === "completed",
+    started: row.status === "started",
+    viewerState,
+    status: statusOf(row),
+    region: row.region,
+    languages: row.languages.length > 0 ? row.languages.join(" / ") : undefined,
+    micRequired: row.mic_required,
+    bio: row.description ?? undefined,
+    members: people.map((person) => ({
+      id: person.id,
+      name: person.username,
+      avatar: avatarUrl(person.avatar_path),
+    })),
+    slotsFilled: people.length,
+    slotsTotal: row.capacity,
+    leaderId: row.leader_id,
+    leaderName: row.leader?.username ?? "Unknown",
+    rank: leaderRank
+      ? {
+          name: leaderRank.name,
+          icon: rankIconFor(game.slug, leaderRank) ?? "",
+          colorClass: "text-white/90",
+        }
+      : { name: "Unranked", icon: "", colorClass: "text-text-muted" },
+    memberOrdinals: people
+      .map((person) => rankOf(person)?.ordinal)
+      .filter((ordinal): ordinal is number => ordinal !== undefined),
+    rankRange:
+      minRank || maxRank
+        ? { from: minRank?.tier ?? "", to: maxRank?.tier ?? "" }
+        : undefined,
+    lookingFor: row.lobby_roles
+      .map((entry) => game.roles.find((role) => role.id === entry.role_id))
+      .filter((role): role is NonNullable<typeof role> => role !== undefined)
+      .map((role) => ({
+        name: role.name,
+        icon: roleIconFor(game.slug, role.name) ?? "",
+      })),
+  };
+}
+
+function statusOf(row: Pick<LobbyRow, "status" | "starts_at">): LfgTeam["status"] {
+  switch (row.status) {
+    case "completed":
+      return { label: "Ended", isLive: false };
+    case "closed":
+      return { label: "Closed", isLive: false };
+    case "started":
+      return { label: "In progress", isLive: true };
+    default:
+      return row.status === "live" || !row.starts_at
+        ? { label: "Active Now", isLive: true }
+        : { label: startLabel(row.starts_at), isLive: false };
+  }
 }
 
 /**
  * The open lobbies of one game, shaped like the cards and dialogs expect
- * (`LfgTeam`). Newest first. A few small queries rather than one wide join:
- * the lobbies, their rosters and roles, then the people's profiles and ranks.
+ * (`LfgTeam`), newest first. With `lobbyId`, that one lobby in any status, so
+ * a closed one can still be opened.
  */
 export async function fetchLobbyTeams(
   supabase: SupabaseClient,
@@ -192,169 +332,17 @@ export async function fetchLobbyTeams(
   options: { viewerId?: string | null; lobbyId?: string } = {},
 ): Promise<LfgTeam[]> {
   const { viewerId, lobbyId } = options;
-  // Lobbies the leader forgot to end drop out as soon as anyone looks.
-  await supabase.rpc("expire_stale_lobbies");
-  const columns =
-    "id, leader_id, mode_id, name, description, region, languages, mic_required, tags, capacity, status, starts_at, ends_at, min_rank_id, max_rank_id, cover";
-  // One lobby by id (any status, so a closed one can still be opened), or the
-  // game's open lobbies, newest first.
-  const { data: lobbies } = lobbyId
-    ? await supabase.from("lobbies").select(columns).eq("game_id", game.id).eq("id", lobbyId)
-    : await supabase
-        .from("lobbies")
-        .select(columns)
-        .eq("game_id", game.id)
+  await expireStaleLobbies(supabase);
+
+  const query = supabase.from("lobbies").select(LOBBY_SELECT).eq("game_id", game.id);
+  const { data } = await (lobbyId
+    ? query.eq("id", lobbyId)
+    : query
         .in("status", ["live", "scheduled"])
         .order("created_at", { ascending: false })
-        .limit(60);
+        .limit(60));
 
-  const rows = (lobbies ?? []) as LobbyRow[];
-  if (rows.length === 0) return [];
-  const ids = rows.map((row) => row.id);
-
-  const [{ data: roster }, { data: roleRows }, { data: ownApplications }] =
-    await Promise.all([
-      supabase
-        .from("lobby_members")
-        .select("lobby_id, user_id, is_leader, joined_at")
-        .in("lobby_id", ids),
-      supabase.from("lobby_roles").select("lobby_id, role_id").in("lobby_id", ids),
-      viewerId
-        ? supabase
-            .from("applications")
-            .select("lobby_id, status")
-            .eq("applicant_id", viewerId)
-            .in("lobby_id", ids)
-        : Promise.resolve({ data: [] as Array<{ lobby_id: string; status: string }> }),
-    ]);
-
-  const memberRows = (roster ?? []) as Array<{
-    lobby_id: string;
-    user_id: string;
-    is_leader: boolean;
-    joined_at: string | null;
-  }>;
-  const userIds = [...new Set(memberRows.map((member) => member.user_id))];
-
-  const [{ data: profileRows }, { data: rankRows }] = await Promise.all([
-    supabase.from("profiles").select("id, username, avatar_path").in("id", userIds),
-    supabase
-      .from("user_game_mapping")
-      .select("user_id, rank_id")
-      .eq("game_id", game.id)
-      .in("user_id", userIds),
-  ]);
-
-  const profiles = new Map(
-    (
-      (profileRows ?? []) as Array<{
-        id: string;
-        username: string;
-        avatar_path: string | null;
-      }>
-    ).map((profile) => [profile.id, profile]),
-  );
-  const rankOf = new Map(
-    ((rankRows ?? []) as Array<{ user_id: string; rank_id: number | null }>).map(
-      (row) => [row.user_id, game.ranks.find((rank) => rank.id === row.rank_id)],
-    ),
-  );
-
-  return rows.map((row): LfgTeam => {
-    const mode = game.modes.find((candidate) => candidate.id === row.mode_id);
-    const members = memberRows
-      .filter((member) => member.lobby_id === row.id)
-      .sort(
-        (a, b) =>
-          Number(b.is_leader) - Number(a.is_leader) ||
-          (a.joined_at ?? "").localeCompare(b.joined_at ?? ""),
-      );
-    const leaderProfile = profiles.get(row.leader_id);
-    const leaderRank = rankOf.get(row.leader_id);
-    const minRank = game.ranks.find((rank) => rank.id === row.min_rank_id);
-    const maxRank = game.ranks.find((rank) => rank.id === row.max_rank_id);
-    const roleIds = (roleRows ?? [])
-      .filter((entry) => entry.lobby_id === row.id)
-      .map((entry) => entry.role_id as number);
-    const ownStatus = (ownApplications ?? []).find(
-      (entry) => entry.lobby_id === row.id,
-    )?.status;
-    const viewerState: LfgTeam["viewerState"] = !viewerId
-      ? undefined
-      : row.leader_id === viewerId
-        ? "leader"
-        : members.some((member) => member.user_id === viewerId)
-          ? "member"
-          : ownStatus === "pending"
-            ? "pending"
-            : ownStatus === "declined"
-              ? "declined"
-              : undefined;
-
-    return {
-      id: row.id,
-      name: row.name,
-      game: game.slug,
-      cover: coverSrc(game.slug, row.cover),
-      mode: mode?.kind ?? "casual",
-      modeValue: mode?.value,
-      modeId: row.mode_id,
-      tags: row.tags,
-      startsAt: row.starts_at,
-      endsAt: row.ends_at,
-      closed: row.status === "closed" || row.status === "completed",
-      completed: row.status === "completed",
-      started: row.status === "started",
-      viewerState,
-      status:
-        row.status === "completed"
-          ? { label: "Ended", isLive: false }
-          : row.status === "closed"
-            ? { label: "Closed", isLive: false }
-            : row.status === "started"
-            ? { label: "In progress", isLive: true }
-            : row.status === "live" || !row.starts_at
-            ? { label: "Active Now", isLive: true }
-            : { label: startLabel(row.starts_at), isLive: false },
-      region: row.region,
-      languages: row.languages.length > 0 ? row.languages.join(" / ") : undefined,
-      micRequired: row.mic_required,
-      bio: row.description ?? undefined,
-      members: members.map((member) => {
-        const profile = profiles.get(member.user_id);
-        return {
-          id: member.user_id,
-          name: profile?.username,
-          avatar: avatarUrl(profile?.avatar_path),
-        };
-      }),
-      slotsFilled: members.length,
-      slotsTotal: row.capacity,
-      leaderId: row.leader_id,
-      leaderName: leaderProfile?.username ?? "Unknown",
-      rank: leaderRank
-        ? {
-            name: leaderRank.name,
-            icon: rankIconFor(game.slug, leaderRank) ?? "",
-            colorClass: "text-white/90",
-          }
-        : { name: "Unranked", icon: "", colorClass: "text-text-muted" },
-      memberOrdinals: members
-        .map((member) => rankOf.get(member.user_id)?.ordinal)
-        .filter((ordinal): ordinal is number => ordinal !== undefined),
-      rankRange:
-        minRank || maxRank
-          ? { from: minRank?.tier ?? "", to: maxRank?.tier ?? "" }
-          : undefined,
-      lookingFor: roleIds
-        .map((id) => game.roles.find((role) => role.id === id))
-        .filter((role): role is NonNullable<typeof role> => role !== undefined)
-        .map((role) => ({
-          name: role.name,
-          icon: roleIconFor(game.slug, role.name) ?? "",
-        })),
-    };
-  });
+  return ((data ?? []) as unknown as LobbyRow[]).map((row) => toTeam(row, game, viewerId));
 }
 
 export async function respondToApplication(
@@ -555,18 +543,27 @@ export async function fetchLobbyDetail(
   if (!team) return null;
 
   // The link is private: the database answers only for people in the lobby.
-  let voiceUrl: string | null = null;
-  if (viewerId && (team.viewerState === "leader" || team.viewerState === "member")) {
-    const { data } = await supabase.rpc("lobby_voice_link", { p_lobby_id: lobbyId });
-    voiceUrl = (data as string | null) ?? null;
-  }
-
-  const { data: applicationRows } = await supabase
-    .from("applications")
-    .select("id, applicant_id, role_id, message, status, created_at")
-    .eq("lobby_id", lobbyId)
-    .order("created_at", { ascending: true });
-  const applications = (applicationRows ?? []) as Array<{
+  const inLobby = team.viewerState === "leader" || team.viewerState === "member";
+  const [voice, applicationResult, inviteResult] = await Promise.all([
+    viewerId && inLobby
+      ? supabase.rpc("lobby_voice_link", { p_lobby_id: lobbyId })
+      : Promise.resolve({ data: null }),
+    supabase
+      .from("applications")
+      .select("id, applicant_id, role_id, message, status, created_at")
+      .eq("lobby_id", lobbyId)
+      .order("created_at", { ascending: true }),
+    // The leader's own pending invitations and the ones addressed to the
+    // viewer, nobody else's.
+    supabase
+      .from("lobby_invites")
+      .select("id, invitee_id, inviter_id, created_at")
+      .eq("lobby_id", lobbyId)
+      .eq("status", "pending")
+      .order("created_at", { ascending: true }),
+  ]);
+  const voiceUrl = (voice.data as string | null) ?? null;
+  const applications = (applicationResult.data ?? []) as Array<{
     id: string;
     applicant_id: string;
     role_id: number | null;
@@ -574,16 +571,7 @@ export async function fetchLobbyDetail(
     status: LobbyApplicationView["status"];
     created_at: string;
   }>;
-
-  // Pending invitations: the database returns the leader's own and the ones
-  // addressed to the viewer, nobody else's.
-  const { data: inviteRows } = await supabase
-    .from("lobby_invites")
-    .select("id, invitee_id, inviter_id, created_at")
-    .eq("lobby_id", lobbyId)
-    .eq("status", "pending")
-    .order("created_at", { ascending: true });
-  const invites = (inviteRows ?? []) as Array<{
+  const invites = (inviteResult.data ?? []) as Array<{
     id: string;
     invitee_id: string;
     inviter_id: string;
@@ -686,6 +674,8 @@ export interface MyLobby {
   game: string;
   cover: string;
   mode: LfgMode;
+  /** The mode's own name, for the badge. */
+  modeLabel?: string;
   /** Recruiting, playing, or waiting for its start time. */
   status: "live" | "started" | "scheduled";
   region: string;
@@ -704,134 +694,126 @@ export interface MyLobbies {
   scheduled: MyLobby[];
 }
 
+const OPEN_STATUSES = ["live", "started", "scheduled"];
+const PLAYING_STATUSES = ["live", "started"];
+
+interface MyLobbyRow {
+  id: string;
+  leader_id: string;
+  name: string;
+  region: string;
+  capacity: number;
+  status: MyLobby["status"];
+  starts_at: string | null;
+  cover: string | null;
+  games: { slug: string } | null;
+  game_modes: { kind: LfgMode; label: string } | null;
+  leader: { id: string; username: string; avatar_path: string | null } | null;
+  applications: {
+    applicant_id: string;
+    status: string;
+    decided_at: string | null;
+    applicant: { id: string; username: string; avatar_path: string | null } | null;
+  }[];
+}
+
+const MY_LOBBY_SELECT =
+  "id, leader_id, name, region, capacity, status, starts_at, cover, games(slug), game_modes(kind, label), leader:profiles!lobbies_leader_id_fkey(id, username, avatar_path), applications(applicant_id, status, decided_at, applicant:profiles!applications_applicant_id_fkey(id, username, avatar_path))";
+
+/**
+ * Lobbies the player leads, and lobbies they were accepted into. A member is
+ * an accepted application, so the second set comes through the applications
+ * table.
+ */
+async function queryMyLobbies<T>(
+  supabase: SupabaseClient,
+  userId: string,
+  select: string,
+  statuses: string[],
+): Promise<T[]> {
+  const [led, joined] = await Promise.all([
+    supabase.from("lobbies").select(select).eq("leader_id", userId).in("status", statuses),
+    supabase
+      .from("applications")
+      .select(`lobbies!inner(${select})`)
+      .eq("applicant_id", userId)
+      .eq("status", "accepted")
+      .in("lobbies.status", statuses),
+  ]);
+  const joinedLobbies = ((joined.data ?? []) as unknown as { lobbies: T }[]).map(
+    (row) => row.lobbies,
+  );
+  return [...((led.data ?? []) as unknown as T[]), ...joinedLobbies];
+}
+
 /** Just enough for the navbar: where "back to my lobby" goes. */
 export async function fetchMyCurrentLobby(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<{ id: string; name: string; game: string } | null> {
-  const { data: mine } = await supabase
-    .from("lobby_members")
-    .select("lobby_id")
-    .eq("user_id", userId);
-  const ids = (mine ?? []).map((row) => row.lobby_id as string);
-  if (ids.length === 0) return null;
+  const [lobby] = await queryMyLobbies<{
+    id: string;
+    name: string;
+    games: { slug: string } | null;
+  }>(supabase, userId, "id, name, games(slug)", PLAYING_STATUSES);
+  return lobby?.games ? { id: lobby.id, name: lobby.name, game: lobby.games.slug } : null;
+}
 
-  const { data } = await supabase
-    .from("lobbies")
-    .select("id, name, games(slug)")
-    .in("id", ids)
-    .in("status", ["live", "started"])
-    .limit(1);
-  const row = (data ?? [])[0] as
-    | { id: string; name: string; games: { slug: string } | { slug: string }[] | null }
-    | undefined;
-  const game = Array.isArray(row?.games) ? row?.games[0] : row?.games;
-  return row && game ? { id: row.id, name: row.name, game: game.slug } : null;
+function toMyLobby(row: MyLobbyRow, userId: string): MyLobby {
+  const slug = row.games?.slug ?? "";
+  const isLeader = row.leader_id === userId;
+  const joined = row.applications
+    .filter((application) => application.status === "accepted")
+    .sort((a, b) => (a.decided_at ?? "").localeCompare(b.decided_at ?? ""))
+    .flatMap((application) => (application.applicant ? [application.applicant] : []));
+  const people = row.leader ? [row.leader, ...joined] : joined;
+
+  return {
+    id: row.id,
+    name: row.name,
+    game: slug,
+    cover: coverSrc(slug, row.cover),
+    mode: row.game_modes?.kind ?? "casual",
+    modeLabel: row.game_modes?.label,
+    status: row.status,
+    region: row.region,
+    slotsTotal: row.capacity,
+    members: people.map((person) => ({
+      id: person.id,
+      name: person.username,
+      avatar: avatarUrl(person.avatar_path),
+    })),
+    isLeader,
+    pendingRequests: isLeader
+      ? row.applications.filter((application) => application.status === "pending").length
+      : 0,
+    scheduledFor:
+      row.status === "scheduled" && row.starts_at ? startLabel(row.starts_at) : undefined,
+  };
 }
 
 /**
- * Every open lobby the player is in, for the "Your lobby" banner. The roster
- * comes from `lobby_members` (leader plus accepted), so a lobby you applied to
- * but were not accepted into is not here.
+ * Every open lobby the player is in, for the "Your lobby" banner. A lobby you
+ * applied to but weren't accepted into is not here.
  */
 export async function fetchMyLobbies(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<MyLobbies> {
-  const none: MyLobbies = { current: null, scheduled: [] };
-  await supabase.rpc("expire_stale_lobbies");
-
-  const { data: mine } = await supabase
-    .from("lobby_members")
-    .select("lobby_id")
-    .eq("user_id", userId);
-  const ids = (mine ?? []).map((row) => row.lobby_id as string);
-  if (ids.length === 0) return none;
-
-  const { data: lobbyRows } = await supabase
-    .from("lobbies")
-    .select(
-      "id, leader_id, mode_id, name, region, capacity, status, starts_at, cover, game_id, games(slug)",
-    )
-    .in("id", ids)
-    .in("status", ["live", "started", "scheduled"]);
-  const lobbies = (lobbyRows ?? []) as unknown as Array<{
-    id: string;
-    leader_id: string;
-    mode_id: number;
-    name: string;
-    region: string;
-    capacity: number;
-    status: MyLobby["status"];
-    starts_at: string | null;
-    cover: string | null;
-    games: { slug: string } | { slug: string }[] | null;
-  }>;
-  if (lobbies.length === 0) return none;
-
-  const lobbyIds = lobbies.map((lobby) => lobby.id);
-  const ledIds = lobbies.filter((lobby) => lobby.leader_id === userId).map((lobby) => lobby.id);
-
-  const [{ data: roster }, { data: modes }, { data: pendingRows }] = await Promise.all([
-    supabase.from("lobby_members").select("lobby_id, user_id, is_leader").in("lobby_id", lobbyIds),
-    supabase
-      .from("game_modes")
-      .select("id, kind")
-      .in("id", [...new Set(lobbies.map((lobby) => lobby.mode_id))]),
-    ledIds.length > 0
-      ? supabase
-          .from("applications")
-          .select("lobby_id")
-          .in("lobby_id", ledIds)
-          .eq("status", "pending")
-      : Promise.resolve({ data: [] as Array<{ lobby_id: string }> }),
-  ]);
-
-  const memberRows = (roster ?? []) as Array<{ lobby_id: string; user_id: string; is_leader: boolean }>;
-  const { data: profileRows } = await supabase
-    .from("profiles")
-    .select("id, username, avatar_path")
-    .in("id", [...new Set(memberRows.map((member) => member.user_id))]);
-  const profiles = new Map(
-    ((profileRows ?? []) as Array<{ id: string; username: string; avatar_path: string | null }>).map(
-      (profile) => [profile.id, profile],
-    ),
-  );
-  const kindOf = new Map(
-    ((modes ?? []) as Array<{ id: number; kind: LfgMode }>).map((mode) => [mode.id, mode.kind]),
+  await expireStaleLobbies(supabase);
+  const rows = await queryMyLobbies<MyLobbyRow>(
+    supabase,
+    userId,
+    MY_LOBBY_SELECT,
+    OPEN_STATUSES,
   );
 
-  // Soonest first, by the real start time (the label is only for display).
-  lobbies.sort((a, b) => (a.starts_at ?? "").localeCompare(b.starts_at ?? ""));
-
-  const shaped = lobbies.map((lobby): MyLobby => {
-    const game = Array.isArray(lobby.games) ? lobby.games[0] : lobby.games;
-    const slug = game?.slug ?? "";
-    return {
-      id: lobby.id,
-      name: lobby.name,
-      game: slug,
-      cover: coverSrc(slug, lobby.cover),
-      mode: kindOf.get(lobby.mode_id) ?? "casual",
-      status: lobby.status,
-      region: lobby.region,
-      slotsTotal: lobby.capacity,
-      members: memberRows
-        .filter((member) => member.lobby_id === lobby.id)
-        .sort((a, b) => Number(b.is_leader) - Number(a.is_leader))
-        .map((member) => {
-          const profile = profiles.get(member.user_id);
-          return { id: member.user_id, name: profile?.username, avatar: avatarUrl(profile?.avatar_path) };
-        }),
-      isLeader: lobby.leader_id === userId,
-      pendingRequests: (pendingRows ?? []).filter((row) => row.lobby_id === lobby.id).length,
-      scheduledFor:
-        lobby.status === "scheduled" && lobby.starts_at ? startLabel(lobby.starts_at) : undefined,
-    };
-  });
+  const lobbies = rows
+    .sort((a, b) => (a.starts_at ?? "").localeCompare(b.starts_at ?? ""))
+    .map((row) => toMyLobby(row, userId));
 
   return {
-    current: shaped.find((lobby) => lobby.status !== "scheduled") ?? null,
-    scheduled: shaped.filter((lobby) => lobby.status === "scheduled"),
+    current: lobbies.find((lobby) => lobby.status !== "scheduled") ?? null,
+    scheduled: lobbies.filter((lobby) => lobby.status === "scheduled"),
   };
 }

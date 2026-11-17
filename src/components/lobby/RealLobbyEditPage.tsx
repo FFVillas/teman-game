@@ -3,7 +3,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import CreateTeamForm from "@/components/lfg/CreateTeamForm";
 import { withNext } from "@/lib/auth-redirect";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUserId } from "@/lib/supabase/server";
 import { fetchGameCatalog, fetchMyRankName } from "@/lib/games";
 import { fetchLobbyDetail, isLobbyId } from "@/lib/lobbies";
 
@@ -24,16 +24,17 @@ export default async function RealLobbyEditPage({
   const supabase = await createClient();
   const lobbyHref = `/lfg/${slug}/lobby/${id}`;
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect(withNext("/login", `${lobbyHref}/edit`));
+  const userId = await getUserId();
+  if (!userId) redirect(withNext("/login", `${lobbyHref}/edit`));
 
   const catalog = await fetchGameCatalog(supabase);
   const game = catalog.find((entry) => entry.slug === slug);
   if (!game) notFound();
 
-  const data = await fetchLobbyDetail(supabase, game, id, user.id);
+  const [data, leaderRank] = await Promise.all([
+    fetchLobbyDetail(supabase, game, id, userId),
+    fetchMyRankName(supabase, catalog, slug, userId),
+  ]);
   if (!data) notFound();
   const { team, voiceUrl } = data;
   if (team.viewerState !== "leader" || team.closed || team.modeId === undefined) {
@@ -49,7 +50,7 @@ export default async function RealLobbyEditPage({
             gameSlug={slug}
             gameName={game.name}
             game={game}
-            leaderRank={await fetchMyRankName(supabase, catalog, slug)}
+            leaderRank={leaderRank}
             edit={{
               lobbyId: team.id,
               status: team.started ? "started" : team.status.isLive ? "live" : "scheduled",

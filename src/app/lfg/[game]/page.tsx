@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Navbar from "@/components/Navbar";
+import LiveRefresh from "@/components/LiveRefresh";
 import Footer from "@/components/Footer";
 import LfgHero from "@/components/lfg/LfgHero";
 import LfgSearchBar from "@/components/lfg/LfgSearchBar";
@@ -9,7 +10,7 @@ import LfgTeamGrid from "@/components/lfg/LfgTeamGrid";
 import ActiveLobbyBanner from "@/components/lfg/ActiveLobbyBanner";
 import { gameBySlug } from "@/data/games";
 import { navLinkFor } from "@/data/nav-links";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUserId } from "@/lib/supabase/server";
 import { fetchGameCatalog, fetchMyRankName } from "@/lib/games";
 import { fetchLobbyTeams, fetchMyLobbies } from "@/lib/lobbies";
 
@@ -42,20 +43,28 @@ export default async function LfgGamePage({ params }: LfgGamePageProps) {
   if (!meta) notFound();
 
   const supabase = await createClient();
-  const catalog = await fetchGameCatalog(supabase);
+  const [catalog, userId] = await Promise.all([fetchGameCatalog(supabase), getUserId()]);
   const game = catalog.find((g) => g.slug === slug);
-  const myRank = await fetchMyRankName(supabase, catalog, slug);
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const teams = game
-    ? await fetchLobbyTeams(supabase, game, { viewerId: user?.id ?? null })
-    : [];
-  const mine = user ? await fetchMyLobbies(supabase, user.id) : null;
+  const [teams, mine, myRank] = await Promise.all([
+    game ? fetchLobbyTeams(supabase, game, { viewerId: userId }) : [],
+    userId ? fetchMyLobbies(supabase, userId) : null,
+    fetchMyRankName(supabase, catalog, slug, userId),
+  ]);
 
   return (
     <>
       <Navbar />
+      {/* The list, its slot counts and "Your lobby" change as people post,
+          join and leave, so the page re-reads itself when they do. */}
+      {game && (
+        <LiveRefresh
+          enabled={Boolean(userId)}
+          subscriptions={[
+            { table: "lobbies", filter: `game_id=eq.${game.id}` },
+            { table: "applications", filter: `game_id=eq.${game.id}` },
+          ]}
+        />
+      )}
       <main className="flex flex-1 flex-col">
         <div className="mx-auto flex w-full max-w-[1000px] flex-col gap-4 px-6 py-12">
           <LfgHero
@@ -75,7 +84,6 @@ export default async function LfgGamePage({ params }: LfgGamePageProps) {
 
           <LfgTeamGrid
             teams={teams}
-            gameSlug={slug}
             gameName={meta.name}
             game={game}
             myRank={myRank}

@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
@@ -33,3 +34,15 @@ export async function createClient() {
     },
   );
 }
+
+/**
+ * The signed-in user's id, or null. The token's signature and expiry are
+ * checked locally against the project's public key, so this costs no round
+ * trip to Supabase, and it is computed once per request however many
+ * components ask. Use it to scope queries; RLS is what actually protects data.
+ */
+export const getUserId = cache(async (): Promise<string | null> => {
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getClaims();
+  return data?.claims.sub ?? null;
+});

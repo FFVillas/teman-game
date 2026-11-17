@@ -11,6 +11,7 @@ import {
   type AppNotification,
 } from "@/data/notifications";
 import { EmptyState } from "@/components/EmptyState";
+import UserAvatar from "@/components/UserAvatar";
 import { respondToApplication, respondToInvite } from "@/lib/lobbies";
 import { createClient } from "@/lib/supabase/client";
 
@@ -125,12 +126,15 @@ export function Row({ notification }: { notification: AppNotification }) {
   const inner = (
     <>
       <div className="shrink-0">
-        {notification.actorAvatar ? (
-          // eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization
-          <img
+        {/* Anything from a person shows that person: their picture, or their
+            initial when they haven't uploaded one. Only events with nobody
+            behind them (rating due…) fall back to the kind icon. */}
+        {notification.actorName ? (
+          <UserAvatar
             src={notification.actorAvatar}
-            alt=""
-            className="size-10 rounded-full object-cover"
+            name={notification.actorName}
+            className="size-10"
+            textClassName="text-sm"
           />
         ) : (
           <div

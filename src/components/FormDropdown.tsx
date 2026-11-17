@@ -174,9 +174,9 @@ export default function FormDropdown({
           className={`flex min-w-0 items-center gap-2 ${selected ? "text-white" : "text-text-muted"}`}
         >
           {selected?.icon && (
-            // eslint-disable-next-line @next/next/no-img-element -- badge art, no benefit from next/image optimization
             // No taller than the text's line, so picking a rank with a badge
             // doesn't make this field taller than the one beside it.
+            // eslint-disable-next-line @next/next/no-img-element -- badge art, no benefit from next/image optimization
             <img
               src={selected.icon}
               alt=""

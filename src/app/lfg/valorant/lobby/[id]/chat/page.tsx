@@ -6,15 +6,9 @@ import RealLobbyChatPage from "@/components/lobby/RealLobbyChatPage";
 import { isLobbyId } from "@/lib/lobbies";
 import {
   CURRENT_PLAYER_ID,
-  allLobbies,
   lobbyById,
   viewerRoleIn,
 } from "@/data/lfg-lobby";
-
-// Every lobby gets a chat page automatically — no separate "create chat" step.
-export function generateStaticParams() {
-  return allLobbies.map((lobby) => ({ id: lobby.id }));
-}
 
 export async function generateMetadata({
   params,

@@ -172,11 +172,16 @@ export function GenderField({
 export function LanguagesField({
   languages,
   onChange,
+  max = MAX_LANGUAGES,
+  size = "sm",
 }: {
   languages: string[];
   onChange: (languages: string[]) => void;
+  /** How many can be picked (a lobby takes up to 4). */
+  max?: number;
+  size?: "sm" | "md";
 }) {
-  const isFull = languages.length >= MAX_LANGUAGES;
+  const isFull = languages.length >= max;
 
   return (
     <>
@@ -203,8 +208,9 @@ export function LanguagesField({
         </div>
       )}
       <FormDropdown
+        size={size}
         label="Add a language"
-        placeholder={isFull ? `Up to ${MAX_LANGUAGES} languages` : "Add a language…"}
+        placeholder={isFull ? `Up to ${max} languages` : "Add a language…"}
         allowEmpty={false}
         disabled={isFull}
         value=""
