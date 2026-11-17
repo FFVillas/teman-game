@@ -19,8 +19,8 @@ export async function generateMetadata({
 
   return game
     ? {
-        title: "Create a Team — TemanGame",
-        description: `Recruit the perfect squad for your next ${game.name} match.`,
+        title: "Create a Lobby — TemanGame",
+        description: `Set up a lobby for your next ${game.name} match and choose who joins.`,
       }
     : { title: "Game Not Found — TemanGame" };
 }

@@ -13,12 +13,12 @@ export interface SocialLink {
 }
 
 export const footerGameLinks: FooterLink[] = [
-  { label: "League of Legends", href: "#" },
-  { label: "Valorant", href: "#" },
-  { label: "CSGO 2", href: "#" },
-  { label: "Moible Legends: Ba..", href: "#" },
-  { label: "Free Fire", href: "#" },
-  { label: "PUBG: BATTLEGRO..", href: "#" },
+  { label: "League of Legends", href: "/lfg/league-of-legends" },
+  { label: "Valorant", href: "/lfg/valorant" },
+  { label: "Counter-Strike 2", href: "/lfg/counter-strike-2" },
+  { label: "Mobile Legends", href: "/lfg/mobile-legends" },
+  { label: "Free Fire", href: "/lfg/free-fire" },
+  { label: "PUBG Mobile", href: "/lfg/pubg-mobile" },
 ];
 
 export const footerCompanyLinks: FooterLink[] = [

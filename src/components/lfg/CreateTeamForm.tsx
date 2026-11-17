@@ -457,20 +457,20 @@ export default function CreateTeamForm({
       <div className="overflow-hidden rounded-2xl border border-border-strong bg-bg-card-alt">
         <div className="flex flex-col gap-2 px-6 pb-6 pt-8 sm:px-10 sm:pt-10">
           <h1 className="text-2xl font-bold text-white sm:text-3xl">
-            {edit ? "Edit your lobby" : "Create a Team"}
+            {edit ? "Edit your lobby" : "Create a Lobby"}
           </h1>
           <p className="text-sm text-text-muted">
             {edit
               ? lockRest
                 ? "This lobby is playing, so its group size, rank range, roles and playtime are locked. The rest can still change."
                 : "The game mode can't change once a lobby exists. Everything else can."
-              : `Recruit the perfect squad for your next ${gameName} match.`}
+              : `Set up a lobby for your next ${gameName} match and choose who joins.`}
           </p>
         </div>
 
         <div className="flex flex-col gap-8 px-6 pb-8 sm:px-10 lg:flex-row">
           <div className="flex flex-1 flex-col gap-6">
-            <FormField label="Team Name">
+            <FormField label="Lobby Name">
               <input
                 value={teamName}
                 onChange={(event) => setTeamName(event.target.value)}
@@ -481,7 +481,7 @@ export default function CreateTeamForm({
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Lockable locked={lockMode}>
-                <FormField label="Gamemode Selection">
+                <FormField label="Game Mode">
                   <SelectField
                     value={modeLabel}
                     onChange={setModeLabel}
@@ -550,7 +550,7 @@ export default function CreateTeamForm({
               <textarea
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
-                placeholder="Describe your team goals, playstyle, and what you're looking for..."
+                placeholder="Describe your goals, how you play, and who you're looking for..."
                 rows={5}
                 className={`${inputClass} h-[140px] resize-none`}
               />
@@ -979,7 +979,7 @@ export default function CreateTeamForm({
               disabled={submitting}
               className="rounded-lg bg-brand px-6 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {submitting ? (edit ? "Saving…" : "Creating…") : edit ? "Save changes" : "Create Team"}
+              {submitting ? (edit ? "Saving…" : "Creating…") : edit ? "Save changes" : "Create Lobby"}
             </button>
           </div>
         </div>

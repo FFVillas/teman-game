@@ -9,6 +9,10 @@ export interface LfgMember {
   /** Empty when the player has no picture; render an initial instead. */
   avatar: string;
   name?: string;
+  /** Star average shown to players (Persamaan 3.12); null before any rating. Real lobbies only. */
+  rating?: number | null;
+  /** Rated by fewer than five different players. Real lobbies only. */
+  isNew?: boolean;
 }
 
 export interface LfgTeam {
@@ -68,6 +72,8 @@ export interface LfgTeam {
   leaderPlaystyle?: number | null;
   /** R* (Persamaan 3.10) of everyone in the lobby, for R_lobi (3.4). */
   memberReputations?: number[];
+  /** The leader is under an active suspension: kept out of recommendations. */
+  leaderSuspended?: boolean;
   /** Set B in Persamaan 3.14 — tag ids, at most three. Real lobbies only. */
   wantedTagIds?: number[];
 }

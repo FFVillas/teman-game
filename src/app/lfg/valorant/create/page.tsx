@@ -6,8 +6,8 @@ import { createClient, getUserId } from "@/lib/supabase/server";
 import { fetchGameCatalog, fetchMyRankName } from "@/lib/games";
 
 export const metadata: Metadata = {
-  title: "Create a Team — TemanGame",
-  description: "Recruit the perfect squad for your next Valorant match.",
+  title: "Create a Lobby — TemanGame",
+  description: "Set up a lobby for your next Valorant match and choose who joins.",
 };
 
 export default async function CreateTeamPage() {

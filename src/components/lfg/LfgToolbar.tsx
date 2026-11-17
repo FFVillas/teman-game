@@ -16,12 +16,12 @@ export default function LfgToolbar({ gameSlug, resultCount, filters }: LfgToolba
         href={`/lfg/${gameSlug}/create`}
         className="flex h-[34px] shrink-0 items-center justify-center rounded-lg bg-brand px-[14px] text-[12px] font-bold text-white transition-opacity hover:opacity-90"
       >
-        + Create Team
+        + Create Lobby
       </Link>
 
       <div className="flex items-center gap-2.5">
         <h2 className="text-lg font-bold text-white">
-          {filters.sort === "recommended" ? "Recommended Teams" : "Teams"}
+          {filters.sort === "recommended" ? "Recommended Lobbies" : "Lobbies"}
         </h2>
         <span className="rounded-md bg-brand/10 px-2 py-1 text-xs font-bold text-brand">
           {resultCount} Available

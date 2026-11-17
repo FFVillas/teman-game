@@ -247,7 +247,7 @@ export default function SettingsView({ email }: { email: string }) {
 
           <Card
             title="Notifications"
-            description="Join requests, invites and reviews always arrive in the app. Choosing which ones reach you by push comes with the PWA work — nothing to set yet."
+            description="Join requests, invites and friend requests always arrive in the app. Choosing which ones also reach your phone comes later, with push notifications."
           >
             <Link
               href="/notifications"

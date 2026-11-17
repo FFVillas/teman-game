@@ -22,7 +22,7 @@ interface LfgGamePageProps {
 }
 
 const description =
-  "Browse available lobbies and teams looking for players. Filter by rank, mode, and region to find your perfect match.";
+  "Browse open lobbies looking for players. Filter by rank, role, region and mode; the ones that fit how you play come first.";
 
 export async function generateMetadata({
   params,

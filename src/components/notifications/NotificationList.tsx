@@ -240,7 +240,7 @@ export default function NotificationList() {
     all: {
       title: "Nothing here yet",
       description:
-        "Join requests, lobby invites, reviews and moderation updates land on this page.",
+        "Join requests, lobby invites, friend requests and answers to your applications land on this page.",
     },
     unread: {
       title: "You're all caught up",

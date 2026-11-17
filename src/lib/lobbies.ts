@@ -6,6 +6,7 @@ import { rankIconFor } from "@/data/rank-icons";
 import { roleIconFor } from "@/data/role-icons";
 import { avatarUrl } from "@/lib/avatar";
 import type { GameInfo } from "@/lib/games";
+import { isNewPlayer } from "@/lib/reputation";
 
 /**
  * Lobbies, applications and the functions that change them
@@ -205,6 +206,12 @@ interface PersonRow {
   playstyle: number | null;
   /** R* in stars (Persamaan 3.10); 3 for someone nobody has rated. */
   reputation_bayes: number | string;
+  /** The plain average players see (Persamaan 3.12). */
+  reputation_score: number | string;
+  review_count: number;
+  /** Computed columns (20261118000200_reputation_display.sql). */
+  rater_count: number;
+  is_suspended: boolean;
   user_game_mapping: { game_id: number; rank_id: number | null }[];
 }
 
@@ -240,7 +247,7 @@ interface LobbyRow {
 }
 
 const PERSON =
-  "id, username, avatar_path, playstyle, reputation_bayes, user_game_mapping(game_id, rank_id)";
+  "id, username, avatar_path, playstyle, reputation_bayes, reputation_score, review_count, rater_count, is_suspended, user_game_mapping(game_id, rank_id)";
 
 /**
  * A lobby with everything a card needs in one request: its roles, its leader
@@ -320,7 +327,10 @@ function toTeam(row: LobbyRow, game: GameInfo, viewerId?: string | null): LfgTea
       id: person.id,
       name: person.username,
       avatar: avatarUrl(person.avatar_path),
+      rating: person.review_count > 0 ? Number(person.reputation_score) : null,
+      isNew: isNewPlayer(person.rater_count),
     })),
+    leaderSuspended: Boolean(row.leader?.is_suspended),
     slotsFilled: people.length,
     slotsTotal: row.capacity,
     leaderId: row.leader_id,

@@ -27,7 +27,7 @@ export const howItWorks: Step[] = [
   {
     title: "Find a lobby",
     description:
-      "Browse open lobbies for your game, filtered by rank, role, region and when you're free to play.",
+      "Browse open lobbies for your game, filtered by rank, role, region and mode.",
   },
   {
     title: "Apply for your role",
@@ -56,7 +56,7 @@ export const valuePoints: ValuePoint[] = [
     iconHeight: 20,
     title: "Filter by what matters",
     description:
-      "Rank, role, region and playstyle — so you end up with people who want the same kind of game you do.",
+      "Filter by rank, role and region; lobbies that play the way you do come first.",
   },
   {
     icon: "/icons/feature-verified.svg",

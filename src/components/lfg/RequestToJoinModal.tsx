@@ -175,7 +175,7 @@ export default function RequestToJoinModal({
                 </h1>
                 {!team.viewerState && (
                   <p className="text-[11px] text-text-muted sm:text-xs">
-                    Introduce yourself to the team leader and select your
+                    Introduce yourself to the lobby leader and select your
                     preferred role for this session.
                   </p>
                 )}
@@ -320,10 +320,10 @@ export default function RequestToJoinModal({
 
                 <div className="flex flex-col gap-3 p-4">
                   <div className="flex flex-col gap-0.5">
-                    <h3 className="text-base font-bold text-white">
+                    <h3 className="text-lg font-bold text-white">
                       {team.name}
                     </h3>
-                    <div className="flex items-center gap-1.5 text-[11px] text-text-muted">
+                    <div className="flex items-center gap-1.5 text-xs text-text-muted">
                       {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
                       <img
                         src="/icons/lfg-region.svg"
@@ -336,7 +336,7 @@ export default function RequestToJoinModal({
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <h4 className="text-[9px] font-bold uppercase tracking-wide text-text-muted">
+                    <h4 className="text-[10px] font-bold uppercase tracking-wide text-text-muted">
                       Lobby Leader
                     </h4>
                     <div className="flex items-center gap-2">
@@ -345,26 +345,26 @@ export default function RequestToJoinModal({
                           <PlayerAvatar
                             src={leaderAvatar}
                             name={team.leaderName}
-                            className="size-8 border border-brand transition-opacity hover:opacity-80"
+                            className="size-9 border border-brand transition-opacity hover:opacity-80"
                           />
                         </Link>
                       ) : (
                         <PlayerAvatar
                           src={leaderAvatar}
                           name={team.leaderName}
-                          className="size-8 border border-brand"
+                          className="size-9 border border-brand"
                         />
                       )}
                       <div className="flex flex-col">
                         {leaderSlug ? (
                           <Link
                             href={`/profile/${leaderSlug}`}
-                            className="text-xs font-bold text-white hover:text-brand hover:underline"
+                            className="text-sm font-bold text-white hover:text-brand hover:underline"
                           >
                             {team.leaderName}
                           </Link>
                         ) : (
-                          <span className="text-xs font-bold text-white">
+                          <span className="text-sm font-bold text-white">
                             {team.leaderName}
                           </span>
                         )}
@@ -374,11 +374,11 @@ export default function RequestToJoinModal({
                             <img
                               src={team.rank.icon}
                               alt=""
-                              className="size-3"
+                              className="size-3.5"
                             />
                           )}
                           <span
-                            className={`text-[9px] font-bold ${team.rank.colorClass}`}
+                            className={`text-[11px] font-bold ${team.rank.colorClass}`}
                           >
                             {team.rank.name}
                           </span>
@@ -389,10 +389,10 @@ export default function RequestToJoinModal({
 
                   <div className="flex flex-col gap-1.5">
                     <div className="flex items-center justify-between">
-                      <h4 className="text-[9px] font-bold uppercase tracking-wide text-text-muted">
+                      <h4 className="text-[10px] font-bold uppercase tracking-wide text-text-muted">
                         Current Members
                       </h4>
-                      <span className="text-[11px] font-bold text-white">
+                      <span className="text-xs font-bold text-white">
                         {team.slotsFilled}/{team.slotsTotal}
                       </span>
                     </div>
@@ -403,13 +403,13 @@ export default function RequestToJoinModal({
                           src={member.avatar}
                           name={member.name}
                           style={{ zIndex: team.members.length - index }}
-                          className="-ml-2 size-7 border-2 border-bg-card-alt first:ml-0"
+                          className="-ml-2 size-8 border-2 border-bg-card-alt text-xs first:ml-0"
                         />
                       ))}
                       {Array.from({ length: emptySlots }).map((_, index) => (
                         <div
                           key={index}
-                          className="-ml-2 flex size-7 items-center justify-center rounded-full border-2 border-bg-card-alt bg-[#272c33]"
+                          className="-ml-2 flex size-8 items-center justify-center rounded-full border-2 border-bg-card-alt bg-[#272c33]"
                         >
                           {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
                           <img
@@ -423,12 +423,12 @@ export default function RequestToJoinModal({
                   </div>
 
                   <div className="flex flex-col gap-1.5 border-t border-white/5 pt-3">
-                    <h4 className="text-[9px] font-bold uppercase tracking-wide text-text-muted">
+                    <h4 className="text-[10px] font-bold uppercase tracking-wide text-text-muted">
                       Lobby Requirements
                     </h4>
                     <div className="flex flex-wrap gap-1.5">
                       {team.micRequired && (
-                        <span className="flex items-center gap-1 rounded-full bg-[#10b981]/10 px-2 py-0.5 text-[9px] font-semibold text-[#10b981]">
+                        <span className="flex items-center gap-1 rounded-full bg-[#10b981]/10 px-2.5 py-1 text-[11px] font-semibold text-[#10b981]">
                           {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
                           <img
                             src="/icons/lfg-mic.svg"
@@ -438,12 +438,11 @@ export default function RequestToJoinModal({
                           Mic Required
                         </span>
                       )}
-                      <span className="rounded-full bg-brand/10 px-2 py-0.5">
+                      <span className="rounded-full bg-brand/10 px-2.5 py-1">
                         <RankRangeBadge
                           range={team.rankRange}
                           ranks={game?.ranks}
                           gameSlug={team.game}
-                          size="sm"
                         />
                       </span>
                     </div>
@@ -451,9 +450,9 @@ export default function RequestToJoinModal({
                 </div>
               </div>
 
-              <div className="rounded-xl border border-dashed border-white/10 p-3 text-center text-[10px] leading-[15px] text-text-muted">
-                Lobby leaders usually respond within 5-10 minutes. You will
-                receive a notification if your request is accepted.
+              <div className="rounded-xl border border-dashed border-white/10 p-3 text-center text-[11px] leading-4 text-text-muted">
+                You&apos;ll get a notification when the leader accepts or
+                declines your request.
               </div>
             </aside>
           </div>

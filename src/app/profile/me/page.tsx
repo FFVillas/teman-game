@@ -4,7 +4,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import PlayerProfileView from "@/components/profile/PlayerProfileView";
 import { createClient, getUserId } from "@/lib/supabase/server";
-import { fetchProfileById, profileFromRow } from "@/lib/profiles";
+import { fetchProfileById, fetchSanctionHistory, profileFromRow } from "@/lib/profiles";
 import { withNext } from "@/lib/auth-redirect";
 import { fetchGameCatalog, fetchPlayerGames } from "@/lib/games";
 import { fetchPlayerMatches } from "@/lib/matches";
@@ -19,15 +19,16 @@ export default async function MyProfilePage() {
   if (!userId) redirect(withNext("/login", "/profile/me"));
 
   const catalog = await fetchGameCatalog(supabase);
-  const [row, gameSetups, matches] = await Promise.all([
+  const [row, gameSetups, matches, sanctions] = await Promise.all([
     fetchProfileById(supabase, userId),
     fetchPlayerGames(supabase, userId),
     fetchPlayerMatches(supabase, catalog, userId, userId),
+    fetchSanctionHistory(supabase, userId),
   ]);
   // Staff accounts live in `admins`, not `profiles`, so there's no row.
   if (!row) notFound();
 
-  const profile = profileFromRow(row, { isOwner: true, gameSetups });
+  const profile = profileFromRow(row, { isOwner: true, gameSetups, sanctions });
 
   return (
     <>

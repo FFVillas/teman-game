@@ -22,18 +22,26 @@
 --     already in another lobby, which shows the "already in a live lobby"
 --     error on accept). With no open lobby, a small scheduled one is made.
 --
--- REPUTATION is written straight onto profiles (`reputation_bayes` = R*,
--- `reputation_score` and `review_count` for display). There are no review
--- rows behind it: real R* comes from `submit_review` and
--- `recompute_reputation`, which only touch players who have reviews.
+-- REPUTATION comes from real rating rows: other demo players of the same game
+-- rate each player in "Earlier demo match" lobbies (completed, no roster,
+-- never listed), and `recompute_reputation` then works out R*, the displayed
+-- average and the counts exactly as it does for real ratings. A player asked
+-- for fewer than five ratings stays a "New player".
 --
 -- WHO SEES IT: everyone who uses this same database, including teammates. The
 -- names are obviously fake on purpose. Run cleanup.sql when you are done.
 --
--- Written against the migrations up to 20261117000000 (thesis table names,
--- `tag` / `user_tag`, `lobby_tag`, `lobby.playstyle`).
+-- Written against the migrations up to 20261118000200 (thesis table names,
+-- `tag` / `user_tag`, `lobby_tag`, `lobby.playstyle`, `reviews`).
 
 -- ── helpers (temporary: they vanish when the session ends) ─────────────
+
+-- Who gets how many ratings, filled in as players are made, applied at the end
+-- once every rater exists.
+create temporary table if not exists seed_ratings (
+  name text, game text, stars numeric, reviews integer
+);
+truncate seed_ratings;
 
 -- The rank at a point on a game's ladder: 0 is the lowest, 1 the highest.
 -- Positions instead of names, so one call works for every game's ladder.
@@ -76,14 +84,14 @@ begin
     '{"provider":"email","providers":["email"]}'::jsonb, now(), now()
   );
 
-  -- An unrated player keeps the prior: R* = m = 3 (Persamaan 3.10 with no data).
   update public.profiles
   set playstyle = p_playstyle,
-      languages = array['Indonesian', 'English'],
-      reputation_bayes = case when p_reviews > 0 then p_stars else 3 end,
-      reputation_score = case when p_reviews > 0 then p_stars else 0 end,
-      review_count = p_reviews
+      languages = array['Indonesian', 'English']
   where id = v_id;
+
+  if p_reviews > 0 then
+    insert into seed_ratings values (p_name, p_game, p_stars, p_reviews);
+  end if;
 
   insert into public.user_tag (user_id, tag_id)
   select v_id, t.id from public.tag t where t.name = any (p_tags);
@@ -154,6 +162,73 @@ begin
 end;
 $$;
 
+-- A finished lobby to hang demo ratings on (a rating needs a lobby). It has
+-- no roster, so it never shows in anyone's match history or the lobby list.
+create or replace function pg_temp.history_lobby(p_game smallint, p_leader uuid)
+returns uuid
+language plpgsql
+as $$
+declare
+  v_id uuid;
+begin
+  insert into public.lobby (
+    leader_id, game_id, mode_id, name, region, languages, mic_required, tags,
+    capacity, status, started_at, closed_at, created_at
+  )
+  select p_leader, p_game,
+    (select id from public.game_modes where game_id = p_game order by id limit 1),
+    'Earlier demo match',
+    (select region from public.user_game_mapping where user_id = p_leader and game_id = p_game),
+    array['English'], false, array[]::text[], 5, 'completed',
+    now() - interval '3 hours', now() - interval '2 hours', now() - interval '4 hours'
+  returning id into v_id;
+  return v_id;
+end;
+$$;
+
+-- `p_count` ratings averaging `p_stars`, each from a different demo player of
+-- the same game where possible (one rating per rater per lobby, so a new lobby
+-- starts each time the raters run out). Then the real recompute.
+create or replace function pg_temp.rate(p_name text, p_game text, p_stars numeric, p_count integer)
+returns void
+language plpgsql
+as $$
+declare
+  v_ratee uuid;
+  v_game smallint;
+  v_raters uuid[];
+  v_n integer;
+  v_lobby uuid;
+  v_high integer := round((p_stars - floor(p_stars)) * p_count);
+  v_stars smallint;
+begin
+  select id into v_ratee from public.profiles where username = p_name;
+  select id into v_game from public.game where slug = p_game;
+  select array_agg(m.user_id order by p.username) into v_raters
+  from public.user_game_mapping m
+  join public.profiles p on p.id = m.user_id
+  where m.game_id = v_game and p.username like 'demo\_%' and m.user_id <> v_ratee;
+  v_n := array_length(v_raters, 1);
+
+  for i in 1..p_count loop
+    if (i - 1) % v_n = 0 then
+      v_lobby := pg_temp.history_lobby(v_game, v_raters[1]);
+    end if;
+    v_stars := case when i <= v_high then ceil(p_stars) else floor(p_stars) end;
+    insert into public.reviews (
+      lobby_id, rater_id, ratee_id, stars, low_rating_reason, corrected_rating,
+      effective_at, created_at
+    ) values (
+      v_lobby, v_raters[(i - 1) % v_n + 1], v_ratee, v_stars,
+      case when v_stars <= 2 then 'afk' end, v_stars,
+      now(), now() - make_interval(mins => i)
+    );
+  end loop;
+
+  perform public.recompute_reputation(v_ratee);
+end;
+$$;
+
 -- Someone already accepted into a lobby.
 create or replace function pg_temp.member(p_lobby uuid, p_username text)
 returns void
@@ -197,6 +272,13 @@ begin
   -- ── 0. start clean ────────────────────────────────────────────────────
   delete from public.notifications
   where actor_id in (select id from public.profiles where username like 'demo\_%');
+  -- Reports and sanctions keep their rows when a profile goes (they are
+  -- moderation records), so the demo players' ones are removed by hand first.
+  delete from public.sanction_reports
+  where report_id in (select id from public.reports
+                      where reporter_id in (select id from public.profiles where username like 'demo\_%') or target_id in (select id from public.profiles where username like 'demo\_%'));
+  delete from public.reports where reporter_id in (select id from public.profiles where username like 'demo\_%') or target_id in (select id from public.profiles where username like 'demo\_%');
+  delete from public.sanction where player_id in (select id from public.profiles where username like 'demo\_%');
   delete from auth.users where email like '%@demo.temangame.test';
 
   -- ── 1. Valorant ───────────────────────────────────────────────────────
@@ -211,7 +293,7 @@ begin
   perform pg_temp.player('demo_yoru',  'valorant', 0.48, 'AP', 3::smallint, array['Shot Caller','Flex Player','Chill'], 1.9, 8, array['Duelist']);
   perform pg_temp.player('demo_kayo',  'valorant', 0.66, 'AP', 4::smallint, array['Positive Mental Attitude','Shot Caller','Flex Player'], 4.0, 6, array['Initiator']);
   -- Not in any lobby: free to apply to yours (section 7).
-  perform pg_temp.player('demo_fade',  'valorant', 0.40, 'AP', 2::smallint, array['Positive Mental Attitude','Chill','Flex Player'], 3.8, 5, array['Initiator']);
+  perform pg_temp.player('demo_fade',  'valorant', 0.40, 'AP', 2::smallint, array['Positive Mental Attitude','Chill','Flex Player'], 3.7, 3, array['Initiator']);
   perform pg_temp.player('demo_cypher','valorant', 0.38, 'AP', 3::smallint, array['Flex Player','Never Surrender','Chill'], 0, 0, array['Sentinel']);
 
   l := pg_temp.lobby('demo_neon', 'unrated', 'Chill Unrated Night',
@@ -287,7 +369,7 @@ begin
   perform pg_temp.player('demo_rain',   'counter-strike-2', 0.40, 'ASIA', 3::smallint, array['Flex Player','Chill','Positive Mental Attitude'], 4.6, 20);
   perform pg_temp.player('demo_karrigan','counter-strike-2', 0.35, 'ASIA', 2::smallint, array['Shot Caller','Chill','Positive Mental Attitude'], 4.9, 27);
   perform pg_temp.player('demo_hobbit', 'counter-strike-2', 0.20, 'ASIA', 1::smallint, array['Chill','Positive Mental Attitude','Flex Player'], 0, 0);
-  perform pg_temp.player('demo_ropz',   'counter-strike-2', 0.25, 'ASIA', 1::smallint, array['Chill','Never Surrender','Flex Player'], 4.2, 6);
+  perform pg_temp.player('demo_ropz',   'counter-strike-2', 0.25, 'ASIA', 1::smallint, array['Chill','Never Surrender','Flex Player'], 4.0, 2);
   perform pg_temp.player('demo_fallen', 'counter-strike-2', 0.55, 'ASIA', 4::smallint, array['Shot Caller','Flex Player','Never Surrender'], 2.2, 10);
   perform pg_temp.player('demo_magixx', 'counter-strike-2', 0.57, 'ASIA', 4::smallint, array['Never Surrender','Chill','Flex Player'], 1.7, 7);
 
@@ -413,7 +495,10 @@ begin
     4::smallint, array['Shot Caller','Flex Player'], null, null, 4, 5);
   perform pg_temp.member(l, 'demo_jota');
 
-  -- ── 7. you ────────────────────────────────────────────────────────────
+  -- ── 7. ratings, now that every rater exists ───────────────────────────
+  perform pg_temp.rate(r.name, r.game, r.stars, r.reviews) from seed_ratings r;
+
+  -- ── 8. you ────────────────────────────────────────────────────────────
   select id into me from public.profiles where username = me_username;
   if me is null then
     raise notice 'No player named % found. The demo players and lobbies were made, but nothing involving you.', me_username;
@@ -451,6 +536,7 @@ begin
 
   raise notice 'Demo data ready: % players, % lobbies.',
     (select count(*) from public.profiles where username like 'demo\_%'),
-    (select count(*) from public.lobby l2 join public.profiles p on p.id = l2.leader_id where p.username like 'demo\_%');
+    (select count(*) from public.lobby l2 join public.profiles p on p.id = l2.leader_id
+     where p.username like 'demo\_%' and l2.status <> 'completed');
 end
 $seed$;

@@ -3,7 +3,7 @@ import { matchesForSlug, type MatchRecord } from "@/data/match-history";
 import { resolveProfile } from "@/data/profile-lookup";
 import type { PlayerProfile } from "@/data/player-profiles";
 import { createClient, getUserId } from "@/lib/supabase/server";
-import { fetchProfileByUsername, profileFromRow } from "@/lib/profiles";
+import { fetchProfileByUsername, fetchSanctionHistory, profileFromRow } from "@/lib/profiles";
 import { fetchGameCatalog, fetchPlayerGames } from "@/lib/games";
 import { fetchPlayerMatches } from "@/lib/matches";
 
@@ -22,11 +22,12 @@ export const loadProfile = cache(
     const row = await fetchProfileByUsername(supabase, username);
 
     if (row) {
-      const [viewerId, gameSetups] = await Promise.all([
+      const [viewerId, gameSetups, sanctions] = await Promise.all([
         getUserId(),
         fetchPlayerGames(supabase, row.id),
+        fetchSanctionHistory(supabase, row.id),
       ]);
-      return profileFromRow(row, { isOwner: viewerId === row.id, gameSetups });
+      return profileFromRow(row, { isOwner: viewerId === row.id, gameSetups, sanctions });
     }
 
     return resolveProfile(username);

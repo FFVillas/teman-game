@@ -90,6 +90,8 @@ export function filterLobbies(
   const tiers = tiersOf(game.ranks);
 
   return teams.filter((team) => {
+    // Proposal: a suspended player is left out before anything is scored.
+    if (team.leaderSuspended) return false;
     if (filters.query && !matchesText(team, filters.query)) return false;
     if (filters.region && team.region !== filters.region) return false;
     if (filters.mode && team.modeValue !== filters.mode) return false;

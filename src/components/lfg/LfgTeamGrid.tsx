@@ -50,7 +50,7 @@ export default function LfgTeamGrid({
         <p className="max-w-[420px] text-sm text-text-muted">
           {filtered
             ? "Try another rank, role or region, or clear the search."
-            : "Nobody is looking for players right now. Start a lobby with Create Team above and others can find you."}
+            : "Nobody is looking for players right now. Start one with Create Lobby above and others can find you."}
         </p>
       </div>
     );

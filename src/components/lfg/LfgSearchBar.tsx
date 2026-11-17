@@ -1,12 +1,14 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import FormDropdown from "@/components/FormDropdown";
 import { regionsFor } from "@/data/game-regions";
 import type { GameInfo } from "@/lib/games";
 import { ANY_RANK, FITS_MY_RANK, type LobbyFilters } from "@/lib/lobby-filters";
 import { tiersOf } from "@/lib/ranks";
 import { useLobbyFilters } from "@/lib/use-lobby-filters";
+
+const SEARCH_DELAY_MS = 300;
 
 /**
  * The search/filter bar, split out of LfgHero so it can sit right above the
@@ -16,7 +18,8 @@ import { useLobbyFilters } from "@/lib/use-lobby-filters";
  * Region, mode, rank and role come from the game being browsed, so each
  * game's page offers its own choices (a Counter-Strike player is never asked
  * for a Valorant rank). The filters live in the URL and the server applies
- * them (`lib/lobby-ranking.ts`): dropdowns apply at once, the text on Search.
+ * them (`lib/lobby-ranking.ts`). Everything applies as you go: dropdowns at
+ * once, the text a moment after you stop typing.
  *
  * "Rank" means "lobbies that would accept it": the leader's range and the
  * game's party rule applied to who is already in. "Fits my rank" is the
@@ -42,9 +45,26 @@ export default function LfgSearchBar({
   const tiers = useMemo(() => tiersOf(game?.ranks ?? []), [game]);
   const { apply, isPending } = useLobbyFilters(filters);
   const [query, setQuery] = useState(filters.query);
+  const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  useEffect(
+    () => () => {
+      if (typingTimer.current) clearTimeout(typingTimer.current);
+    },
+    [],
+  );
+
+  // Waits until typing pauses, so the list isn't re-read for every letter.
+  function changeQuery(value: string) {
+    setQuery(value);
+    if (typingTimer.current) clearTimeout(typingTimer.current);
+    typingTimer.current = setTimeout(() => apply({ query: value.trim() }), SEARCH_DELAY_MS);
+  }
+
+  // Enter applies straight away instead of waiting out the pause.
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    if (typingTimer.current) clearTimeout(typingTimer.current);
     apply({ query: query.trim() });
   }
 
@@ -56,6 +76,7 @@ export default function LfgSearchBar({
     <form
       onSubmit={handleSubmit}
       role="search"
+      aria-busy={isPending}
       className="relative z-30 flex flex-col gap-3 rounded-xl border border-white/10 bg-bg-card-alt/80 p-4 backdrop-blur-md sm:flex-row sm:flex-wrap sm:items-end"
     >
       <div className="flex w-full flex-col gap-1.5">
@@ -63,7 +84,7 @@ export default function LfgSearchBar({
           htmlFor="lfg-search"
           className="text-[11px] font-semibold uppercase tracking-wider text-text-muted"
         >
-          Search Teams
+          Search Lobbies
         </label>
         <div className="relative">
           {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
@@ -76,8 +97,8 @@ export default function LfgSearchBar({
             id="lfg-search"
             type="search"
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search by team name or keyword..."
+            onChange={(event) => changeQuery(event.target.value)}
+            placeholder="Lobby name, leader or keyword"
             className="h-10 w-full rounded-lg border border-white/10 bg-[#0e1015] pl-9 pr-4 text-sm text-white placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-brand"
           />
         </div>
@@ -152,15 +173,6 @@ export default function LfgSearchBar({
         </div>
       )}
 
-      <button
-        type="submit"
-        disabled={isPending}
-        className="flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-brand px-5 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
-        <img src="/icons/lfg-search-btn.svg" alt="" className="size-3" />
-        {isPending ? "Searching…" : "Search"}
-      </button>
     </form>
   );
 }

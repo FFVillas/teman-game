@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { pendingReviews, type MatchRecord } from "@/data/match-history";
 import { modeStyles } from "@/components/lfg/LfgTeamCard";
+import PlayerAvatar from "@/components/lfg/PlayerAvatar";
 
 interface MatchHistoryListProps {
   matches: MatchRecord[];
@@ -87,12 +88,11 @@ export default function MatchHistoryList({
                   lobby name, which truncated almost every title. */}
               <div className="hidden shrink-0 items-center sm:flex">
                 {match.teammates.slice(0, 3).map((teammate) => (
-                  // eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization
-                  <img
+                  <PlayerAvatar
                     key={teammate.id}
                     src={teammate.avatar}
-                    alt=""
-                    className="-ml-2 size-7 rounded-full border-2 border-bg-page object-cover first:ml-0"
+                    name={teammate.name}
+                    className="-ml-2 size-7 border-2 border-bg-page first:ml-0"
                   />
                 ))}
                 {match.teammates.length > 3 && (

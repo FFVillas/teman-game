@@ -12,7 +12,7 @@ import { rankIconFor } from "@/data/rank-icons";
 import GameSummaryCard, { type GameSummary } from "./GameSummaryCard";
 import { profileCompleteness } from "@/lib/profile-completeness";
 import { gameByName } from "@/data/games";
-
+import { NEW_PLAYER_RATERS, isNewPlayer, sanctionDates } from "@/lib/reputation";
 
 const playstyleLabel = [
   "Very casual",
@@ -121,6 +121,20 @@ export default function PlayerProfileView({
   const editHref = "/profile/me/edit";
   const { percent, gaps } = profileCompleteness(profile);
   const hasReviews = profile.reviewCount > 0;
+  // Only real profiles know how many different players rated them.
+  const isNew = profile.raterCount !== undefined && isNewPlayer(profile.raterCount);
+  const ratingsLabel =
+    profile.raterCount === undefined
+      ? `${profile.reviewCount} ${profile.reviewCount === 1 ? "rating" : "ratings"}`
+      : `${profile.reviewCount} ${profile.reviewCount === 1 ? "rating" : "ratings"} from ${profile.raterCount} ${profile.raterCount === 1 ? "player" : "players"}`;
+  const newPlayerBadge = isNew && (
+    <span
+      title={`Rated by fewer than ${NEW_PLAYER_RATERS} different players`}
+      className="rounded-md bg-brand/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand"
+    >
+      New player
+    </span>
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -163,16 +177,21 @@ export default function PlayerProfileView({
                 <div className="flex flex-wrap items-center gap-2">
                   <StarRating score={profile.ratingScore} />
                   <span className="text-[11px] text-text-muted">
-                    {profile.ratingScore.toFixed(1)} · {profile.reviewCount}{" "}
-                    reviews
+                    {profile.ratingScore.toFixed(1)} · {ratingsLabel}
                   </span>
+                  {newPlayerBadge}
                 </div>
               ) : (
                 // A 0.0 with five grey stars reads as a terrible player, not
                 // as a new one — so an unrated account says so in words.
-                <span className="text-[11px] italic text-text-muted/70">
-                  No ratings yet · teammates rate you after a lobby
-                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  {newPlayerBadge}
+                  <span className="text-[11px] italic text-text-muted/70">
+                    {isOwner
+                      ? "No ratings yet · teammates rate you after a lobby"
+                      : "No ratings yet"}
+                  </span>
+                </div>
               )}
             </div>
           </div>
@@ -426,6 +445,44 @@ export default function PlayerProfileView({
               </div>
             </div>
           </div>
+
+          {/* The indicator respondents found most useful (63.8%). Real
+              profiles only: mock ones have no sanctions to read. */}
+          {profile.sanctions && (
+            <section className="flex flex-col gap-3 rounded-2xl border border-border-default bg-bg-card-alt p-5">
+              <h2 className={sectionHeading}>Sanction history</h2>
+              {profile.sanctions.length === 0 ? (
+                <p className="flex items-center gap-2 text-xs text-text-subtle">
+                  <span aria-hidden className="size-1.5 rounded-full bg-success" />
+                  No sanctions on record.
+                </p>
+              ) : (
+                <ul className="flex flex-col gap-2">
+                  {profile.sanctions.map((entry) => (
+                    <li
+                      key={`${entry.type}-${entry.issuedAt}`}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border-default bg-bg-page px-3 py-2.5"
+                    >
+                      <div className="flex min-w-0 flex-col gap-0.5">
+                        <span className="text-xs font-bold text-white">
+                          {entry.type === "warning" ? "Warning" : "Suspension"}
+                          <span className="font-normal text-text-subtle"> · {entry.reason}</span>
+                        </span>
+                        <span className="text-[11px] text-text-muted">
+                          {sanctionDates(entry)}
+                        </span>
+                      </div>
+                      {entry.active && (
+                        <span className="shrink-0 rounded-md bg-danger/15 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-danger">
+                          Active
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )}
 
           <div className="flex flex-col overflow-hidden rounded-2xl border border-border-default bg-bg-card-alt">
             {playerGames.length > 0 && (

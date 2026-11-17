@@ -6,7 +6,7 @@ const gameOptions = [
   "All Games",
   "LoL",
   "Valorant",
-  "CSGO 2",
+  "CS2",
   "MLBB",
   "Free Fire",
   "PUBG",

@@ -18,7 +18,7 @@ import { fetchNews } from "@/lib/news";
 export const metadata: Metadata = {
   title: "Find Your Next Valorant Team — TemanGame",
   description:
-    "Browse available lobbies and professional teams looking for players. Filter by rank, role, and region to find your perfect match.",
+    "Browse open lobbies looking for players. Filter by rank, role, region and mode; the ones that fit how you play come first.",
 };
 
 // Valorant keeps its own route because it is the one game with the mock lobby
@@ -61,7 +61,7 @@ export default async function LfgValorantPage({
           <LfgHero
             gameIcon="/icons/lfg-page-valorant.svg"
             gameName="Valorant"
-            description="Browse available lobbies and professional teams looking for players. Filter by rank, role, and region to find your perfect match."
+            description="Browse open lobbies looking for players. Filter by rank, role, region and mode; the ones that fit how you play come first."
           />
 
           <ActiveLobbyBanner

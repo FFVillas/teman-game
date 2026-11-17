@@ -27,7 +27,7 @@ export default function PrivacyPolicyPage() {
               Privacy Policy
             </h1>
             <p className="text-xs text-text-muted">
-              Last updated October 7, 2026
+              Last updated November 18, 2026
             </p>
           </div>
 
@@ -61,7 +61,7 @@ export default function PrivacyPolicyPage() {
                     profile.
                   </Bullet>
                   <Bullet label="Date of birth">
-                    Collected only to confirm you meet our minimum age of 13
+                    Collected only to confirm you meet our minimum age of 18
                     and to show your age on your profile. The date itself is
                     private: only you can see it. Other players see just the
                     age it works out to.
@@ -71,9 +71,11 @@ export default function PrivacyPolicyPage() {
                     rank, exactly as you enter them.
                   </Bullet>
                   <Bullet label="Content you create">
-                    Lobby chat messages, reviews you leave for teammates, and
+                    Lobby chat messages, ratings you give teammates, and
                     reports you file, stored so the people and systems
                     involved, like teammates and moderators, can act on them.
+                    Ratings are anonymous: nobody, including the player you
+                    rated, can see who gave them.
                   </Bullet>
                 </ul>
               </SubSection>
@@ -120,11 +122,11 @@ export default function PrivacyPolicyPage() {
             <Section title="What Other Players Can See">
               <p>
                 Your profile, including your username, avatar, playstyle,
-                tags, reputation, age, languages, play schedule, and your
-                per-game rank and in-game name, is visible to anyone, signed
-                in or not, the
-                same way a public player card on any LFG platform works. Your
-                email, password, date of birth, and any reports filed
+                tags, reputation, sanction history, match history, age,
+                languages, play schedule, and your per-game rank and in-game
+                name, is visible to anyone, signed in or not, the same way a
+                public player card on any LFG platform works. Your email,
+                password, date of birth, who rated you, and any reports filed
                 against you are never shown to other players.
               </p>
             </Section>
@@ -158,9 +160,10 @@ export default function PrivacyPolicyPage() {
 
             <Section title="Children's Privacy">
               <p>
-                TemanGame is not intended for anyone under 13, and we
-                don&apos;t knowingly collect information from children under
-                that age.
+                TemanGame is only for people aged 18 and over. Indonesian law
+                (UU No. 27 Tahun 2022 on personal data protection) requires a
+                parent or guardian&apos;s consent to process a child&apos;s
+                data, so sign-up refuses anyone younger.
               </p>
             </Section>
 

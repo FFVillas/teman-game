@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { LfgTeam } from "@/data/lfg-teams";
+import { modeBadgeLabel } from "@/data/mode-badges";
 import { findProfileByUsername } from "@/data/player-profiles";
 import type { GameInfo } from "@/lib/games";
 import RankRangeBadge from "./RankRangeBadge";
@@ -49,6 +50,8 @@ export default function LfgTeamCard({
   const leaderSlug = team.leaderId
     ? team.leaderName
     : findProfileByUsername(team.leaderName)?.slug;
+  // CS2, PUBG Mobile and Free Fire have no roles, so nothing to look for.
+  const hasRoles = (game?.roles.length ?? 1) > 0;
 
   return (
     <div
@@ -66,9 +69,10 @@ export default function LfgTeamCard({
         <div className="absolute inset-0 bg-gradient-to-r from-transparent from-45% to-bg-card-alt to-85%" />
         <div className="absolute inset-0 flex flex-col justify-between gap-1 p-3">
           <span
-            className={`inline-flex w-fit items-center rounded-full border px-3 py-1 text-[9px] font-semibold uppercase tracking-wide ${mode.className}`}
+            title={team.modeLabel ?? mode.label}
+            className={`inline-flex w-fit items-center whitespace-nowrap rounded-full border px-2.5 py-1 text-[9px] font-semibold uppercase tracking-wide ${mode.className}`}
           >
-            {team.modeLabel ?? mode.label}
+            {modeBadgeLabel(team.modeValue, team.modeLabel ?? mode.label)}
           </span>
           <span className="w-fit rounded border border-white/10 bg-[rgba(15,23,42,0.6)] px-2 py-1 text-[11px] font-semibold text-white opacity-80">
             {team.slotsFilled}/{team.slotsTotal}
@@ -76,7 +80,7 @@ export default function LfgTeamCard({
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col p-4">
+      <div className="flex flex-1 flex-col gap-3.5 p-4 sm:gap-0">
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-base font-bold tracking-tight text-white">
@@ -123,7 +127,7 @@ export default function LfgTeamCard({
           </div>
         </div>
 
-        <div className="flex flex-1 items-center gap-2.5">
+        <div className="flex flex-1 flex-wrap items-center gap-x-2.5 gap-y-2">
           <div className="flex items-center">
             {team.members.map((member, index) => (
               <PlayerAvatar
@@ -141,7 +145,7 @@ export default function LfgTeamCard({
               </div>
             )}
           </div>
-          <div className="flex flex-col gap-0.5">
+          <div className="flex min-w-0 flex-col gap-0.5">
             <p className="text-[11px] text-white/50">
               Led by{" "}
               {leaderSlug ? (
@@ -167,8 +171,9 @@ export default function LfgTeamCard({
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-2">
+          {hasRoles ? (
           <div className="flex items-center gap-2">
-            <span className="w-[72px] text-[9px] font-medium uppercase tracking-wider text-white/70">
+            <span className="w-[84px] text-[10px] font-medium uppercase tracking-wider text-white/70">
               Looking for:
             </span>
             <div className="flex items-center gap-1.5">
@@ -176,20 +181,26 @@ export default function LfgTeamCard({
                 <div
                   key={role.name}
                   title={role.name}
-                  className="flex size-6 items-center justify-center rounded-md border border-brand/30 bg-brand/10"
+                  className="flex size-7 items-center justify-center rounded-md border border-brand/30 bg-brand/10"
                 >
                   {role.icon ? (
                     // eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization
-                    <img src={role.icon} alt={role.name} className="size-2.5" />
+                    <img src={role.icon} alt={role.name} className="size-3.5" />
                   ) : (
-                    <span className="text-[8px] font-bold text-brand">
+                    <span className="text-[9px] font-bold text-brand">
                       {role.name.slice(0, 2)}
                     </span>
                   )}
                 </div>
               ))}
+              {team.lookingFor.length === 0 && (
+                <span className="text-[11px] text-white/60">Any role</span>
+              )}
             </div>
           </div>
+          ) : (
+            <span />
+          )}
           <button
             type="button"
             onClick={onOpenDetails}

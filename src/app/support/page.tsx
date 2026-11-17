@@ -68,18 +68,19 @@ export default function SupportPage() {
 
             <Section title="Lobbies & Teammates">
               <Faq q="How does TemanGame recommend teammates?">
-                By comparing rank, role, schedule and playstyle against what
-                a lobby is looking for, so the people you see first are the
-                ones most likely to be a good fit.
+                First it keeps the lobbies whose rank range accepts you (and
+                the role you picked, if any). Then it puts first the ones
+                that fit you best: a playstyle close to yours, members with a
+                good reputation, and the personality tags the lobby asked for.
               </Faq>
               <Faq q="Can I be in more than one lobby at once?">
                 You can only be in one live lobby at a time, but you can hold
                 several scheduled ones for later.
               </Faq>
               <Faq q="What happens when a lobby ends?">
-                You&apos;re asked to rate your teammates. It&apos;s optional
-                in the moment, you can still rate them later from your match
-                history.
+                If it ran at least 15 minutes, you can rate your teammates
+                from the lobby page. It&apos;s optional, and you can still do
+                it later from your match history.
               </Faq>
             </Section>
 
