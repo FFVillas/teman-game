@@ -14,7 +14,7 @@
 delete from public.notifications
 where actor_id in (select id from public.profiles where username like 'demo\_%');
 
-delete from public.lobbies
+delete from public.lobby
 where name = 'My Demo Lobby'
   and description = 'A lobby made by the demo script so you have something to manage.';
 

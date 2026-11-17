@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 
-
 export interface SortOption {
   value: string;
   label: string;
@@ -15,13 +14,20 @@ const defaultSortOptions: SortOption[] = [
   { value: "alphabetical", label: "A–Z" },
 ];
 
+/** Keeps its own choice unless `value` and `onChange` are passed. */
 export default function SortDropdown({
   options = defaultSortOptions,
+  value,
+  onChange,
 }: {
   options?: SortOption[];
+  value?: string;
+  onChange?: (value: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState(options[0]);
+  const [ownValue, setOwnValue] = useState(options[0].value);
+  const selected =
+    options.find((option) => option.value === (value ?? ownValue)) ?? options[0];
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -68,7 +74,8 @@ export default function SortDropdown({
                   role="option"
                   aria-selected={isSelected}
                   onClick={() => {
-                    setSelected(option);
+                    setOwnValue(option.value);
+                    onChange?.(option.value);
                     setOpen(false);
                   }}
                   className={`flex w-full items-center px-3.5 py-2 text-left text-sm transition-colors hover:bg-white/5 ${

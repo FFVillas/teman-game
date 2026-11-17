@@ -1,4 +1,5 @@
-import type { GameMode, GameRank } from "@/lib/games";
+import type { LfgTeam } from "@/data/lfg-teams";
+import type { GameInfo, GameMode, GameRank } from "@/lib/games";
 
 /**
  * Rank ranges and "who may join this lobby" logic. Pure functions, no
@@ -230,6 +231,25 @@ export function lobbyJoinBounds(
   leaderChosen: RankBounds,
 ): RankBounds {
   return intersectBounds(joinableBounds(rule, tiers, memberOrdinals), leaderChosen);
+}
+
+/**
+ * The ranks a lobby will still take: the leader's range and the game's party
+ * rule applied to who is already in. Mock lobbies only know the leader's rank.
+ */
+export function teamJoinBounds(team: LfgTeam, game: GameInfo | undefined): RankBounds {
+  const ranks = game?.ranks ?? [];
+  const tiers = tiersOf(ranks);
+  const leaderTier = tiers.find((tier) => tier.name === team.rank.name);
+  const mode = game?.modes.find((candidate) =>
+    team.modeValue ? candidate.value === team.modeValue : candidate.kind === team.mode,
+  );
+  return lobbyJoinBounds(
+    partyRuleFor(mode, team.slotsTotal, ranks),
+    tiers,
+    team.memberOrdinals ?? (leaderTier ? [leaderTier.firstOrdinal] : []),
+    team.rankRange ? boundsFromTierRange(tiers, team.rankRange) : OPEN_BOUNDS,
+  );
 }
 
 /**

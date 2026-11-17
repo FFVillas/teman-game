@@ -15,9 +15,12 @@ export default function LfgTeamGrid({
   gameName,
   game,
   myRank,
+  filtered = false,
 }: {
   teams: LfgTeam[];
   gameName: string;
+  /** The list is narrowed by search or filters, so empty means "no match". */
+  filtered?: boolean;
   /** The game's ranks, so the join dialog can check the viewer's rank fits. */
   game?: GameInfo;
   /** The signed-in viewer's rank in this game; "" if unknown. */
@@ -42,11 +45,12 @@ export default function LfgTeamGrid({
     return (
       <div className="mt-2 flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border-strong px-6 py-14 text-center">
         <h3 className="text-base font-bold text-white">
-          No {gameName} lobbies yet
+          {filtered ? "No lobbies match" : `No ${gameName} lobbies yet`}
         </h3>
         <p className="max-w-[420px] text-sm text-text-muted">
-          Nobody is looking for players right now. Start a lobby with Create
-          Team above and others can find you.
+          {filtered
+            ? "Try another rank, role or region, or clear the search."
+            : "Nobody is looking for players right now. Start a lobby with Create Team above and others can find you."}
         </p>
       </div>
     );

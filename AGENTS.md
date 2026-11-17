@@ -549,12 +549,17 @@ confidence marks and open questions before changing any of them.
   `GameInfo.modes`. The create form caps the group size at the chosen mode's
   max party, and `partyRuleFor(mode, capacity, ranks)` in `lib/ranks.ts` turns
   the stored rule into the check, the same data the SQL join check uses.
-- The LFG search bar offers the game's own region and mode, and one **Rank**
-  dropdown: "Fits my rank" (default for a signed-in player with a rank), "All
-  ranks", or a tier (Silver, Gold…), each meaning "lobbies that accept it".
-  **The filters are not wired to the list yet.** The create form shows
-  "Seeking Roles" only for games that have roles. Only the lobby *leader* sets
-  a min–max range (form: "Rank Requirement", default "Any rank").
+- **The LFG list is ranked and filtered on the server** (`lib/lobby-ranking.ts`,
+  proposal 3.3.1.2): hard filters (game, then the rank range the lobby accepts),
+  the optional ones the player picked, then `S_total` for that player, with
+  `R` as `R_lobi` (the members' mean R*). The filters live in the URL
+  (`?q=&region=&mode=&rank=&role=&sort=`, `lib/lobby-filters.ts`). **Rank**:
+  "Fits my rank" (default), "All ranks", or a tier, each meaning "lobbies that
+  accept it". **Role is optional on purpose**: lobbies that name no role always
+  stay. Players see the order, never the scores. The same list is JSON at
+  `/api/lobbies/recommended?game=<slug>` for k6 and Precision@5. The create form
+  shows "Seeking Roles" only for games that have roles. Only the lobby *leader*
+  sets a min–max range (form: "Rank Requirement", default "Any rank").
 - **A lobby card shows one rank fact: the leader's accepted range**, drawn in
   the original rank-badge spot as icons and tier names ("[icon] Bronze to
   [icon] Gold", "Ascendant and up", or "Any rank"; `LfgTeam.rankRange`,
@@ -779,7 +784,14 @@ change.
 npm run dev     # dev server, localhost:3000
 npm run build
 npm run lint
+npm test        # Vitest: the formula and the list's filters and sort
 ```
+
+Tests sit next to the code they cover (`src/lib/*.test.ts`); shared fixtures are
+in `src/test/`. Test cases follow the proposal's boundary values (rating 0, 1,
+5, 6; playstyle 1–5; `|B| = 0`) so BAB 4 can report them directly.
+`supabase/dev-seed/seed.sql` holds the test lobbies for Precision@5: five open
+ones per game, varied on playstyle, wanted tags, rank range and reputation.
 
 ## Design source
 

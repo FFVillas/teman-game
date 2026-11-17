@@ -202,6 +202,9 @@ interface PersonRow {
   id: string;
   username: string;
   avatar_path: string | null;
+  playstyle: number | null;
+  /** R* in stars (Persamaan 3.10); 3 for someone nobody has rated. */
+  reputation_bayes: number | string;
   user_game_mapping: { game_id: number; rank_id: number | null }[];
 }
 
@@ -236,7 +239,8 @@ interface LobbyRow {
   applications: ApplicationRow[];
 }
 
-const PERSON = "id, username, avatar_path, user_game_mapping(game_id, rank_id)";
+const PERSON =
+  "id, username, avatar_path, playstyle, reputation_bayes, user_game_mapping(game_id, rank_id)";
 
 /**
  * A lobby with everything a card needs in one request: its roles, its leader
@@ -298,6 +302,8 @@ function toTeam(row: LobbyRow, game: GameInfo, viewerId?: string | null): LfgTea
     modeId: row.mode_id,
     tags: row.tags,
     playstyle: row.playstyle,
+    leaderPlaystyle: row.leader?.playstyle ?? null,
+    memberReputations: people.map((person) => Number(person.reputation_bayes)),
     wantedTagIds: row.lobby_tag.map((entry) => entry.tag_id),
     startsAt: row.starts_at,
     endsAt: row.ends_at,

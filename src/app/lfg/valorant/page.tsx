@@ -9,8 +9,10 @@ import LfgTeamGrid from "@/components/lfg/LfgTeamGrid";
 import LfgNews from "@/components/lfg/LfgNews";
 import ActiveLobbyBanner from "@/components/lfg/ActiveLobbyBanner";
 import { createClient, getUserId } from "@/lib/supabase/server";
-import { fetchGameCatalog, fetchMyRankName } from "@/lib/games";
-import { fetchLobbyTeams, fetchMyLobbies } from "@/lib/lobbies";
+import { fetchGameCatalog } from "@/lib/games";
+import { fetchMyLobbies } from "@/lib/lobbies";
+import { isFiltered, parseLobbyFilters } from "@/lib/lobby-filters";
+import { recommendLobbies } from "@/lib/lobby-ranking";
 import { fetchNews } from "@/lib/news";
 
 export const metadata: Metadata = {
@@ -23,16 +25,22 @@ export const metadata: Metadata = {
 // and chat pages (real lobbies open here too; the list, the banner above it and
 // the news are all real). The other five games share
 // `app/lfg/[game]/page.tsx`; a static folder wins over the dynamic one.
-export default async function LfgValorantPage() {
+export default async function LfgValorantPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const filters = parseLobbyFilters(await searchParams);
   const supabase = await createClient();
   const [catalog, userId] = await Promise.all([fetchGameCatalog(supabase), getUserId()]);
   const game = catalog.find((g) => g.slug === "valorant");
-  const [teams, mine, myRank, news] = await Promise.all([
-    game ? fetchLobbyTeams(supabase, game, { viewerId: userId }) : [],
+  const [list, mine, news] = await Promise.all([
+    game ? recommendLobbies(supabase, game, userId, filters) : null,
     userId ? fetchMyLobbies(supabase, userId) : null,
-    fetchMyRankName(supabase, catalog, "valorant", userId),
     fetchNews(supabase, game?.id),
   ]);
+  const teams = list?.lobbies ?? [];
+  const myRank = list?.viewer?.rankName ?? "";
 
   return (
     <>
@@ -61,12 +69,14 @@ export default async function LfgValorantPage() {
             scheduled={mine?.scheduled}
           />
 
-          <LfgSearchBar gameSlug="valorant" game={game} myRank={myRank} />
+          <LfgSearchBar gameSlug="valorant" game={game} filters={filters} myRank={myRank} />
 
-          <LfgToolbar gameSlug="valorant" resultCount={teams.length} />
+          <LfgToolbar gameSlug="valorant" resultCount={teams.length} filters={filters} />
 
           <LfgTeamGrid
+            key={JSON.stringify(filters)}
             teams={teams}
+            filtered={isFiltered(filters)}
             gameName="Valorant"
             game={game}
             myRank={myRank}

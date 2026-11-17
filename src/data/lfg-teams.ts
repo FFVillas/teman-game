@@ -64,6 +64,10 @@ export interface LfgTeam {
   endsAt?: string | null;
   /** Pb in Persamaan 3.2. Real lobbies only; null until the leader sets it. */
   playstyle?: number | null;
+  /** The leader's own playstyle: Pb's stand-in while the lobby has none. */
+  leaderPlaystyle?: number | null;
+  /** R* (Persamaan 3.10) of everyone in the lobby, for R_lobi (3.4). */
+  memberReputations?: number[];
   /** Set B in Persamaan 3.14 — tag ids, at most three. Real lobbies only. */
   wantedTagIds?: number[];
 }

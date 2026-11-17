@@ -15,15 +15,7 @@ import { createClient } from "@/lib/supabase/client";
 import { applyToLobby } from "@/lib/lobbies";
 import { withNext } from "@/lib/auth-redirect";
 import type { GameInfo } from "@/lib/games";
-import {
-  OPEN_BOUNDS,
-  boundsFromTierRange,
-  describeBounds,
-  lobbyJoinBounds,
-  ordinalFits,
-  partyRuleFor,
-  tiersOf,
-} from "@/lib/ranks";
+import { describeBounds, ordinalFits, teamJoinBounds, tiersOf } from "@/lib/ranks";
 
 const viewerStateCopy: Record<
   NonNullable<LfgTeam["viewerState"]>,
@@ -122,18 +114,7 @@ export default function RequestToJoinModal({
   const tiers = useMemo(() => tiersOf(game?.ranks ?? []), [game]);
   const viewerOrdinal =
     game?.ranks.find((rank) => rank.name === myRank)?.ordinal ?? null;
-  const leaderTier = tiers.find((tier) => tier.name === team.rank.name);
-  const lobbyMode = game?.modes.find((candidate) =>
-    team.modeValue
-      ? candidate.value === team.modeValue
-      : candidate.kind === team.mode
-  );
-  const joinBounds = lobbyJoinBounds(
-    partyRuleFor(lobbyMode, team.slotsTotal, game?.ranks ?? []),
-    tiers,
-    team.memberOrdinals ?? (leaderTier ? [leaderTier.firstOrdinal] : []),
-    team.rankRange ? boundsFromTierRange(tiers, team.rankRange) : OPEN_BOUNDS
-  );
+  const joinBounds = teamJoinBounds(team, game);
   // Unranked or signed-out viewers always pass: the game decides at queue time.
   const rankFits = ordinalFits(viewerOrdinal, joinBounds);
 
