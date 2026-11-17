@@ -17,7 +17,6 @@ import { Avatar, adminButton, adminFieldClass } from "./AdminUi";
 const sanctionTypes: { type: SanctionType; hint: string }[] = [
   { type: "warning", hint: "Recorded, no restriction" },
   { type: "suspension", hint: "Can't log in until it ends" },
-  { type: "ban", hint: "Account closed permanently" },
 ];
 
 interface SanctionModalProps {
@@ -98,10 +97,9 @@ export default function SanctionModal({
           <legend className="pb-1.5 text-[11px] font-bold uppercase tracking-widest text-text-muted">
             Sanction
           </legend>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {sanctionTypes.map((option) => {
               const selected = option.type === type;
-              const isBan = option.type === "ban";
               return (
                 <button
                   key={option.type}
@@ -110,15 +108,13 @@ export default function SanctionModal({
                   onClick={() => setType(option.type)}
                   className={`flex flex-col items-start gap-0.5 rounded-xl border px-3 py-2.5 text-left transition-colors ${
                     selected
-                      ? isBan
-                        ? "border-danger/60 bg-danger/10"
-                        : "border-brand/60 bg-brand/10"
+                      ? "border-brand/60 bg-brand/10"
                       : "border-border-default hover:border-border-strong"
                   }`}
                 >
                   <span
                     className={`text-xs font-bold ${
-                      selected ? (isBan ? "text-danger" : "text-white") : "text-text-subtle"
+                      selected ? "text-white" : "text-text-subtle"
                     }`}
                   >
                     {sanctionLabels[option.type]}
@@ -201,7 +197,7 @@ export default function SanctionModal({
           </button>
           <button
             type="submit"
-            className={type === "ban" ? adminButton.danger : adminButton.primary}
+            className={adminButton.primary}
           >
             {confirmLabel}
           </button>

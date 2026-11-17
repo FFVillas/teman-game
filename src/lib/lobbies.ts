@@ -80,6 +80,10 @@ export interface CreateLobbyInput {
   roleIds: number[];
   /** Optional Discord invite; only the leader and members can ever see it. */
   discordUrl: string;
+  /** Pb in Persamaan 3.2 — the lobby's own playstyle, not the leader's. */
+  playstyle: number | null;
+  /** Set B in Persamaan 3.14, at most three. */
+  wantedTagIds: number[];
 }
 
 export async function createLobby(
@@ -105,7 +109,36 @@ export async function createLobby(
     p_discord_url: input.discordUrl.trim() || null,
   });
   if (error || !data) return { error: lobbyErrorMessage(error) };
-  return { id: data as string };
+
+  const id = data as string;
+  // A second call rather than more parameters on create_lobby: that function
+  // is 106 lines and changing its signature means rewriting it whole, with no
+  // way to test the result before it reaches the database. See
+  // 20261116000400_lobby_preferences.sql.
+  //
+  // A failure here leaves the lobby without preferences, which is a legal
+  // state — |B| = 0 falls back to Persamaan 3.15 and playstyle may be null —
+  // so the lobby is still returned and the leader can set them from Edit.
+  await setLobbyPreferences(supabase, id, input.playstyle, input.wantedTagIds);
+  return { id };
+}
+
+/**
+ * The lobby's own playstyle and the tags it looks for: the two inputs the
+ * recommendation formula reads from a lobby rather than from a player.
+ */
+export async function setLobbyPreferences(
+  supabase: SupabaseClient,
+  lobbyId: string,
+  playstyle: number | null,
+  wantedTagIds: number[],
+): Promise<string | null> {
+  const { error } = await supabase.rpc("set_lobby_preferences", {
+    p_lobby: lobbyId,
+    p_playstyle: playstyle,
+    p_tag_ids: wantedTagIds.length > 0 ? wantedTagIds : null,
+  });
+  return error ? lobbyErrorMessage(error) : null;
 }
 
 /** Real lobbies have uuid ids; the mock ones in src/data are "lobby-1" and so on. */
@@ -163,7 +196,7 @@ export function startLabel(iso: string): string {
   return `${day} ${time}`;
 }
 
-type LobbyStatus = "live" | "started" | "scheduled" | "completed" | "closed";
+type LobbyStatus = "open" | "in_progress" | "scheduled" | "completed" | "cancelled";
 
 interface PersonRow {
   id: string;
@@ -196,7 +229,9 @@ interface LobbyRow {
   min_rank_id: number | null;
   max_rank_id: number | null;
   cover: string | null;
-  lobby_roles: { role_id: number }[];
+  playstyle: number | null;
+  lobby_required_role: { role_id: number }[];
+  lobby_tag: { tag_id: number }[];
   leader: PersonRow | null;
   applications: ApplicationRow[];
 }
@@ -209,7 +244,7 @@ const PERSON = "id, username, avatar_path, user_game_mapping(game_id, rank_id)";
  * ones reach only the applicant and the leader), each with the person's
  * profile and rank.
  */
-const LOBBY_SELECT = `id, leader_id, mode_id, name, description, region, languages, mic_required, tags, capacity, status, starts_at, ends_at, min_rank_id, max_rank_id, cover, lobby_roles(role_id), leader:profiles!lobbies_leader_id_fkey(${PERSON}), applications(applicant_id, status, decided_at, applicant:profiles!applications_applicant_id_fkey(${PERSON}))`;
+const LOBBY_SELECT = `id, leader_id, mode_id, name, description, region, languages, mic_required, tags, capacity, status, starts_at, ends_at, min_rank_id, max_rank_id, cover, playstyle, lobby_required_role(role_id), lobby_tag(tag_id), leader:profiles!lobbies_leader_id_fkey(${PERSON}), applications(applicant_id, status, decided_at, applicant:profiles!applications_applicant_id_fkey(${PERSON}))`;
 
 /**
  * Ends lobbies whose leader forgot them. Runs once per server request however
@@ -262,11 +297,13 @@ function toTeam(row: LobbyRow, game: GameInfo, viewerId?: string | null): LfgTea
     modeValue: mode?.value,
     modeId: row.mode_id,
     tags: row.tags,
+    playstyle: row.playstyle,
+    wantedTagIds: row.lobby_tag.map((entry) => entry.tag_id),
     startsAt: row.starts_at,
     endsAt: row.ends_at,
-    closed: row.status === "closed" || row.status === "completed",
+    closed: row.status === "cancelled" || row.status === "completed",
     completed: row.status === "completed",
-    started: row.status === "started",
+    started: row.status === "in_progress",
     viewerState,
     status: statusOf(row),
     region: row.region,
@@ -296,7 +333,7 @@ function toTeam(row: LobbyRow, game: GameInfo, viewerId?: string | null): LfgTea
       minRank || maxRank
         ? { from: minRank?.tier ?? "", to: maxRank?.tier ?? "" }
         : undefined,
-    lookingFor: row.lobby_roles
+    lookingFor: row.lobby_required_role
       .map((entry) => game.roles.find((role) => role.id === entry.role_id))
       .filter((role): role is NonNullable<typeof role> => role !== undefined)
       .map((role) => ({
@@ -310,12 +347,12 @@ function statusOf(row: Pick<LobbyRow, "status" | "starts_at">): LfgTeam["status"
   switch (row.status) {
     case "completed":
       return { label: "Ended", isLive: false };
-    case "closed":
+    case "cancelled":
       return { label: "Closed", isLive: false };
-    case "started":
+    case "in_progress":
       return { label: "In progress", isLive: true };
     default:
-      return row.status === "live" || !row.starts_at
+      return row.status === "open" || !row.starts_at
         ? { label: "Active Now", isLive: true }
         : { label: startLabel(row.starts_at), isLive: false };
   }
@@ -334,11 +371,11 @@ export async function fetchLobbyTeams(
   const { viewerId, lobbyId } = options;
   await expireStaleLobbies(supabase);
 
-  const query = supabase.from("lobbies").select(LOBBY_SELECT).eq("game_id", game.id);
+  const query = supabase.from("lobby").select(LOBBY_SELECT).eq("game_id", game.id);
   const { data } = await (lobbyId
     ? query.eq("id", lobbyId)
     : query
-        .in("status", ["live", "scheduled"])
+        .in("status", ["open", "scheduled"])
         .order("created_at", { ascending: false })
         .limit(60));
 
@@ -438,6 +475,8 @@ export interface UpdateLobbyInput {
   maxRankId: number | null;
   roleIds: number[];
   discordUrl: string;
+  playstyle: number | null;
+  wantedTagIds: number[];
 }
 
 export async function updateLobby(
@@ -460,7 +499,14 @@ export async function updateLobby(
     p_role_ids: input.roleIds,
     p_discord_url: input.discordUrl.trim() || null,
   });
-  return error ? lobbyErrorMessage(error) : null;
+  if (error) return lobbyErrorMessage(error);
+
+  return setLobbyPreferences(
+    supabase,
+    input.lobbyId,
+    input.playstyle,
+    input.wantedTagIds,
+  );
 }
 
 /** The leader removes a member. It is recorded like leaving, and they may apply again. */
@@ -670,14 +716,14 @@ export async function fetchLobbyDetail(
 export interface MyLobby {
   id: string;
   name: string;
-  /** `games.slug`. */
+  /** `game.slug`. */
   game: string;
   cover: string;
   mode: LfgMode;
   /** The mode's own name, for the badge. */
   modeLabel?: string;
   /** Recruiting, playing, or waiting for its start time. */
-  status: "live" | "started" | "scheduled";
+  status: "open" | "in_progress" | "scheduled";
   region: string;
   slotsTotal: number;
   members: { id: string; name?: string; avatar: string }[];
@@ -694,8 +740,8 @@ export interface MyLobbies {
   scheduled: MyLobby[];
 }
 
-const OPEN_STATUSES = ["live", "started", "scheduled"];
-const PLAYING_STATUSES = ["live", "started"];
+const OPEN_STATUSES = ["open", "in_progress", "scheduled"];
+const PLAYING_STATUSES = ["open", "in_progress"];
 
 interface MyLobbyRow {
   id: string;
@@ -706,7 +752,7 @@ interface MyLobbyRow {
   status: MyLobby["status"];
   starts_at: string | null;
   cover: string | null;
-  games: { slug: string } | null;
+  game: { slug: string } | null;
   game_modes: { kind: LfgMode; label: string } | null;
   leader: { id: string; username: string; avatar_path: string | null } | null;
   applications: {
@@ -718,7 +764,7 @@ interface MyLobbyRow {
 }
 
 const MY_LOBBY_SELECT =
-  "id, leader_id, name, region, capacity, status, starts_at, cover, games(slug), game_modes(kind, label), leader:profiles!lobbies_leader_id_fkey(id, username, avatar_path), applications(applicant_id, status, decided_at, applicant:profiles!applications_applicant_id_fkey(id, username, avatar_path))";
+  "id, leader_id, name, region, capacity, status, starts_at, cover, game(slug), game_modes(kind, label), leader:profiles!lobbies_leader_id_fkey(id, username, avatar_path), applications(applicant_id, status, decided_at, applicant:profiles!applications_applicant_id_fkey(id, username, avatar_path))";
 
 /**
  * Lobbies the player leads, and lobbies they were accepted into. A member is
@@ -732,16 +778,16 @@ async function queryMyLobbies<T>(
   statuses: string[],
 ): Promise<T[]> {
   const [led, joined] = await Promise.all([
-    supabase.from("lobbies").select(select).eq("leader_id", userId).in("status", statuses),
+    supabase.from("lobby").select(select).eq("leader_id", userId).in("status", statuses),
     supabase
       .from("applications")
-      .select(`lobbies!inner(${select})`)
+      .select(`lobby!inner(${select})`)
       .eq("applicant_id", userId)
       .eq("status", "accepted")
-      .in("lobbies.status", statuses),
+      .in("lobby.status", statuses),
   ]);
-  const joinedLobbies = ((joined.data ?? []) as unknown as { lobbies: T }[]).map(
-    (row) => row.lobbies,
+  const joinedLobbies = ((joined.data ?? []) as unknown as { lobby: T }[]).map(
+    (row) => row.lobby,
   );
   return [...((led.data ?? []) as unknown as T[]), ...joinedLobbies];
 }
@@ -754,13 +800,13 @@ export async function fetchMyCurrentLobby(
   const [lobby] = await queryMyLobbies<{
     id: string;
     name: string;
-    games: { slug: string } | null;
-  }>(supabase, userId, "id, name, games(slug)", PLAYING_STATUSES);
-  return lobby?.games ? { id: lobby.id, name: lobby.name, game: lobby.games.slug } : null;
+    game: { slug: string } | null;
+  }>(supabase, userId, "id, name, game(slug)", PLAYING_STATUSES);
+  return lobby?.game ? { id: lobby.id, name: lobby.name, game: lobby.game.slug } : null;
 }
 
 function toMyLobby(row: MyLobbyRow, userId: string): MyLobby {
-  const slug = row.games?.slug ?? "";
+  const slug = row.game?.slug ?? "";
   const isLeader = row.leader_id === userId;
   const joined = row.applications
     .filter((application) => application.status === "accepted")

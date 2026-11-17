@@ -17,7 +17,7 @@ export interface GameDraft extends GameProfile {
  * Everything is picked by the player: there is no Riot/Moonton API behind
  * this, so a "detected" rank would be a number we can't stand behind on a
  * profile whose whole point is being checkable. Ranks, roles and regions
- * come from the database catalog (`game_ranks`, `game_roles`) so every
+ * come from the database catalog (`rank_tier`, `game_role`) so every
  * profile uses the same ladder and the rank can be compared as a position,
  * not as typed text. A game with no roles (CS2, PUBG Mobile, Free Fire)
  * never asks for one.

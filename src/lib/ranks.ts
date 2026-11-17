@@ -2,7 +2,7 @@ import type { GameMode, GameRank } from "@/lib/games";
 
 /**
  * Rank ranges and "who may join this lobby" logic. Pure functions, no
- * database: they work on a game's ladder (`game_ranks`, lowest first).
+ * database: they work on a game's ladder (`rank_tier`, lowest first).
  *
  * Two different questions live here, and they stay separate:
  *  - ELIGIBILITY: may this player join? A yes/no rule built from the lobby's
@@ -136,7 +136,7 @@ const NO_RULE: PartyRule = { kind: "none" };
 
 /**
  * The party rule for a mode and lobby size, read from the database
- * (`game_modes.party_*`, `game_ranks.party_band`), so the app and the join
+ * (`game_modes.party_*`, `rank_tier.party_band`), so the app and the join
  * check in SQL (`lobby_join_bounds`) use the same data. Only ranked modes have
  * one, and Valorant's applies only below five slots.
  *

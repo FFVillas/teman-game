@@ -15,6 +15,12 @@ export const MAX_LANGUAGES = 8;
  * prevented, lower this number — it is the only place to change.
  */
 export const MAX_PERSONALITY_TAGS = 5;
+/**
+ * Three, per the October 2026 proposal revision. Enforced by a deferred
+ * constraint trigger too (`20261116000100_user_tag_minimum.sql`), because the
+ * tags feed Persamaan 3.14 and a half-filled set would quietly skew T.
+ */
+export const MIN_PERSONALITY_TAGS = 3;
 
 /**
  * The one list of languages, for profiles, onboarding and lobbies alike.

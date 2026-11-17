@@ -12,12 +12,34 @@ interface MessageThreadProps {
   onSend: (body: string) => void;
   /** Sender id that marks a message as the viewer's own. */
   currentUserId?: string;
+  /** Returns to the conversation list on a phone; absent from sm up. */
+  onBack?: () => void;
+}
+
+/**
+ * Only rendered below sm, where the list is swapped out for the thread.
+ * Shared with LobbyChatThread so both headers get the same control.
+ */
+export function BackToList({ onBack }: { onBack?: () => void }) {
+  if (!onBack) return null;
+  return (
+    <button
+      type="button"
+      onClick={onBack}
+      aria-label="Back to conversations"
+      className="-ml-1 flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-white/5 sm:hidden"
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
+      <img src="/icons/lfg-back-arrow.svg" alt="" className="size-4 opacity-70" />
+    </button>
+  );
 }
 
 export default function MessageThread({
   conversation,
   onSend,
   currentUserId = CURRENT_USER_ID,
+  onBack,
 }: MessageThreadProps) {
   const [draft, setDraft] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
@@ -51,7 +73,8 @@ export default function MessageThread({
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className="flex items-center gap-3 border-b border-border-default px-6 py-4">
+      <div className="flex items-center gap-3 border-b border-border-default px-4 py-3 sm:px-6 sm:py-4">
+        <BackToList onBack={onBack} />
         <UserAvatar
           src={conversation.participant.avatar}
           name={conversation.participant.name}
@@ -63,7 +86,7 @@ export default function MessageThread({
         </span>
       </div>
 
-      <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-6">
+      <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-4 sm:p-6">
         {conversation.messages.length === 0 && (
           <EmptyState
             fill

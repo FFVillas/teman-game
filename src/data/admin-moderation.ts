@@ -26,16 +26,22 @@ import {
 // Types
 // ---------------------------------------------------------------------------
 
-export type AccountStatus = "active" | "warned" | "suspended" | "banned";
+export type AccountStatus = "active" | "warned" | "suspended";
 
-export type ReportStatus = "open" | "in_review" | "resolved" | "dismissed";
+export type ReportStatus = "pending" | "in_review" | "resolved" | "rejected";
 
 /** Where the reporter was when they filed it. */
 export type ReportSource = "lobby" | "profile" | "match";
 
 export type ReportSeverity = "high" | "normal";
 
-export type SanctionType = "warning" | "suspension" | "ban";
+/**
+ * Only two, per the October 2026 proposal revision: a warning, or a
+ * suspension with a start and an end. A permanent ban has no duration, so the
+ * thesis' `sanction` table cannot express one. Reputation is never adjusted by
+ * a moderator either — it moves only through player ratings.
+ */
+export type SanctionType = "warning" | "suspension";
 
 export type AdminLobbyStatus = LobbyStatus | "closed";
 
@@ -55,7 +61,7 @@ export interface AdminPlayer {
 }
 
 export interface ReportResolution {
-  outcome: "sanctioned" | "dismissed";
+  outcome: "sanctioned" | "rejected";
   sanctionId?: string;
   note: string;
   resolvedBy: string;
@@ -170,7 +176,6 @@ export const suspensionDurations = [1, 3, 7, 30] as const;
 export const sanctionLabels: Record<SanctionType, string> = {
   warning: "Warning",
   suspension: "Suspension",
-  ban: "Permanent ban",
 };
 
 export const MIN_ADMIN_NOTE_LENGTH = 10;
@@ -626,7 +631,7 @@ const seedLobbies: AdminLobby[] = [
 const seedReports: AdminReport[] = [
   {
     id: "rpt-1012",
-    status: "open",
+    status: "pending",
     reason: "Flaming / verbal provocation",
     details:
       "Kept insulting the team in chat after every lost round and told Kinoyyy to uninstall. Nobody provoked him first.",
@@ -639,7 +644,7 @@ const seedReports: AdminReport[] = [
   },
   {
     id: "rpt-1011",
-    status: "open",
+    status: "pending",
     reason: "Verbal abuse or harassment",
     details:
       "Targeted me personally in text and voice for the rest of the match, calling me a bot and blaming me for every round.",
@@ -652,7 +657,7 @@ const seedReports: AdminReport[] = [
   },
   {
     id: "rpt-1010",
-    status: "open",
+    status: "pending",
     reason: "Verbal abuse or harassment",
     details: "Told me to stop crying in front of everyone. Very toxic.",
     reporterId: "noscopegod",
@@ -663,7 +668,7 @@ const seedReports: AdminReport[] = [
   },
   {
     id: "rpt-1009",
-    status: "open",
+    status: "pending",
     reason: "AFK / left the game",
     details:
       "Stopped moving from round 3 onward and didn't respond in chat or voice. We played 4v5 for the rest of the match.",
@@ -688,7 +693,7 @@ const seedReports: AdminReport[] = [
   },
   {
     id: "rpt-1007",
-    status: "open",
+    status: "pending",
     reason: "Inappropriate profile content",
     details:
       "Their profile bio links to a boosting service and asks people to DM for prices.",
@@ -699,7 +704,7 @@ const seedReports: AdminReport[] = [
   },
   {
     id: "rpt-1006",
-    status: "dismissed",
+    status: "rejected",
     reason: "Trolling / intentional sabotage",
     details: "The leader made terrible calls on purpose so we would lose.",
     reporterId: "noscopegod",
@@ -708,7 +713,7 @@ const seedReports: AdminReport[] = [
     lobbyId: "lobby-5",
     createdAt: ago(2 * DAY),
     resolution: {
-      outcome: "dismissed",
+      outcome: "rejected",
       note: "Chat shows normal shot-calling and no sabotage. Disagreeing with strategy isn't trolling.",
       resolvedBy: "adm-1",
       resolvedAt: ago(1 * DAY + 20 * HOUR),
@@ -753,7 +758,7 @@ const seedReports: AdminReport[] = [
   },
   {
     id: "rpt-1003",
-    status: "dismissed",
+    status: "rejected",
     reason: "Other",
     details: "Refused to play duelist when I asked.",
     reporterId: "noscopegod",
@@ -761,7 +766,7 @@ const seedReports: AdminReport[] = [
     source: "match",
     createdAt: ago(30 * DAY),
     resolution: {
-      outcome: "dismissed",
+      outcome: "rejected",
       note: "No rule broken. Players pick their own role.",
       resolvedBy: "adm-2",
       resolvedAt: ago(29 * DAY),
@@ -820,12 +825,13 @@ const seedSanctions: Sanction[] = [
   {
     id: "san-4",
     playerId: "lagswitch",
-    type: "ban",
+    type: "suspension",
     reason: "Cheating / third-party software",
     note: "Advertising cheats after a previous suspension for cheating.",
     reportIds: ["rpt-1005"],
     issuedBy: "adm-1",
     issuedAt: ago(5 * DAY),
+    expiresAt: fromNow(30 * DAY),
   },
   {
     id: "san-3",

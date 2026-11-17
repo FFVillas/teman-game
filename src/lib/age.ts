@@ -1,4 +1,11 @@
-export const MINIMUM_AGE = 13;
+/**
+ * 18, not 13, since the October 2026 proposal revision: Indonesia's personal
+ * data law (UU PDP No. 27/2022) requires a parent or guardian's consent to
+ * process a child's data, and TemanGame has no way to collect that. The
+ * database enforces the same number — see
+ * `20261115000000_minimum_age_18.sql`.
+ */
+export const MINIMUM_AGE = 18;
 
 /**
  * Whole years between an ISO date ("YYYY-MM-DD") and today, or null when the

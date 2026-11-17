@@ -3,7 +3,7 @@
  * Legends' are small WebP. Games with no roles (CS2, PUBG Mobile, Free Fire)
  * never reach this; Mobile Legends has roles but no art yet, so it shows text.
  *
- * Keys are the role names stored in `game_roles`.
+ * Keys are the role names stored in `game_role`.
  */
 const icons: Record<string, Record<string, string>> = {
   valorant: {

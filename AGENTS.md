@@ -30,6 +30,22 @@ checklist for each game.
 whenever you add a table, change a rule or drop something the proposal
 specifies.
 
+**The proposal was revised on 14 October 2026 and the code has not caught up
+yet.** `S_total` lost its `M_rank` multiplier, `R` was rebuilt around a
+Bayesian weighted average, and `T` now scores tag *strength* rather than set
+overlap — so `src/lib/recommendation.ts` currently implements a formula the
+supervisor struck out. Tables are being renamed to the thesis's own names
+(`games` → `game`, `lobbies` → `lobby`, `game_ranks` → `rank_tier`,
+`game_roles` → `game_role`, `lobby_roles` → `lobby_required_role`), lobby
+statuses too (`live` → `open`, `started` → `in_progress`, `closed` →
+`cancelled`), and the `ban` sanction is being dropped.
+[`docs/proposal-revision-2026-10.md`](docs/proposal-revision-2026-10.md) is the
+work plan: the new equations in full, the decisions already settled, and the
+four phases from here to a deployable build. **Read it before touching the
+recommendation engine, the lobby lifecycle, the rating flow or the admin
+console** — and prefer it over the older status notes in this file, which
+describe the pre-revision shape.
+
 Two conventions that matter when extending it: the spec says **lobby**
 where the code says **team** (`LfgTeam`), and only Valorant is built out
 of the six games in scope.
@@ -184,6 +200,45 @@ tracking-widest text-text-muted`, header actions `h-10 text-xs`. If a
 page starts feeling like a different product, check it against these
 first.
 
+## Responsive layout
+
+Breakpoints are Tailwind's, plus one: **`xs` = 368px**, defined in
+`globals.css`'s `@theme`. It exists for the navbar, where the logo, the menu
+button and the auth buttons fit a 375px phone but not a 320px one; `sm`
+(640px) reacts far too late and would strip the wordmark from every phone.
+
+Three screens change shape rather than just reflow, and each hid something
+before:
+
+- **Navbar.** The six game links are `hidden lg:flex` — they don't fit beside
+  the account controls. Below `lg` they live behind `MobileNavMenu`, a
+  hamburger that opens a full-width panel under the bar. Without it a phone
+  had no route into any game but the landing page's grid.
+- **Social** (`/social/*`) is a sidebar beside a panel from `sm` up. Below
+  that the layout stacks (`flex-col sm:flex-row`) and `SocialSidebar` renders
+  a scrolling strip of the same five destinations instead, using each item's
+  `shortLabel`. It used to be `hidden sm:flex`, which left Pending, Discover,
+  Recent and Blocked unreachable on a phone.
+- **Messages** is master-detail below `sm`: the conversation list, then the
+  thread with a back arrow (`BackToList`, exported from `MessageThread` and
+  shared with `LobbyChatThread`). `MessagesView` holds `threadOpenOnMobile`;
+  a `?user=` or `?lobby=` deep link starts on the thread, since it asked for
+  one conversation. From `sm` up both panes show and the state is ignored.
+
+Two rules worth keeping:
+
+- **`dvh`, never `vh`,** for anything sized to the window. `vh` counts the
+  strip a mobile browser's URL bar covers, so a chat composer pinned to the
+  bottom sits off-screen. Used by `/messages`, the Social layout, the lobby
+  chat pages and every modal's `max-h`.
+- **A fixed-height control must not wrap.** `h-8` plus a label that wraps to
+  two lines spills text outside its own border — that's what `shrink-0
+  whitespace-nowrap` on the nav auth buttons is for.
+
+Tables stay wide and scroll: `AdminTable` wraps a `min-w-[720px]` table in
+`overflow-x-auto`, because a moderation queue reads worse as stacked cards
+than as a table you nudge sideways.
+
 ## Notifications vs. toasts
 
 Two different things, deliberately:
@@ -248,7 +303,7 @@ it re-renders the page on any change to those rows, debounced and paused while
 the tab is hidden. Used on the lobby page, the LFG lists, and (as client
 refetches via `useRealtimeChanges` / `useFriendshipChanges`) the navbar lobby
 chip and the Social lists and pending count. Needs the table in the realtime
-publication (`20261007000100`, `20261011000000`, `20261016000000`); realtime
+publication (`20261007000100`, `20261011000000`, `20261016000000`, `20261117000000`); realtime
 obeys RLS, so people only get changes to rows they can read, and a signed-out
 visitor gets none.
 
@@ -312,9 +367,16 @@ trusted with.
 **Read [`docs/admin-console.md`](docs/admin-console.md) before touching
 `/admin`.** Short version:
 
-- Admins are **separate staff accounts** (`src/data/admin-accounts.ts`),
-  signed in through the normal `/login`. Demo: `admin@temangame.dev`, any
-  password. `AuthUser.role` is `"player" | "admin"`; missing means player.
+- Admins are **separate staff accounts**, signed in through the normal
+  `/login`. Staff identity is a row in `public.admins`, added by hand in the
+  SQL editor — there is no admin sign-up. `AuthContext` reads that table on
+  every session load, so a new row only takes effect after a fresh login.
+  `AuthUser.role` is `"player" | "admin"`; missing means player. The emails in
+  `src/data/admin-accounts.ts` are **mock display data only** and are not
+  checked at login; the real accounts live in the database, and their
+  passwords are not in this repo.
+- Staff accounts are exempt from the onboarding gate in `src/proxy.ts`: they
+  have no playstyle and no personality tags, and shouldn't be asked for any.
 - `/admin/*` is wrapped in `AdminGate`, which waits for `useAuth().isReady`
   and then calls `notFound()` for non-admins — a 404, not "access denied".
   It's a client check standing in for middleware + RLS, not security.
@@ -372,10 +434,23 @@ Steps: games → rank & role (skipped when no game is picked) → **about you**
 languages and play hours; it shares its inputs and validation with the edit
 form through `components/profile/DossierFields.tsx`, so the two can't drift.
 
-Everything is optional and the whole flow is skippable. `finish()` writes
-playstyle, tags, gender, languages and the play window to `profiles`, and
-the date of birth to `profile_private` (private — only the derived age is
-public). Each picked game is saved through `saveGameSetup()` (see "Games,
+**The playstyle step is compulsory; every other step is optional and
+skippable.** That step holds the two things the recommendation formula reads
+from the player — the 1–5 playstyle (`Pa`, Persamaan 3.2) and 3–5 personality
+tags (Persamaan 3.14) — so "Skip for now" is hidden there and Continue stays
+disabled until both are set. Nothing is pre-selected: playstyle starts `null`,
+because the old `useState(3)` wrote "Seimbang" for players who never chose it,
+straight into the heaviest-weighted term of the score.
+
+`src/proxy.ts` is the other half: a signed-in player whose profile is missing
+either one is sent back to `/onboarding`, so closing the tab halfway doesn't
+get an account with no `Pa` into the scoring. Staff accounts and the auth,
+settings, admin and legal routes are exempt, and the check only runs on page
+navigations.
+
+`finish()` writes playstyle, gender, languages and the play window to
+`profiles`, the tags to `user_tag`, and the date of birth to `profile_private`
+(private — only the derived age is public). Each picked game is saved through `saveGameSetup()` (see "Games,
 ranks, roles and regions"). Linked accounts have nowhere to go until
 `connected_accounts` exists.
 
@@ -390,7 +465,12 @@ tags, reputation, gender, languages (list), a structured play schedule
 `src/lib/availability.ts`; option lists in `src/data/profile-options.ts`),
 plus a **private** date of
 birth (`profile_private`, owner-only; others see only the derived age via
-`profile_age()`). Region, rank, linked
+`profile_age()`). **Personality tags are rows in `tag` + `user_tag`**
+(`20261116000000_personality_tags.sql`), read and written through
+`src/lib/tags.ts`; `profiles.personality_tags` is dead and no longer read
+anywhere, pending a migration that drops it. A deferred constraint trigger
+holds the set at 3–5 or empty — deferred because a row-level check would
+reject the first of three rows before the other two arrive. Region, rank, linked
 accounts and match history are **per game** and arrive with the Lobby slice,
 so they render as empty / "Not set". Usernames are 3–24 chars of
 `[A-Za-z0-9_.-]` (`src/lib/username.ts`) because they appear in URLs.
@@ -570,7 +650,8 @@ counts), then the account chip. **Social lives in the account menu**
 (`src/data/user-menu.ts`), not as its own icon — it's somewhere you go, not
 something you monitor, and four icons next to the chip read as clutter.
 Messages use a single speech bubble (`/icons/nav-chat.svg`); the old
-two-bubble icon competed with the bell.
+two-bubble icon competed with the bell. Below `lg` the game links move into
+`MobileNavMenu` and the wordmark drops below `xs` — see "Responsive layout".
 
 Use **`<UserAvatar src name />`** for any person whose picture may be
 missing — which is every real account, since `avatar_path` starts null and

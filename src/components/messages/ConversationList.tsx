@@ -19,6 +19,11 @@ interface ConversationListProps {
   lobbyChats?: LobbyChatEntry[];
   activeId: string | null;
   onSelect: (id: string) => void;
+  /**
+   * Below sm the page is master-detail, so the list steps aside while a
+   * thread is open. From sm up both panes show and this is ignored.
+   */
+  hiddenOnMobile?: boolean;
 }
 
 function SectionLabel({ children }: { children: string }) {
@@ -34,6 +39,7 @@ export default function ConversationList({
   lobbyChats = [],
   activeId,
   onSelect,
+  hiddenOnMobile = false,
 }: ConversationListProps) {
   const [query, setQuery] = useState("");
   const needle = query.trim().toLowerCase();
@@ -46,7 +52,11 @@ export default function ConversationList({
   );
 
   return (
-    <aside className="hidden min-h-0 w-[280px] shrink-0 flex-col border-r border-border-default sm:flex">
+    <aside
+      className={`${
+        hiddenOnMobile ? "hidden" : "flex"
+      } min-h-0 w-full shrink-0 flex-col border-border-default sm:flex sm:w-[280px] sm:border-r`}
+    >
       <div className="flex flex-col gap-4 p-6 pb-4">
         <h1 className="text-2xl font-extrabold text-white">Messages</h1>
 

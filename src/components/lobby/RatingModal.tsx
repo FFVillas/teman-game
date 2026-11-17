@@ -108,7 +108,7 @@ export default function RatingModal({
         role="dialog"
         aria-modal="true"
         aria-label={`Rate ${player.name}`}
-        className="flex max-h-[95vh] w-full max-w-[520px] flex-col gap-5 overflow-y-auto rounded-2xl border border-border-strong bg-bg-card-alt p-6"
+        className="flex max-h-[95dvh] w-full max-w-[520px] flex-col gap-5 overflow-y-auto rounded-2xl border border-border-strong bg-bg-card-alt p-6"
       >
         <div className="flex items-start gap-4">
           {/* eslint-disable-next-line @next/next/no-img-element -- avatar thumbnail, no benefit from next/image optimization */}

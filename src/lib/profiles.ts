@@ -4,6 +4,7 @@ import {
   type PersonalityTag,
   type PlayerProfile,
 } from "@/data/player-profiles";
+import { MINIMUM_AGE } from "@/lib/age";
 import { formatAvailability, trimSeconds } from "@/lib/availability";
 import { avatarUrl } from "@/lib/avatar";
 import type { PlayerGameSetup } from "@/lib/games";
@@ -15,7 +16,12 @@ export interface ProfileRow {
   /** Path inside the avatars bucket, not a URL — see src/lib/avatar.ts. */
   avatar_path: string | null;
   playstyle: number | null;
-  personality_tags: string[];
+  /**
+   * Joined from `user_tag`, not a column. The old `profiles.personality_tags`
+   * array is no longer read anywhere — see src/lib/tags.ts for why the tags
+   * had to become rows.
+   */
+  user_tag: Array<{ tag: { name: string } | null }> | null;
   reputation_score: number;
   review_count: number;
   created_at: string;
@@ -31,7 +37,8 @@ export interface ProfileRow {
 }
 
 const PROFILE_COLUMNS =
-  "id, username, avatar_path, playstyle, personality_tags, reputation_score, review_count, created_at, gender, languages, play_days, play_start, play_end, timezone";
+  "id, username, avatar_path, playstyle, reputation_score, review_count, created_at, " +
+  "gender, languages, play_days, play_start, play_end, timezone, user_tag (tag (name))";
 
 /** Adds the public, derived age. The date of birth lives in a private table. */
 async function withAge(
@@ -140,10 +147,10 @@ export async function saveDateOfBirth(
   return tooYoung(insertError) ?? failed;
 }
 
-/** The 13+ database trigger raises check_violation with a readable message. */
+/** The minimum-age database trigger raises check_violation with a readable message. */
 function tooYoung(error: { code?: string; message?: string }): string | null {
-  return error.code === "23514" || error.message?.includes("13 years")
-    ? "You must be at least 13 years old."
+  return error.code === "23514" || error.message?.includes("years old")
+    ? `You must be at least ${MINIMUM_AGE} years old.`
     : null;
 }
 
@@ -168,9 +175,9 @@ export function profileFromRow(
     ratingScore: Number(row.reputation_score),
     reviewCount: row.review_count,
     playstyle: row.playstyle ?? undefined,
-    personalityTags: row.personality_tags.filter((tag): tag is PersonalityTag =>
-      knownTags.has(tag),
-    ),
+    personalityTags: (row.user_tag ?? [])
+      .map((entry) => entry.tag?.name)
+      .filter((name): name is PersonalityTag => Boolean(name) && knownTags.has(name!)),
     dossier: {
       age: row.age ?? 0,
       gender: row.gender ?? "",

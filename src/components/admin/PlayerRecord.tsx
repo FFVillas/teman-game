@@ -111,7 +111,7 @@ export default function PlayerRecord({ playerId }: { playerId: string }) {
         back={{ label: "All players", href: "/admin/players" }}
         title={
           <span className="flex items-center gap-3">
-            <Avatar src={player.avatar} size="lg" dimmed={status === "banned"} />
+            <Avatar src={player.avatar} size="lg" dimmed={status === "suspended"} />
             {player.username}
           </span>
         }
@@ -141,13 +141,12 @@ export default function PlayerRecord({ playerId }: { playerId: string }) {
                 onClick={() => setLifting(restriction)}
                 className={adminButton.secondary}
               >
-                Lift {restriction.type === "ban" ? "ban" : "suspension"}
+                Lift suspension
               </button>
             )}
             <button
               type="button"
               onClick={() => setSanctioning(true)}
-              disabled={status === "banned"}
               className={adminButton.primary}
             >
               Issue sanction
@@ -158,9 +157,7 @@ export default function PlayerRecord({ playerId }: { playerId: string }) {
 
       {restriction && (
         <p className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-xs text-danger">
-          {restriction.type === "ban"
-            ? `Banned ${formatAgo(restriction.issuedAt)} for ${restriction.reason.toLowerCase()}.`
-            : `Suspended until ${formatDateTime(restriction.expiresAt!)} for ${restriction.reason.toLowerCase()}.`}{" "}
+          {`Suspended until ${formatDateTime(restriction.expiresAt!)} for ${restriction.reason.toLowerCase()}.`}{" "}
           They can&apos;t log in or join lobbies.
         </p>
       )}

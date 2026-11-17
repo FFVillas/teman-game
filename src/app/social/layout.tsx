@@ -11,13 +11,16 @@ export default function SocialLayout({
   return (
     <>
       <Navbar />
-      <main className="flex h-[calc(100vh-60px)] flex-col items-center px-6 pb-12 pt-4">
+      {/* dvh, not vh: on mobile Safari/Chrome `vh` counts the area the URL bar
+          covers, so the composer at the bottom of a thread sat off-screen. */}
+      <main className="flex h-[calc(100dvh-60px)] flex-col items-center px-4 pb-6 pt-4 sm:px-6 sm:pb-12">
         <div className="mx-auto w-full max-w-[1000px]">
           {/* Returns to the page you were on before opening Social — not to
               the previous Social sub-page. See lib/section-origin.ts. */}
           <SocialBackLink />
         </div>
-        <div className="mt-3 flex min-h-0 w-full max-w-[1000px] flex-1 overflow-hidden rounded-2xl border border-border-default bg-bg-card-alt">
+        {/* Column on a phone (strip on top, panel below), row from sm up. */}
+        <div className="mt-3 flex min-h-0 w-full max-w-[1000px] flex-1 flex-col overflow-hidden rounded-2xl border border-border-default bg-bg-card-alt sm:flex-row">
           <SocialSidebar />
           {children}
         </div>

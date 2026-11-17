@@ -60,7 +60,7 @@ export default async function LfgGamePage({ params }: LfgGamePageProps) {
         <LiveRefresh
           enabled={Boolean(userId)}
           subscriptions={[
-            { table: "lobbies", filter: `game_id=eq.${game.id}` },
+            { table: "lobby", filter: `game_id=eq.${game.id}` },
             { table: "applications", filter: `game_id=eq.${game.id}` },
           ]}
         />

@@ -1,7 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { personalityTagOptions, type PersonalityTag } from "@/data/player-profiles";
+import type { PersonalityTag } from "@/data/player-profiles";
 import { rankIconFor } from "@/data/rank-icons";
 import { avatarUrl } from "@/lib/avatar";
+import { fetchTagCatalog, fetchTagStrengths } from "@/lib/tags";
 import type { GameInfo, GameRank } from "@/lib/games";
 import {
   scoreMatch,
@@ -29,6 +30,8 @@ export interface InviteCandidate {
   reputation: number | null;
   reviewCount: number;
   tags: PersonalityTag[];
+  /** Persamaan 3.13 per tag, 0.00-1.00. */
+  tagStrength: Map<PersonalityTag, number>;
 }
 
 const POOL_LIMIT = 200;
@@ -51,10 +54,11 @@ export async function fetchInviteCandidates(
   if (pool.length === 0) return [];
   const ids = pool.map((row) => row.user_id);
 
-  const [{ data: profileRows }, { data: roleRows }] = await Promise.all([
+  const [{ data: profileRows }, { data: roleRows }, strengthsOf, catalog] =
+    await Promise.all([
     supabase
       .from("profiles")
-      .select("id, username, avatar_path, playstyle, personality_tags, reputation_score, review_count")
+      .select("id, username, avatar_path, playstyle, reputation_score, review_count")
       .in("id", ids),
     game.roles.length > 0
       ? supabase
@@ -63,7 +67,12 @@ export async function fetchInviteCandidates(
           .eq("game_id", game.id)
           .in("user_id", ids)
       : Promise.resolve({ data: [] as Array<{ user_id: string; role_id: number }> }),
+    fetchTagStrengths(supabase, ids),
+    fetchTagCatalog(supabase),
   ]);
+
+  // tag_strengths() keys by tag id; the scoring works in tag names.
+  const nameOfTag = new Map(catalog.map((entry) => [entry.id, entry.name]));
 
   const profiles = new Map(
     (
@@ -72,7 +81,6 @@ export async function fetchInviteCandidates(
         username: string;
         avatar_path: string | null;
         playstyle: number | null;
-        personality_tags: string[];
         reputation_score: number | string;
         review_count: number;
       }>
@@ -99,8 +107,19 @@ export async function fetchInviteCandidates(
         playstyle: profile.playstyle,
         reputation: profile.review_count > 0 ? Number(profile.reputation_score) : null,
         reviewCount: profile.review_count,
-        tags: profile.personality_tags.filter((tag): tag is PersonalityTag =>
-          (personalityTagOptions as readonly string[]).includes(tag),
+        // Both come from tag_strengths(), which already covers tags the
+        // player picked *and* tags raters gave them — the union Persamaan
+        // 3.13 normalises over.
+        tags: [...(strengthsOf.get(profile.id)?.keys() ?? [])]
+          .map((tagId) => nameOfTag.get(tagId))
+          .filter((name): name is PersonalityTag => Boolean(name)),
+        tagStrength: new Map(
+          [...(strengthsOf.get(profile.id)?.entries() ?? [])].flatMap(
+            ([tagId, value]) => {
+              const name = nameOfTag.get(tagId);
+              return name ? [[name, value] as const] : [];
+            },
+          ),
         ),
       },
     ];
@@ -134,6 +153,7 @@ export function rankCandidates(
           playstyle: candidate.playstyle ?? criteria.playstyle,
           reputation: candidate.reputation ?? 0,
           tags: candidate.tags,
+          tagStrength: candidate.tagStrength,
           rankOrdinal: candidate.rank?.ordinal ?? criteria.rankOrdinal,
         },
         criteria,

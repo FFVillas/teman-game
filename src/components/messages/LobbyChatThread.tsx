@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import RealLobbyChat from "@/components/lobby/RealLobbyChat";
+import { BackToList } from "./MessageThread";
 import type { MyLobbyChat } from "@/lib/lobby-chat";
 
 /**
@@ -12,14 +13,18 @@ import type { MyLobbyChat } from "@/lib/lobby-chat";
 export default function LobbyChatThread({
   chat,
   meId,
+  onBack,
 }: {
   chat: MyLobbyChat;
   meId: string;
+  /** Returns to the conversation list on a phone; absent from sm up. */
+  onBack?: () => void;
 }) {
   const lobbyHref = `/lfg/${chat.game}/lobby/${chat.lobbyId}`;
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className="flex items-center gap-3 border-b border-border-default px-6 py-4">
+      <div className="flex items-center gap-3 border-b border-border-default px-4 py-3 sm:px-6 sm:py-4">
+        <BackToList onBack={onBack} />
         {/* eslint-disable-next-line @next/next/no-img-element -- small cover thumbnail, no benefit from next/image optimization */}
         <img
           src={chat.cover}

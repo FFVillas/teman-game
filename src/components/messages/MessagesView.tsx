@@ -38,6 +38,17 @@ export default function MessagesView() {
   const activeIdRef = useRef<string | null>(null);
   /** Set when ?user= points at somebody who isn't a real account. */
   const [missingTarget, setMissingTarget] = useState<string | null>(null);
+  /**
+   * Below sm the list and the thread can't sit side by side, so the page is
+   * master-detail: the list, then the thread with a back button. From sm up
+   * this is ignored and both panes show at once.
+   *
+   * A deep link (?user= / ?lobby=) asked for one conversation, so it opens
+   * straight onto the thread.
+   */
+  const [threadOpenOnMobile, setThreadOpenOnMobile] = useState(
+    () => searchParams.has("user") || searchParams.has("lobby"),
+  );
 
   useEffect(() => {
     activeIdRef.current = activeId;
@@ -202,6 +213,7 @@ export default function MessagesView() {
   const handleSelect = useCallback(
     async (id: string) => {
       setActiveId(id);
+      setThreadOpenOnMobile(true);
       if (!meId || !id.startsWith("dm:")) return;
 
       const partnerId = id.slice(3);
@@ -272,25 +284,37 @@ export default function MessagesView() {
         lobbyChats={lobbyChats}
         activeId={activeId}
         onSelect={handleSelect}
+        hiddenOnMobile={threadOpenOnMobile}
       />
-      {activeLobbyChat && meId ? (
-        <LobbyChatThread chat={activeLobbyChat} meId={meId} />
-      ) : missingTarget && !active ? (
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col p-6">
-          <EmptyState
-            fill
-            icon="/icons/nav-chat.svg"
-            title={`No account for ${missingTarget}`}
-            description="That player comes from the sample data, not a registered account — there's nobody to message yet."
+      <div
+        className={`${
+          threadOpenOnMobile ? "flex" : "hidden"
+        } min-h-0 min-w-0 flex-1 flex-col sm:flex`}
+      >
+        {activeLobbyChat && meId ? (
+          <LobbyChatThread
+            chat={activeLobbyChat}
+            meId={meId}
+            onBack={() => setThreadOpenOnMobile(false)}
           />
-        </div>
-      ) : (
-        <MessageThread
-          conversation={active}
-          onSend={handleSend}
-          currentUserId={CURRENT_USER_ID}
-        />
-      )}
+        ) : missingTarget && !active ? (
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col p-6">
+            <EmptyState
+              fill
+              icon="/icons/nav-chat.svg"
+              title={`No account for ${missingTarget}`}
+              description="That player comes from the sample data, not a registered account — there's nobody to message yet."
+            />
+          </div>
+        ) : (
+          <MessageThread
+            conversation={active}
+            onSend={handleSend}
+            currentUserId={CURRENT_USER_ID}
+            onBack={() => setThreadOpenOnMobile(false)}
+          />
+        )}
+      </div>
     </>
   );
 }

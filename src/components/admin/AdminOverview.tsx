@@ -37,7 +37,7 @@ export default function AdminOverview() {
   );
   const restricted = players.filter((player) => {
     const status = accountStatus(player.id, sanctions);
-    return status === "suspended" || status === "banned";
+    return status === "suspended";
   }).length;
 
   const playerById = (id: string) => players.find((p) => p.id === id);
@@ -87,7 +87,7 @@ export default function AdminOverview() {
         <StatTile
           label="Restricted accounts"
           value={restricted}
-          hint="Suspended or banned"
+          hint="Currently suspended"
           href="/admin/players"
         />
       </div>

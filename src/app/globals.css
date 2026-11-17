@@ -68,6 +68,14 @@
 
   --font-display: var(--font-inter);
   --font-heading: var(--font-jakarta);
+
+  /*
+   * One breakpoint below Tailwind's own `sm` (640px), sized for the navbar:
+   * the logo, menu button and auth buttons fit on a 375px phone but not on
+   * a 320px one. `sm` reacts far too late — it would strip the wordmark
+   * from every phone, not just the narrowest.
+   */
+  --breakpoint-xs: 23rem; /* 368px */
 }
 
 body {

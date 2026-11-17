@@ -181,9 +181,9 @@ export default function RealInvitePlayersModal({
         aria-modal="true"
         aria-label="Invite players"
         onClick={(event) => event.stopPropagation()}
-        className="flex max-h-[92vh] w-full max-w-[860px] flex-col overflow-hidden rounded-2xl border border-border-strong bg-bg-card-alt"
+        className="flex max-h-[92dvh] w-full max-w-[860px] flex-col overflow-hidden rounded-2xl border border-border-strong bg-bg-card-alt"
       >
-        <div className="flex flex-col gap-4 border-b border-border-subtle p-5 sm:p-6">
+        <div className="flex shrink-0 flex-col gap-4 border-b border-border-subtle p-5 sm:p-6">
           <div className="flex items-start justify-between gap-4">
             <div className="flex flex-col gap-1">
               <h2 className="font-heading text-lg font-extrabold text-white">Invite players</h2>
@@ -280,7 +280,7 @@ export default function RealInvitePlayersModal({
           </p>
         )}
 
-        <ul className="flex flex-1 flex-col gap-2 overflow-y-auto p-5 sm:p-6">
+        <ul className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-5 sm:p-6">
           {candidates === null && (
             <li className="py-10 text-center text-xs text-text-muted">Finding players…</li>
           )}
@@ -298,68 +298,77 @@ export default function RealInvitePlayersModal({
                 key={candidate.id}
                 className="rounded-xl border border-border-default bg-bg-page/60 p-3.5"
               >
-                <div className="flex flex-wrap items-center gap-3 sm:flex-nowrap">
-                  <PlayerAvatar
-                    src={candidate.avatar}
-                    name={candidate.username}
-                    className="size-10 shrink-0 text-sm"
-                  />
-                  <div className="flex min-w-0 flex-1 flex-col gap-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Link
-                        href={`/profile/${candidate.username}`}
-                        target="_blank"
-                        className="truncate text-sm font-bold text-white hover:text-brand hover:underline"
-                      >
-                        {candidate.username}
-                      </Link>
-                      {sort === "match" && index === 0 && (
-                        <span className="rounded bg-success/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-success">
-                          Top pick
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-text-muted">
-                      <span className="flex items-center gap-1">
-                        {candidate.rankIcon && (
-                          // eslint-disable-next-line @next/next/no-img-element -- static badge icon, no benefit from next/image optimization
-                          <img src={candidate.rankIcon} alt="" className="size-3" />
-                        )}
-                        <span className="font-bold text-white/90">
-                          {candidate.rank?.name ?? "Unranked"}
-                        </span>
-                      </span>
-                      {candidate.roleNames.length > 0 && (
-                        <span>{candidate.roleNames.join(", ")}</span>
-                      )}
-                      {candidate.reputation === null ? (
-                        <span className="italic text-text-muted/70">No ratings yet</span>
-                      ) : (
-                        <span className="text-star">
-                          ★ {candidate.reputation.toFixed(1)}
-                          <span className="text-text-muted"> ({candidate.reviewCount})</span>
-                        </span>
-                      )}
-                      {candidate.playstyle && <span>{playstyleLabels[candidate.playstyle]}</span>}
-                    </div>
-                    {candidate.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1 pt-0.5">
-                        {candidate.tags.map((tag) => (
-                          <span
-                            key={tag}
-                            className="rounded-full border border-border-default px-2 py-0.5 text-[10px] font-semibold text-text-muted"
-                          >
-                            {tag}
+                {/*
+                  Phone: avatar + details on one line, the button full width
+                  underneath. Wrapping them all into one row (what this did)
+                  left the button floating beside the tag chips. From sm up
+                  it's one row again.
+                */}
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <PlayerAvatar
+                      src={candidate.avatar}
+                      name={candidate.username}
+                      className="size-10 shrink-0 text-sm"
+                    />
+                    <div className="flex min-w-0 flex-1 flex-col gap-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Link
+                          href={`/profile/${candidate.username}`}
+                          target="_blank"
+                          className="truncate text-sm font-bold text-white hover:text-brand hover:underline"
+                        >
+                          {candidate.username}
+                        </Link>
+                        {sort === "match" && index === 0 && (
+                          <span className="rounded bg-success/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-success">
+                            Top pick
                           </span>
-                        ))}
+                        )}
                       </div>
-                    )}
+                      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-text-muted">
+                        <span className="flex items-center gap-1">
+                          {candidate.rankIcon && (
+                            // eslint-disable-next-line @next/next/no-img-element -- static badge icon, no benefit from next/image optimization
+                            <img src={candidate.rankIcon} alt="" className="size-3" />
+                          )}
+                          <span className="font-bold text-white/90">
+                            {candidate.rank?.name ?? "Unranked"}
+                          </span>
+                        </span>
+                        {candidate.roleNames.length > 0 && (
+                          <span>{candidate.roleNames.join(", ")}</span>
+                        )}
+                        {candidate.reputation === null ? (
+                          <span className="italic text-text-muted/70">No ratings yet</span>
+                        ) : (
+                          <span className="text-star">
+                            ★ {candidate.reputation.toFixed(1)}
+                            <span className="text-text-muted"> ({candidate.reviewCount})</span>
+                          </span>
+                        )}
+                        {candidate.playstyle && <span>{playstyleLabels[candidate.playstyle]}</span>}
+                      </div>
+                      {candidate.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 pt-0.5">
+                          {candidate.tags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="rounded-full border border-border-default px-2 py-0.5 text-[10px] font-semibold text-text-muted"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
+
                   <button
                     type="button"
                     onClick={() => invite(candidate)}
                     disabled={done || slotsLeft <= 0 || sending !== null}
-                    className={`ml-auto flex h-9 min-w-[84px] shrink-0 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-bold transition-opacity disabled:cursor-not-allowed ${
+                    className={`flex h-9 w-full min-w-[84px] shrink-0 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-bold sm:ml-auto sm:w-auto transition-opacity disabled:cursor-not-allowed ${
                       done
                         ? "border border-success/40 bg-success/10 text-success"
                         : "bg-brand text-white hover:opacity-90 disabled:opacity-40"
@@ -383,7 +392,9 @@ export default function RealInvitePlayersModal({
           })}
         </ul>
 
-        <p className="border-t border-border-subtle px-5 py-3 text-[11px] text-text-muted sm:px-6">
+        {/* shrink-0: the list is flex-1, and without this the footer gets
+            squeezed and its second line is cut off on a short screen. */}
+        <p className="shrink-0 border-t border-border-subtle px-5 py-3 text-[11px] text-text-muted sm:px-6">
           {candidates === null
             ? "Loading…"
             : `${visible.length} of ${ranked.length} players shown. Each invitation holds one open slot until it's answered.`}
