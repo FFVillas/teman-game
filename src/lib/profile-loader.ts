@@ -1,9 +1,11 @@
 import { cache } from "react";
+import { matchesForSlug, type MatchRecord } from "@/data/match-history";
 import { resolveProfile } from "@/data/profile-lookup";
 import type { PlayerProfile } from "@/data/player-profiles";
-import { createClient } from "@/lib/supabase/server";
-import { fetchProfileByUsername, profileFromRow } from "@/lib/profiles";
-import { fetchPlayerGames } from "@/lib/games";
+import { createClient, getUserId } from "@/lib/supabase/server";
+import { fetchProfileByUsername, fetchSanctionHistory, profileFromRow } from "@/lib/profiles";
+import { fetchGameCatalog, fetchPlayerGames } from "@/lib/games";
+import { fetchPlayerMatches } from "@/lib/matches";
 
 /**
  * Resolves `/profile/<username>` for a Server Component: a real player first,
@@ -20,16 +22,24 @@ export const loadProfile = cache(
     const row = await fetchProfileByUsername(supabase, username);
 
     if (row) {
-      const [{ data: auth }, gameSetups] = await Promise.all([
-        supabase.auth.getUser(),
+      const [viewerId, gameSetups, sanctions] = await Promise.all([
+        getUserId(),
         fetchPlayerGames(supabase, row.id),
+        fetchSanctionHistory(supabase, row.id),
       ]);
-      return profileFromRow(row, {
-        isOwner: auth.user?.id === row.id,
-        gameSetups,
-      });
+      return profileFromRow(row, { isOwner: viewerId === row.id, gameSetups, sanctions });
     }
 
     return resolveProfile(username);
+  },
+);
+
+/** A profile's completed lobbies: real ones for real players, mock otherwise. */
+export const loadMatches = cache(
+  async (profile: PlayerProfile): Promise<MatchRecord[]> => {
+    if (!profile.userId) return matchesForSlug(profile.slug);
+    const supabase = await createClient();
+    const [catalog, viewerId] = await Promise.all([fetchGameCatalog(supabase), getUserId()]);
+    return fetchPlayerMatches(supabase, catalog, profile.userId, viewerId);
   },
 );

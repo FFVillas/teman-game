@@ -2,6 +2,7 @@ import { lfgRanks, type LfgRank } from "./lfg-ranks";
 import { lfgRoles, type LfgRole } from "./lfg-roles";
 import { lfgTeams } from "./lfg-teams";
 import type { PlayerGameSetup } from "@/lib/games";
+import type { SanctionEntry } from "@/lib/reputation";
 
 // Canonical self-declared personality tags — the vocabulary the matchmaking
 // engine's Attribute Matching Ratio (Persamaan 3.4) actually compares against.
@@ -43,6 +44,8 @@ export interface TeamHistoryEntry {
 }
 
 export interface PlayerProfile {
+  /** The account's id; only real profiles carry it. */
+  userId?: string;
   slug: string;
   username: string;
   avatar: string;
@@ -53,6 +56,10 @@ export interface PlayerProfile {
   isPlaceholder?: boolean;
   ratingScore: number;
   reviewCount: number;
+  /** Different players who rated them; real profiles only. Under 5 is "New player". */
+  raterCount?: number;
+  /** Public sanction history; real profiles only. */
+  sanctions?: SanctionEntry[];
   personalityTags: PersonalityTag[];
   /** 1 (very casual) – 5 (very competitive). Only real profiles carry it. */
   playstyle?: number;

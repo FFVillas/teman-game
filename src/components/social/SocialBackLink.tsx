@@ -19,5 +19,6 @@ export default function SocialBackLink() {
     if (origin) setHref(origin);
   }, []);
 
-  return <BackLink label="Back" href={href} />;
+  // Not history: Social has to leave the whole section, not step back through it.
+  return <BackLink label="Back" href={href} useHistory={false} />;
 }

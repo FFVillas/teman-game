@@ -24,33 +24,39 @@ import {
   type TierRange,
 } from "@/lib/ranks";
 import BackLink from "@/components/BackLink";
+import { LanguagesField } from "@/components/profile/DossierFields";
 import RankRangeFields from "./RankRangeFields";
 
-const languageOptions = ["English", "Indonesian", "English / Indonesian"];
 const vibeTagOptions = ["Competitive", "Chill", "Tactical", "Grinding", "Voice Comms"];
 
 /**
- * A clock time like "08:00 PM" as the next moment it happens, in UTC+7 (the
- * form says times are local UTC+7), strictly after `notBefore`. The form
- * collects a time of day only, so "8 PM" means tonight, or tomorrow if that
- * has already passed.
+ * A day ("2026-10-13", a calendar date in UTC+7) plus a clock time like
+ * "08:00 PM" as one moment. The form says times are local UTC+7, so the day
+ * and the time are read on that clock, whatever the browser's zone is.
  */
-function nextJakartaTime(label: string, notBefore: Date): Date {
+function jakartaMoment(day: string, label: string): Date {
+  const [year, month, date] = day.split("-").map(Number);
   const [clock, period] = label.split(" ");
   const [hourText, minuteText] = clock.split(":");
   let hour = Number(hourText) % 12;
   if (period === "PM") hour += 12;
-  const minute = Number(minuteText);
-  const jakartaNow = new Date(Date.now() + 7 * 3_600_000);
-  let moment = Date.UTC(
-    jakartaNow.getUTCFullYear(),
-    jakartaNow.getUTCMonth(),
-    jakartaNow.getUTCDate(),
-    hour - 7,
-    minute
+  return new Date(Date.UTC(year, month - 1, date, hour - 7, Number(minuteText)));
+}
+
+/** A moment's calendar date on the UTC+7 clock, as "YYYY-MM-DD". */
+function jakartaDate(moment: Date | string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date(moment));
+}
+
+/** "Today", "Tomorrow", then "Thu 15": the label on a day chip. */
+function dayLabel(day: string, index: number): string {
+  if (index === 0) return "Today";
+  if (index === 1) return "Tomorrow";
+  const [year, month, date] = day.split("-").map(Number);
+  const weekday = new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: "UTC" }).format(
+    new Date(Date.UTC(year, month - 1, date))
   );
-  while (moment <= notBefore.getTime()) moment += 86_400_000;
-  return new Date(moment);
+  return `${weekday} ${date}`;
 }
 
 const timeOptions = (() => {
@@ -276,12 +282,25 @@ export default function CreateTeamForm({
   );
   const leaderOutsideRange =
     leaderOrdinal !== null && !ordinalFits(leaderOrdinal, chosenBounds);
-  const [language, setLanguage] = useState(
-    languageOptions.find((option) => edit && option === edit.languages.join(" / ")) ??
-      languageOptions[0]
+  // Up to four, from the same list as profiles (the database allows four).
+  const [languages, setLanguages] = useState<string[]>(
+    edit ? edit.languages : ["English"]
   );
   const [playtimeMode, setPlaytimeMode] = useState<"now" | "schedule">(
     edit?.startsAt ? "schedule" : "now"
+  );
+  // The next seven days (today first), as UTC+7 calendar dates. A lobby being
+  // edited whose day is outside that window keeps its own day as an option.
+  const [dayChoices] = useState(() => {
+    const todayMoment = Date.now();
+    const days = Array.from({ length: 7 }, (_, offset) =>
+      jakartaDate(new Date(todayMoment + offset * 86_400_000))
+    );
+    const stored = edit?.startsAt ? jakartaDate(edit.startsAt) : null;
+    return stored && !days.includes(stored) ? [stored, ...days] : days;
+  });
+  const [scheduleDay, setScheduleDay] = useState(
+    edit?.startsAt ? jakartaDate(edit.startsAt) : dayChoices[0]
   );
   const [scheduleStart, setScheduleStart] = useState(
     edit?.startsAt ? clockLabel(edit.startsAt) : "08:00 PM"
@@ -324,9 +343,24 @@ export default function CreateTeamForm({
     const ends = anyRank ? {} : rankRangeEnds(game.ranks, rankRange);
     const now = new Date();
     const startsAt =
-      playtimeMode === "schedule" ? nextJakartaTime(scheduleStart, now) : null;
-    const endsAt =
-      startsAt && scheduleEnd ? nextJakartaTime(scheduleEnd, startsAt) : null;
+      playtimeMode === "schedule" ? jakartaMoment(scheduleDay, scheduleStart) : null;
+    // An end that isn't after the start is the next day (11 PM to 1 AM).
+    let endsAt: Date | null = null;
+    if (startsAt && scheduleEnd) {
+      endsAt = jakartaMoment(scheduleDay, scheduleEnd);
+      while (endsAt.getTime() <= startsAt.getTime()) {
+        endsAt = new Date(endsAt.getTime() + 86_400_000);
+      }
+    }
+    // The database allows a few minutes of slack; beyond that the time has gone.
+    if (
+      startsAt &&
+      startsAt.getTime() < now.getTime() - 5 * 60_000 &&
+      !(edit?.startsAt && jakartaDate(edit.startsAt) === scheduleDay && scheduleStart === clockLabel(edit.startsAt))
+    ) {
+      setSubmitError("That start time has already passed. Pick a later time or another day.");
+      return;
+    }
 
     setSubmitting(true);
     setSubmitError(null);
@@ -335,7 +369,10 @@ export default function CreateTeamForm({
       // Leaving a schedule untouched keeps its stored moments, so saving a
       // lobby whose start has just passed doesn't push it to tomorrow.
       const keepStart =
-        edit.startsAt && playtimeMode === "schedule" && scheduleStart === clockLabel(edit.startsAt);
+        edit.startsAt &&
+        playtimeMode === "schedule" &&
+        scheduleDay === jakartaDate(edit.startsAt) &&
+        scheduleStart === clockLabel(edit.startsAt);
       const keepEnd =
         edit.endsAt && keepStart && scheduleEnd === clockLabel(edit.endsAt);
       const failure = await updateLobby(createClient(), {
@@ -343,7 +380,7 @@ export default function CreateTeamForm({
         name: teamName.trim(),
         description,
         region: regionCode,
-        languages: language.split(" / "),
+        languages,
         micRequired,
         tags: vibeTags,
         playstyle,
@@ -381,7 +418,7 @@ export default function CreateTeamForm({
       name: teamName.trim(),
       description,
       region: regionCode,
-      languages: language.split(" / "),
+      languages,
       micRequired,
       tags: vibeTags,
       playstyle,
@@ -420,20 +457,20 @@ export default function CreateTeamForm({
       <div className="overflow-hidden rounded-2xl border border-border-strong bg-bg-card-alt">
         <div className="flex flex-col gap-2 px-6 pb-6 pt-8 sm:px-10 sm:pt-10">
           <h1 className="text-2xl font-bold text-white sm:text-3xl">
-            {edit ? "Edit your lobby" : "Create a Team"}
+            {edit ? "Edit your lobby" : "Create a Lobby"}
           </h1>
           <p className="text-sm text-text-muted">
             {edit
               ? lockRest
                 ? "This lobby is playing, so its group size, rank range, roles and playtime are locked. The rest can still change."
                 : "The game mode can't change once a lobby exists. Everything else can."
-              : `Recruit the perfect squad for your next ${gameName} match.`}
+              : `Set up a lobby for your next ${gameName} match and choose who joins.`}
           </p>
         </div>
 
         <div className="flex flex-col gap-8 px-6 pb-8 sm:px-10 lg:flex-row">
           <div className="flex flex-1 flex-col gap-6">
-            <FormField label="Team Name">
+            <FormField label="Lobby Name">
               <input
                 value={teamName}
                 onChange={(event) => setTeamName(event.target.value)}
@@ -444,7 +481,7 @@ export default function CreateTeamForm({
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Lockable locked={lockMode}>
-                <FormField label="Gamemode Selection">
+                <FormField label="Game Mode">
                   <SelectField
                     value={modeLabel}
                     onChange={setModeLabel}
@@ -513,7 +550,7 @@ export default function CreateTeamForm({
               <textarea
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
-                placeholder="Describe your team goals, playstyle, and what you're looking for..."
+                placeholder="Describe your goals, how you play, and who you're looking for..."
                 rows={5}
                 className={`${inputClass} h-[140px] resize-none`}
               />
@@ -707,11 +744,12 @@ export default function CreateTeamForm({
               </div>
               </Lockable>
 
-              <FormField label="Language">
-                <SelectField
-                  value={language}
-                  onChange={setLanguage}
-                  options={languageOptions}
+              <FormField label="Languages">
+                <LanguagesField
+                  languages={languages}
+                  onChange={setLanguages}
+                  max={4}
+                  size="md"
                 />
               </FormField>
 
@@ -752,6 +790,26 @@ export default function CreateTeamForm({
 
                 {playtimeMode === "schedule" && (
                   <>
+                    <div className="flex flex-wrap gap-1.5">
+                      {dayChoices.map((day, index) => {
+                        const isSelected = day === scheduleDay;
+                        return (
+                          <button
+                            key={day}
+                            type="button"
+                            onClick={() => setScheduleDay(day)}
+                            aria-pressed={isSelected}
+                            className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition-colors ${
+                              isSelected
+                                ? "border-brand bg-brand/10 text-brand"
+                                : "border-border-strong text-text-muted hover:border-white/30"
+                            }`}
+                          >
+                            {dayLabel(day, index)}
+                          </button>
+                        );
+                      })}
+                    </div>
                     <div className="flex items-center gap-2">
                       <div className="relative flex-1">
                         <select
@@ -921,7 +979,7 @@ export default function CreateTeamForm({
               disabled={submitting}
               className="rounded-lg bg-brand px-6 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {submitting ? (edit ? "Saving…" : "Creating…") : edit ? "Save changes" : "Create Team"}
+              {submitting ? (edit ? "Saving…" : "Creating…") : edit ? "Save changes" : "Create Lobby"}
             </button>
           </div>
         </div>

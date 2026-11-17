@@ -9,14 +9,9 @@ import RealLobbyPage, {
 import { isLobbyId } from "@/lib/lobbies";
 import {
   CURRENT_PLAYER_ID,
-  allLobbies,
   lobbyById,
   viewerRoleIn,
 } from "@/data/lfg-lobby";
-
-export function generateStaticParams() {
-  return allLobbies.map((lobby) => ({ id: lobby.id }));
-}
 
 export async function generateMetadata({
   params,

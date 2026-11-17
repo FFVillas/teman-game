@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { currentUser as mockCurrentUser } from "@/data/social-friends";
 import { createClient } from "@/lib/supabase/client";
 import { fetchIncomingRequests } from "@/lib/social";
+import { useFriendshipChanges } from "@/lib/use-friendship-changes";
 
 export default function SocialSidebar() {
   const pathname = usePathname();
@@ -25,6 +26,14 @@ export default function SocialSidebar() {
       cancelled = true;
     };
   }, [isReady, user]);
+
+  // The "Pending Requests" count follows new requests live.
+  useFriendshipChanges(user?.id, () => {
+    if (!user) return;
+    fetchIncomingRequests(createClient(), user.id).then((rows) =>
+      setPendingCount(rows.length),
+    );
+  });
 
   const navItems = [
     // `shortLabel` is what the narrow strip shows — "Pending Requests" and

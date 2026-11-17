@@ -3,15 +3,23 @@
 import { useEffect, useState } from "react";
 import StarRating from "./StarRating";
 import ReportForm from "./ReportForm";
+import UserAvatar from "@/components/UserAvatar";
 import {
   reviewTags,
   type ReportTarget,
   type ReportSubmission,
 } from "@/data/lfg-lobby";
+import {
+  LOW_RATING_MAX,
+  lowRatingReasons,
+  type LowRatingReason,
+} from "@/data/review-options";
 
 export interface LobbyReview {
   targetId: string;
   stars: number;
+  /** Required for 1–2 stars; never part of the score. */
+  reason: LowRatingReason | null;
   tags: string[];
 }
 
@@ -27,6 +35,15 @@ interface RatingModalProps {
   lobbyId?: string;
   onClose: () => void;
   onComplete: (reviews: LobbyReview[], reports: ReportSubmission[]) => void;
+  /** The tags to offer for a teammate, in order. Defaults to the mock list. */
+  tagsFor?: (teammateId: string) => string[];
+  /**
+   * Save as you go (real lobbies). Each returns an error message or null; on
+   * an error the queue stays on that teammate. Without them, the queue only
+   * collects and hands everything to `onComplete` (mock lobbies).
+   */
+  onSaveReview?: (review: LobbyReview) => Promise<string | null>;
+  onSaveReport?: (report: ReportSubmission) => Promise<string | null>;
 }
 
 /**
@@ -41,13 +58,19 @@ export default function RatingModal({
   lobbyId,
   onClose,
   onComplete,
+  tagsFor,
+  onSaveReview,
+  onSaveReport,
 }: RatingModalProps) {
   const [index, setIndex] = useState(0);
   const [reviews, setReviews] = useState<LobbyReview[]>([]);
   const [reports, setReports] = useState<ReportSubmission[]>([]);
   const [stars, setStars] = useState(0);
+  const [reason, setReason] = useState<LowRatingReason | null>(null);
   const [tags, setTags] = useState<string[]>([]);
   const [reporting, setReporting] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -66,11 +89,30 @@ export default function RatingModal({
   if (!player) return null;
 
   const isLast = index === teammates.length - 1;
+  const needsReason = stars > 0 && stars <= LOW_RATING_MAX;
+  const tagOptions = tagsFor?.(player.id) ?? reviewTags;
 
   function resetForNext() {
     setStars(0);
+    setReason(null);
     setTags([]);
     setReporting(false);
+    setError(null);
+  }
+
+  function pickStars(value: number) {
+    setStars(value);
+    if (value > LOW_RATING_MAX) setReason(null);
+  }
+
+  async function save<T>(item: T, write?: (item: T) => Promise<string | null>) {
+    if (!write) return true;
+    setSaving(true);
+    setError(null);
+    const failure = await write(item);
+    setSaving(false);
+    if (failure) setError(failure);
+    return !failure;
   }
 
   /** Move to the next teammate, or finish if this was the last one. */
@@ -85,15 +127,17 @@ export default function RatingModal({
     resetForNext();
   }
 
-  function commit(skip = false) {
-    const nextReviews = skip
-      ? reviews
-      : [...reviews, { targetId: player.id, stars, tags }];
-    advance(nextReviews, reports);
+  async function commit(skip = false) {
+    if (skip) {
+      advance(reviews, reports);
+      return;
+    }
+    const review: LobbyReview = { targetId: player.id, stars, reason, tags };
+    if (await save(review, onSaveReview)) advance([...reviews, review], reports);
   }
 
-  function submitReport(report: ReportSubmission) {
-    advance(reviews, [...reports, report]);
+  async function submitReport(report: ReportSubmission) {
+    if (await save(report, onSaveReport)) advance(reviews, [...reports, report]);
   }
 
   function toggleTag(tag: string) {
@@ -111,11 +155,11 @@ export default function RatingModal({
         className="flex max-h-[95dvh] w-full max-w-[520px] flex-col gap-5 overflow-y-auto rounded-2xl border border-border-strong bg-bg-card-alt p-6"
       >
         <div className="flex items-start gap-4">
-          {/* eslint-disable-next-line @next/next/no-img-element -- avatar thumbnail, no benefit from next/image optimization */}
-          <img
+          <UserAvatar
             src={player.avatar}
-            alt=""
-            className="size-16 shrink-0 rounded-full border-2 border-border-strong object-cover"
+            name={player.name}
+            className="size-16 border-2 border-border-strong"
+            textClassName="text-xl"
           />
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <div className="flex flex-wrap items-center gap-2">
@@ -159,15 +203,51 @@ export default function RatingModal({
           <>
             <div className="flex flex-col gap-2">
               <span className="text-sm text-text-muted">Rate the player</span>
-              <StarRating value={stars} onChange={setStars} />
+              <StarRating value={stars} onChange={pickStars} />
+              <p className="text-[11px] leading-relaxed text-text-muted">
+                Ratings are anonymous. Their score updates once everyone has
+                rated, or after 48 hours.
+              </p>
             </div>
+
+            {needsReason && (
+              <div className="flex flex-col gap-2">
+                <span className="text-[11px] font-bold uppercase tracking-widest text-text-muted">
+                  What went wrong? <span className="text-danger">*</span>
+                </span>
+                <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Reason">
+                  {lowRatingReasons.map((option) => {
+                    const isSelected = reason === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        role="radio"
+                        aria-checked={isSelected}
+                        onClick={() => setReason(option.value)}
+                        className={`rounded-full border px-3 py-1.5 text-[11px] transition-colors ${
+                          isSelected
+                            ? "border-danger bg-danger/10 text-danger"
+                            : "border-border-strong text-text-muted hover:border-white/30"
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[11px] text-text-muted">
+                  Required for 1 or 2 stars. It doesn&apos;t change the score; moderators see it.
+                </p>
+              </div>
+            )}
 
             <div className="flex flex-col gap-2">
               <span className="text-[11px] font-bold uppercase tracking-widest text-text-muted">
                 Add tags
               </span>
               <div className="flex flex-wrap gap-2">
-                {reviewTags.map((tag) => {
+                {tagOptions.map((tag) => {
                   const isSelected = tags.includes(tag);
                   return (
                     <button
@@ -198,6 +278,12 @@ export default function RatingModal({
           </>
         )}
 
+        {error && (
+          <p role="alert" className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-xs text-danger">
+            {error}
+          </p>
+        )}
+
         {/* ReportForm brings its own Cancel / Submit, so the queue footer
             steps aside while a report is being written. */}
         {!reporting && (
@@ -209,17 +295,18 @@ export default function RatingModal({
               <button
                 type="button"
                 onClick={() => commit(true)}
-                className="text-xs font-semibold text-text-muted transition-colors hover:text-white"
+                disabled={saving}
+                className="text-xs font-semibold text-text-muted transition-colors hover:text-white disabled:opacity-40"
               >
                 Skip
               </button>
               <button
                 type="button"
                 onClick={() => commit()}
-                disabled={stars === 0}
+                disabled={stars === 0 || (needsReason && !reason) || saving}
                 className="flex h-10 items-center justify-center rounded-lg bg-brand px-6 text-xs font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                {isLast ? "Finish" : "Next"}
+                {saving ? "Saving…" : isLast ? "Finish" : "Next"}
               </button>
             </div>
           </div>

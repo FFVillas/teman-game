@@ -58,8 +58,10 @@ export async function fetchInviteCandidates(
     await Promise.all([
     supabase
       .from("profiles")
-      .select("id, username, avatar_path, playstyle, reputation_score, review_count")
-      .in("id", ids),
+      .select("id, username, avatar_path, playstyle, reputation_score, review_count, is_suspended")
+      .in("id", ids)
+      // Proposal: a suspended player is left out before anything is scored.
+      .eq("is_suspended", false),
     game.roles.length > 0
       ? supabase
           .from("user_game_roles")

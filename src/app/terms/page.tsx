@@ -19,14 +19,14 @@ export default function TermsOfServicePage() {
       <Navbar />
       <main className="flex flex-1 flex-col">
         <div className="mx-auto flex w-full max-w-[760px] flex-col px-6 py-12">
-          <BackLink label="Back" href="/" useHistory />
+          <BackLink label="Back" href="/" />
 
           <div className="flex flex-col gap-2">
             <h1 className="text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
               Terms and Services
             </h1>
             <p className="text-xs text-text-muted">
-              Last updated October 7, 2026
+              Last updated November 18, 2026
             </p>
           </div>
 
@@ -42,7 +42,7 @@ export default function TermsOfServicePage() {
             <Section title="Your Account">
               <SubSection number={1} title="Eligibility">
                 <p>
-                  You must be at least 13 years old to use TemanGame. By
+                  You must be at least 18 years old to use TemanGame. By
                   signing up, you confirm that you meet this requirement.
                 </p>
               </SubSection>
@@ -116,23 +116,29 @@ export default function TermsOfServicePage() {
 
             <Section title="Reputation, Reviews, and Reports">
               <p>
-                After a lobby ends, teammates can rate and tag each other;
-                these reviews build the reputation score shown on your
-                profile. Players can also report behavior that breaks our
-                rules.
+                After a lobby that ran at least 15 minutes ends, the players
+                in it can rate and tag each other; these ratings build the
+                reputation score shown on your profile. Players can also
+                report behavior that breaks our rules.
               </p>
               <ul className="flex list-disc flex-col gap-2.5 pl-5">
-                <Bullet label="Reviews are honest feedback">
+                <Bullet label="Ratings are honest feedback">
                   Rate and tag teammates based on how they actually played,
-                  not to retaliate for an unrelated disagreement.
+                  not to retaliate for an unrelated disagreement. A rating of
+                  1 or 2 stars needs a reason.
+                </Bullet>
+                <Bullet label="Ratings are anonymous">
+                  Nobody sees who rated them. Your score updates once everyone
+                  in the lobby has rated, or 48 hours after it ends.
                 </Bullet>
                 <Bullet label="Reports stay confidential">
                   If you&apos;re reported, you&apos;ll see the rule you&apos;re
                   accused of breaking, never who reported you.
                 </Bullet>
-                <Bullet label="Your sanction history is yours to see">
-                  If action is taken on your account, you can see that
-                  history on your own profile.
+                <Bullet label="Sanction history is public">
+                  Warnings and suspensions on your account, with the rule and
+                  the dates, are shown on your profile to other players. A
+                  sanction that is lifted is removed from it.
                 </Bullet>
               </ul>
             </Section>
@@ -148,10 +154,8 @@ export default function TermsOfServicePage() {
                   A notice on your account that a rule was broken.
                 </Bullet>
                 <Bullet label="Suspension">
-                  Temporary loss of access to TemanGame for a set period.
-                </Bullet>
-                <Bullet label="Ban">
-                  Permanent loss of access to TemanGame.
+                  Loss of access to TemanGame for a set period. While it
+                  runs, you are left out of lobby recommendations.
                 </Bullet>
               </ul>
               <p>

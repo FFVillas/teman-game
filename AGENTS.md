@@ -161,7 +161,10 @@ Signup, login and logout go through Supabase Auth. Setup:
 - `src/lib/supabase/client.ts` (browser) and `server.ts` (Server
   Components / Route Handlers); `src/proxy.ts` refreshes the session on
   every request (Next 16 renamed `middleware.ts` → `proxy.ts`). Server-side,
-  trust `getUser()`, never `getSession()`.
+  never trust `getSession()`. To scope a query to the caller use `getUserId()`
+  (`lib/supabase/server.ts`): it verifies the token locally with `getClaims()`, so it
+  costs no round trip, and it is computed once per request. Use `getUser()` only
+  when you need the account itself (email). RLS is what protects data either way.
 - `supabase/migrations/` is the schema, applied **by hand** in the Supabase
   SQL editor (no CLI tracking). Never edit an applied migration — add a new
   timestamped one. `20260919000200_reports_moderation.sql` is written but
@@ -294,6 +297,16 @@ Two limits worth knowing:
 
 `ToastHost` is mounted once in the root layout — don't add another.
 
+**Live updates.** A Server Component page that should follow the database gets
+`<LiveRefresh subscriptions={[{ table, filter }]} />` (`src/components/LiveRefresh.tsx`):
+it re-renders the page on any change to those rows, debounced and paused while
+the tab is hidden. Used on the lobby page, the LFG lists, and (as client
+refetches via `useRealtimeChanges` / `useFriendshipChanges`) the navbar lobby
+chip and the Social lists and pending count. Needs the table in the realtime
+publication (`20261007000100`, `20261011000000`, `20261016000000`, `20261117000000`); realtime
+obeys RLS, so people only get changes to rows they can read, and a signed-out
+visitor gets none.
+
 Join requests and lobby invites are **actionable**: they render accept /
 decline icon buttons in the row (`actionableKinds` in
 `src/data/notifications.ts`) and store the outcome on `resolution`. A join
@@ -400,6 +413,20 @@ with five grey stars (which reads as *bad*, not *new*), and the owner gets a
 completeness prompt — percentage, progress bar, and the named gaps — driven
 by `src/lib/profile-completeness.ts`.
 
+## Languages and schedules
+
+One list of languages (`languageOptions` in `src/data/profile-options.ts`) feeds
+profiles, onboarding and lobbies, all through `LanguagesField` (a lobby takes up
+to 4, the database limit). Regional languages like Javanese were dropped on
+purpose; values are plain names so older saved ones still show.
+
+A lobby's schedule is a **day plus a start and end time**, on the UTC+7 clock:
+the next seven days as chips above the time selects, like the profile's day
+chips. An end before the start means the next day (11 PM to 1 AM). A start that
+has already passed is refused in the form. The lobby badge shows the **mode's own
+name** ("Competitive", "Premier"), coloured by its kind (ranked, casual,
+tournament).
+
 ## Onboarding
 
 Steps: games → rank & role (skipped when no game is picked) → **about you**
@@ -466,10 +493,8 @@ stats — filler would undercut a product about trustworthy player data. That
 fallback goes away once the social/LFG screens read from the database too.
 `src/lib/profile-loader.ts` (`loadProfile`, cached per request) does that
 real-then-mock lookup for both `/profile/<user>` and `/profile/<user>/report`.
-`/matches` is still mock-only (real users have no match history yet, so the
-link never shows). The report form works for real players but **submitting
-saves nothing** — it only shows a toast until the `reports` migration is run
-and wired in.
+Match history is real for real players (see "Reporting and reviewing");
+mock profiles keep their mock history. Reports on real players are saved.
 
 ## Games, ranks, roles and regions
 
@@ -522,12 +547,17 @@ confidence marks and open questions before changing any of them.
   `GameInfo.modes`. The create form caps the group size at the chosen mode's
   max party, and `partyRuleFor(mode, capacity, ranks)` in `lib/ranks.ts` turns
   the stored rule into the check, the same data the SQL join check uses.
-- The LFG search bar offers the game's own region and mode, and one **Rank**
-  dropdown: "Fits my rank" (default for a signed-in player with a rank), "All
-  ranks", or a tier (Silver, Gold…), each meaning "lobbies that accept it".
-  **The filters are not wired to the list yet.** The create form shows
-  "Seeking Roles" only for games that have roles. Only the lobby *leader* sets
-  a min–max range (form: "Rank Requirement", default "Any rank").
+- **The LFG list is ranked and filtered on the server** (`lib/lobby-ranking.ts`,
+  proposal 3.3.1.2): hard filters (game, then the rank range the lobby accepts),
+  the optional ones the player picked, then `S_total` for that player, with
+  `R` as `R_lobi` (the members' mean R*). The filters live in the URL
+  (`?q=&region=&mode=&rank=&role=&sort=`, `lib/lobby-filters.ts`). **Rank**:
+  "Fits my rank" (default), "All ranks", or a tier, each meaning "lobbies that
+  accept it". **Role is optional on purpose**: lobbies that name no role always
+  stay. Players see the order, never the scores. The same list is JSON at
+  `/api/lobbies/recommended?game=<slug>` for k6 and Precision@5. The create form
+  shows "Seeking Roles" only for games that have roles. Only the lobby *leader*
+  sets a min–max range (form: "Rank Requirement", default "Any rank").
 - **A lobby card shows one rank fact: the leader's accepted range**, drawn in
   the original rank-badge spot as icons and tier names ("[icon] Bronze to
   [icon] Gold", "Ascendant and up", or "Any rank"; `LfgTeam.rankRange`,
@@ -573,8 +603,9 @@ confidence marks and open questions before changing any of them.
   accepting joins as an accepted application and re-checks capacity, rank and the
   one-live-lobby rule, a declined invite can't be repeated, and invites lapse when
   the lobby starts or ends. The invited player answers on the lobby page or the
-  bell. Still mock or missing: ratings, and live updates of the rest of
-  the lobby page (refresh to see changes; the bell and the chat are live). The navbar lobby button
+  bell. The lobby page re-reads itself when the lobby, its applications, invites
+  or system chat lines change (`LiveRefresh`, below). Once a lobby has ended,
+  the people who played rate each other from its page. The navbar lobby button
   and the "Your lobby" banner read the player's real lobbies
   (`fetchMyCurrentLobby`, `fetchMyLobbies`) and show nothing when they are in none.
 - The old single region list (`regions.ts`: `SG2`, `NA East`, `EU West`) is
@@ -593,8 +624,22 @@ end-of-lobby flow, `/profile/<user>/report`, and a past match. Pass
 live lobby members *and* for teammates pulled out of match history.
 Rating at the end of a lobby is skippable, so `MatchTeammate.reviewed`
 tracks who still needs rating — `/profile/<user>/matches/<id>` is where
-that gets picked back up. Reviews and reports return separately from the
-modal because they're separate tables.
+that gets picked back up. Reviews and reports are separate tables.
+
+**Both are real** for real lobbies. Pass `onSaveReview` / `onSaveReport`
+(from `useRating`, `lib/use-rating.ts`) and the queue saves each teammate as
+it goes, staying on them if the database refuses; without them it only
+collects (the mock lobbies). The database owns every rule (`submit_review`):
+the lobby ended after at least 15 minutes, both people played, one rating per
+teammate, and 1–2 stars need a reason (`data/review-options.ts`). The tags
+offered are the five personality tags, strongest first for that teammate,
+none pre-picked. Ratings are anonymous: `reviews` has no read policy, so
+"have I rated them" comes from `player_matches()`
+(`20261118000000_match_history.sql`), which answers only for the caller's own
+ratings. `lib/matches.ts` turns it into `MatchRecord`s for the profile, the
+match list and the match page. Reports insert only their own columns, and an
+evidence file goes to the private `report-evidence` bucket under the
+reporter's folder (`20261118000100_report_evidence.sql`, `lib/reports.ts`).
 
 ## Row actions and full-row links
 
@@ -632,6 +677,18 @@ current page (React warns about it), so an empty source has to render the
 initial tile instead. Mock data always has an avatar, so the plain `<img>`
 in those components is fine.
 
+## Speed
+
+Pages that load data are Server Components, so keep them to **two rounds**: read
+what everything else depends on together (`Promise.all([fetchGameCatalog(), getUserId()])`),
+then everything that depends on it together. Lists are one nested PostgREST
+select, not a query per table (`LOBBY_SELECT` in `lib/lobbies.ts`); stale lobbies
+are expired once per request (`expireStaleLobbies`); the game catalog is cached
+for ten minutes in memory (`fetchGameCatalog`). Each slow route has a
+`loading.tsx` using `PageSkeleton`. A route that serves both prerendered and
+per-request pages (`generateStaticParams` plus `cookies()`) fails in production
+with `DYNAMIC_SERVER_USAGE`; don't mix them.
+
 ## Back navigation
 
 `BackLink` is the shared back control. It's **sticky under the 60px
@@ -640,8 +697,12 @@ you don't scroll to the top just to go back. Sticky strip rather than a
 floating button: it keeps its place in the layout, covers no content, and
 sits where the eye already looks for back.
 
-Default to a semantic destination (`href`). `useHistory` pops one history
-entry — rarely what you want inside a multi-page section.
+**Back goes to the page you came from** (the default): a profile opened from a
+lobby returns to that lobby. `href` is only the fallback when there is no
+earlier page of the app (opened directly, from outside, new tab), detected with
+the Navigation API's `canGoBack` (falling back to `history.length`); the label
+reads "Back" once it knows. Pass `useHistory={false}` for a section that has to
+leave itself, like Social below.
 
 Social needs to leave the **whole section**: friends → discover → back
 should return to wherever you were before opening Social, not to friends.
@@ -735,7 +796,14 @@ change.
 npm run dev     # dev server, localhost:3000
 npm run build
 npm run lint
+npm test        # Vitest: the formula and the list's filters and sort
 ```
+
+Tests sit next to the code they cover (`src/lib/*.test.ts`); shared fixtures are
+in `src/test/`. Test cases follow the proposal's boundary values (rating 0, 1,
+5, 6; playstyle 1–5; `|B| = 0`) so BAB 4 can report them directly.
+`supabase/dev-seed/seed.sql` holds the test lobbies for Precision@5: five open
+ones per game, varied on playstyle, wanted tags, rank range and reputation.
 
 ## Design source
 

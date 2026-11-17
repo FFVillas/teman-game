@@ -149,6 +149,22 @@ export interface MatchBreakdown {
   total: number;
 }
 
+/**
+ * Persamaan 3.1, or 3.15 when the lobby set no tag criteria (`T` is null).
+ *
+ * With no criteria, T is dropped and the remaining two weights are rescaled so
+ * they still sum to 1 and keep their 4 : 3 ratio. Scoring the missing T as 1
+ * instead would let a lobby that set no criteria outrank one whose criteria
+ * the applicant actually meets.
+ */
+export function totalScore(P: number, R: number, T: number | null): number {
+  const scored = SCORE_WEIGHTS.playstyle * P + SCORE_WEIGHTS.reputation * R;
+  if (T === null) {
+    return scored / (SCORE_WEIGHTS.playstyle + SCORE_WEIGHTS.reputation);
+  }
+  return scored + SCORE_WEIGHTS.tags * T;
+}
+
 export function scoreMatch(
   player: MatchInput,
   lobby: LobbyCriteria
@@ -157,15 +173,8 @@ export function scoreMatch(
   const R = reputationScore(player.reputation);
   const deltaR = Math.abs(player.rankOrdinal - lobby.rankOrdinal);
 
-  const scored = SCORE_WEIGHTS.playstyle * P + SCORE_WEIGHTS.reputation * R;
-
-  // Persamaan 3.15: with no tag criteria, T is dropped and the remaining two
-  // weights are rescaled so they still sum to 1 and keep their 4 : 3 ratio.
-  // Scoring the missing T as 1 instead would let a lobby that set no criteria
-  // outrank one whose criteria the applicant actually meets.
   if (lobby.wantedTags.length === 0) {
-    const divisor = SCORE_WEIGHTS.playstyle + SCORE_WEIGHTS.reputation;
-    return { P, R, T: null, deltaR, matchedTags: [], total: scored / divisor };
+    return { P, R, T: null, deltaR, matchedTags: [], total: totalScore(P, R, null) };
   }
 
   const T = tagScore(player.tags, lobby.wantedTags, (tag) =>
@@ -182,7 +191,7 @@ export function scoreMatch(
     T,
     deltaR,
     matchedTags: lobby.wantedTags.filter((tag) => player.tags.includes(tag)),
-    total: scored + SCORE_WEIGHTS.tags * T,
+    total: totalScore(P, R, T),
   };
 }
 

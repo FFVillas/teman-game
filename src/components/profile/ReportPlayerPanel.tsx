@@ -5,7 +5,10 @@ import { useRouter } from "next/navigation";
 import BackLink from "@/components/BackLink";
 import ReportForm from "@/components/lobby/ReportForm";
 import type { ReportSubmission, ReportTarget } from "@/data/lfg-lobby";
+import { useAuth } from "@/contexts/AuthContext";
 import { useNotifications } from "@/contexts/NotificationContext";
+import { submitReport } from "@/lib/reports";
+import { createClient } from "@/lib/supabase/client";
 
 interface ReportPlayerPanelProps {
   target: ReportTarget;
@@ -15,6 +18,8 @@ interface ReportPlayerPanelProps {
   backLabel: string;
   lobbyId?: string;
   context?: string;
+  /** A real player: the report is saved. Mock players only get the toast. */
+  live?: boolean;
 }
 
 export default function ReportPlayerPanel({
@@ -24,14 +29,31 @@ export default function ReportPlayerPanel({
   backLabel,
   lobbyId,
   context,
+  live = false,
 }: ReportPlayerPanelProps) {
   const router = useRouter();
   const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const { user } = useAuth();
   const { toast } = useNotifications();
 
-  function handleSubmit(report: ReportSubmission) {
-    // TODO: POST to `reports`, opening a moderation ticket for an admin.
-    void report;
+  async function handleSubmit(report: ReportSubmission) {
+    if (sending) return;
+    if (live) {
+      if (!user) {
+        setError("Log in to report players.");
+        return;
+      }
+      setSending(true);
+      setError(null);
+      const failure = await submitReport(createClient(), user.id, report);
+      setSending(false);
+      if (failure) {
+        setError(failure);
+        return;
+      }
+    }
     toast({
       tone: "success",
       title: "Report sent",
@@ -54,8 +76,8 @@ export default function ReportPlayerPanel({
             <h1 className="text-lg font-bold text-white">Report submitted</h1>
             <p className="max-w-[380px] text-xs leading-relaxed text-text-muted">
               A moderator will review your report on {target.name}. You
-              won&apos;t be notified of the outcome, but repeated reports
-              against the same player are weighted together.
+              won&apos;t be notified of the outcome, and it doesn&apos;t change
+              their rating.
             </p>
             <button
               type="button"
@@ -66,14 +88,21 @@ export default function ReportPlayerPanel({
             </button>
           </div>
         ) : (
-          <ReportForm
-            player={target}
-            game={game}
-            lobbyId={lobbyId}
-            context={context}
-            onCancel={() => router.push(backHref)}
-            onSubmit={handleSubmit}
-          />
+          <div className="flex flex-col gap-3">
+            <ReportForm
+              player={target}
+              game={game}
+              lobbyId={lobbyId}
+              context={context}
+              onCancel={() => router.push(backHref)}
+              onSubmit={handleSubmit}
+            />
+            {error && (
+              <p role="alert" className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-xs text-danger">
+                {error}
+              </p>
+            )}
+          </div>
         )}
       </div>
     </div>

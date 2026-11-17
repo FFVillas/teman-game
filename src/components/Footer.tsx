@@ -16,8 +16,8 @@ export default function Footer() {
           <div className="flex max-w-[320px] min-w-[280px] flex-col gap-6">
             <Logo />
             <p className="text-sm leading-[1.625] text-text-muted">
-              Connect with competitive players across the globe. Join the
-              best LFG platform for hardcore gamers.
+              Find teammates who play the way you do, and see how they
+              behave before you join them.
             </p>
             <div className="flex flex-col gap-2">
               {footerDisclaimer.map((paragraph) => (

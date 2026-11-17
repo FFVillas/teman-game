@@ -4,22 +4,18 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import BackLink from "@/components/BackLink";
 import MatchHistoryList from "@/components/profile/MatchHistoryList";
-import { playerProfiles } from "@/data/player-profiles";
-import { matchesForSlug, pendingReviews } from "@/data/match-history";
+import { pendingReviews } from "@/data/match-history";
+import { loadMatches, loadProfile } from "@/lib/profile-loader";
 
 interface MatchesPageProps {
   params: Promise<{ username: string }>;
-}
-
-export function generateStaticParams() {
-  return Object.keys(playerProfiles).map((username) => ({ username }));
 }
 
 export async function generateMetadata({
   params,
 }: MatchesPageProps): Promise<Metadata> {
   const { username } = await params;
-  const profile = playerProfiles[username];
+  const profile = await loadProfile(username);
 
   return {
     title: profile
@@ -30,11 +26,10 @@ export async function generateMetadata({
 
 export default async function MatchesPage({ params }: MatchesPageProps) {
   const { username } = await params;
-  const profile = playerProfiles[username];
-
+  const profile = await loadProfile(username);
   if (!profile) notFound();
 
-  const matches = matchesForSlug(profile.slug);
+  const matches = await loadMatches(profile);
   const isOwner = Boolean(profile.isOwner);
   const unrated = matches.reduce(
     (total, match) => total + pendingReviews(match).length,

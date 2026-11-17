@@ -2,17 +2,18 @@ import type { Metadata } from "next";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import CreateTeamForm from "@/components/lfg/CreateTeamForm";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUserId } from "@/lib/supabase/server";
 import { fetchGameCatalog, fetchMyRankName } from "@/lib/games";
 
 export const metadata: Metadata = {
-  title: "Create a Team — TemanGame",
-  description: "Recruit the perfect squad for your next Valorant match.",
+  title: "Create a Lobby — TemanGame",
+  description: "Set up a lobby for your next Valorant match and choose who joins.",
 };
 
 export default async function CreateTeamPage() {
   const supabase = await createClient();
-  const catalog = await fetchGameCatalog(supabase);
+  const [catalog, userId] = await Promise.all([fetchGameCatalog(supabase), getUserId()]);
+  const leaderRank = await fetchMyRankName(supabase, catalog, "valorant", userId);
 
   return (
     <>
@@ -23,7 +24,7 @@ export default async function CreateTeamPage() {
             gameSlug="valorant"
             gameName="Valorant"
             game={catalog.find((g) => g.slug === "valorant")}
-            leaderRank={await fetchMyRankName(supabase, catalog, "valorant")}
+            leaderRank={leaderRank}
           />
         </div>
       </main>

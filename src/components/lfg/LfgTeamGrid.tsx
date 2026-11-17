@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { LfgTeam } from "@/data/lfg-teams";
 import LfgTeamCard from "./LfgTeamCard";
@@ -13,14 +12,15 @@ const PAGE_SIZE = 6;
 
 export default function LfgTeamGrid({
   teams,
-  gameSlug,
   gameName,
   game,
   myRank,
+  filtered = false,
 }: {
   teams: LfgTeam[];
-  gameSlug: string;
   gameName: string;
+  /** The list is narrowed by search or filters, so empty means "no match". */
+  filtered?: boolean;
   /** The game's ranks, so the join dialog can check the viewer's rank fits. */
   game?: GameInfo;
   /** The signed-in viewer's rank in this game; "" if unknown. */
@@ -45,18 +45,13 @@ export default function LfgTeamGrid({
     return (
       <div className="mt-2 flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border-strong px-6 py-14 text-center">
         <h3 className="text-base font-bold text-white">
-          No {gameName} lobbies yet
+          {filtered ? "No lobbies match" : `No ${gameName} lobbies yet`}
         </h3>
         <p className="max-w-[420px] text-sm text-text-muted">
-          Nobody is looking for players right now. Start a lobby and others
-          can find you.
+          {filtered
+            ? "Try another rank, role or region, or clear the search."
+            : "Nobody is looking for players right now. Start one with Create Lobby above and others can find you."}
         </p>
-        <Link
-          href={`/lfg/${gameSlug}/create`}
-          className="mt-1 flex h-10 items-center justify-center rounded-lg bg-brand px-5 text-sm font-bold text-white transition-opacity hover:opacity-90"
-        >
-          Create a team
-        </Link>
       </div>
     );
   }

@@ -38,21 +38,21 @@ export async function proxy(request: NextRequest) {
     },
   );
 
-  // Just touching the session is enough to trigger a refresh when needed.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Verifies the token locally and refreshes the cookie when it is close to
+  // expiring, without asking Supabase's auth server on every request.
+  const { data: claims } = await supabase.auth.getClaims();
+  const userId = claims?.claims.sub;
 
-  if (user && needsSetupGate(request)) {
+  if (userId && needsSetupGate(request)) {
     // Two tiny indexed lookups, and only on real page navigations — never on
     // the data fetches this matcher also sees.
     const [{ data: profile }, { data: admin }] = await Promise.all([
       supabase
         .from("profiles")
         .select("playstyle, user_tag (tag_id)")
-        .eq("id", user.id)
+        .eq("id", userId)
         .maybeSingle(),
-      supabase.from("admins").select("user_id").eq("user_id", user.id).maybeSingle(),
+      supabase.from("admins").select("user_id").eq("user_id", userId).maybeSingle(),
     ]);
 
     // Staff accounts don't play, so they have no playstyle and no tags.

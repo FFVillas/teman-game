@@ -151,6 +151,20 @@ function tagCountMessage(error: {
 }
 
 /**
+ * The tags in the order the rating screen offers them for one player: the
+ * ones they carry most strongly first (proposal: strongest on top, none
+ * picked for you). Ties keep the catalog's order.
+ */
+export function tagsByStrength(
+  catalog: readonly { id: number; name: PersonalityTag }[],
+  strengths: ReadonlyMap<number, number> | undefined,
+): PersonalityTag[] {
+  return [...catalog]
+    .sort((a, b) => (strengths?.get(b.id) ?? 0) - (strengths?.get(a.id) ?? 0))
+    .map((tag) => tag.name);
+}
+
+/**
  * Persamaan 3.13 — how strongly each player carries each tag, 0.00–1.00.
  *
  * Comes from a database function rather than a query: `n_t` counts distinct

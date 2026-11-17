@@ -8,6 +8,7 @@ import { MINIMUM_AGE } from "@/lib/age";
 import { formatAvailability, trimSeconds } from "@/lib/availability";
 import { avatarUrl } from "@/lib/avatar";
 import type { PlayerGameSetup } from "@/lib/games";
+import type { SanctionEntry } from "@/lib/reputation";
 
 /** Columns of `public.profiles` the profile screens read, plus the derived age. */
 export interface ProfileRow {
@@ -24,6 +25,8 @@ export interface ProfileRow {
   user_tag: Array<{ tag: { name: string } | null }> | null;
   reputation_score: number;
   review_count: number;
+  /** Computed column: how many different players rated them. */
+  rater_count: number;
   created_at: string;
   gender: string | null;
   languages: string[];
@@ -37,7 +40,7 @@ export interface ProfileRow {
 }
 
 const PROFILE_COLUMNS =
-  "id, username, avatar_path, playstyle, reputation_score, review_count, created_at, " +
+  "id, username, avatar_path, playstyle, reputation_score, review_count, rater_count, created_at, " +
   "gender, languages, play_days, play_start, play_end, timezone, user_tag (tag (name))";
 
 /** Adds the public, derived age. The date of birth lives in a private table. */
@@ -160,13 +163,44 @@ function tooYoung(error: { code?: string; message?: string }): string | null {
  * rank/stats, match history, region) is left empty and renders as "Not set"
  * — those arrive with the Lobby slice, not here.
  */
+/**
+ * The public part of a player's sanctions, newest first: type, rule and
+ * dates, never the moderator's note (`sanction_history()`). Lifted sanctions
+ * are left out.
+ */
+export async function fetchSanctionHistory(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<SanctionEntry[]> {
+  const { data } = await supabase.rpc("sanction_history", { p_user: userId });
+  return ((data ?? []) as Array<{
+    type: SanctionEntry["type"];
+    reason: string;
+    issued_at: string;
+    expires_at: string | null;
+  }>).map((row) => ({
+    type: row.type,
+    reason: row.reason,
+    issuedAt: row.issued_at,
+    expiresAt: row.expires_at,
+    active:
+      row.type === "suspension" &&
+      (row.expires_at === null || Date.parse(row.expires_at) > Date.now()),
+  }));
+}
+
 export function profileFromRow(
   row: ProfileRow,
-  { isOwner, gameSetups }: { isOwner: boolean; gameSetups?: PlayerGameSetup[] },
+  {
+    isOwner,
+    gameSetups,
+    sanctions,
+  }: { isOwner: boolean; gameSetups?: PlayerGameSetup[]; sanctions?: SanctionEntry[] },
 ): PlayerProfile {
   const knownTags = new Set<string>(personalityTagOptions);
 
   return {
+    userId: row.id,
     slug: row.username,
     username: row.username,
     avatar: avatarUrl(row.avatar_path),
@@ -174,6 +208,8 @@ export function profileFromRow(
     isOwner,
     ratingScore: Number(row.reputation_score),
     reviewCount: row.review_count,
+    raterCount: row.rater_count,
+    sanctions,
     playstyle: row.playstyle ?? undefined,
     personalityTags: (row.user_tag ?? [])
       .map((entry) => entry.tag?.name)

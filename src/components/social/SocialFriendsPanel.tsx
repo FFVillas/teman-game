@@ -7,6 +7,7 @@ import GameFilterDropdown from "./GameFilterDropdown";
 import { EmptyState } from "@/components/EmptyState";
 import { useAuth } from "@/contexts/AuthContext";
 import { createClient } from "@/lib/supabase/client";
+import { useFriendshipChanges } from "@/lib/use-friendship-changes";
 import { fetchFriends, type FriendRow } from "@/lib/social";
 
 /**
@@ -36,6 +37,12 @@ export default function SocialFriendsPanel() {
       cancelled = true;
     };
   }, [isReady, user]);
+
+  // Someone accepting your request (or unfriending you) shows without a reload.
+  useFriendshipChanges(user?.id, () => {
+    if (!user) return;
+    fetchFriends(createClient(), user.id).then(setFriends);
+  });
 
   const visible = friends.filter((f) =>
     f.username.toLowerCase().includes(query.trim().toLowerCase())

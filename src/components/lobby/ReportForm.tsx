@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, type ChangeEvent } from "react";
+import UserAvatar from "@/components/UserAvatar";
 import {
   reportReasons,
   EVIDENCE_MAX_BYTES,
@@ -77,7 +78,7 @@ export default function ReportForm({
       targetId: player.id,
       reason,
       details: details.trim(),
-      evidenceFileName: file?.name,
+      evidenceFile: file,
       evidenceUrl: evidenceUrl.trim() || undefined,
       lobbyId,
     });
@@ -106,12 +107,7 @@ export default function ReportForm({
       )}
 
       <div className="flex items-center gap-3 rounded-xl border border-border-default bg-bg-page p-3">
-        {/* eslint-disable-next-line @next/next/no-img-element -- avatar thumbnail, no benefit from next/image optimization */}
-        <img
-          src={player.avatar}
-          alt=""
-          className="size-10 shrink-0 rounded-full object-cover"
-        />
+        <UserAvatar src={player.avatar} name={player.name} className="size-10" />
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="truncate text-sm font-bold text-white">
             {player.name}

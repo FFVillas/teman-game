@@ -78,10 +78,29 @@ interface GameRowFromApi {
   }> | null;
 }
 
-/** Every game with its ranks and roles, in the order they should be listed. */
-export async function fetchGameCatalog(
-  supabase: SupabaseClient,
-): Promise<GameInfo[]> {
+const CATALOG_TTL_MS = 10 * 60_000;
+let cachedCatalog: { loadedAt: number; games: Promise<GameInfo[]> } | null = null;
+
+/**
+ * Every game with its ranks, roles and modes, in the order they should be
+ * listed. The same for everyone and it only changes with a migration, so it is
+ * kept for a few minutes instead of being read on every page.
+ */
+export function fetchGameCatalog(supabase: SupabaseClient): Promise<GameInfo[]> {
+  if (cachedCatalog && Date.now() - cachedCatalog.loadedAt < CATALOG_TTL_MS) {
+    return cachedCatalog.games;
+  }
+  const games = loadGameCatalog(supabase);
+  const entry = { loadedAt: Date.now(), games };
+  cachedCatalog = entry;
+  // A failed or empty read must not stick for the whole window.
+  games.then((loaded) => {
+    if (loaded.length === 0 && cachedCatalog === entry) cachedCatalog = null;
+  });
+  return games;
+}
+
+async function loadGameCatalog(supabase: SupabaseClient): Promise<GameInfo[]> {
   const { data } = await supabase
     .from("game")
     .select(
@@ -212,6 +231,8 @@ export interface PlayerGameSetup {
   regionValue: string;
   /** Empty if the player hasn't picked a rank. */
   rank: string;
+  /** The rank's tier ("Gold" for "Gold 2"); empty if no rank. Badge art is found by it. */
+  rankTier: string;
   roles: string[];
   /** The favourites among `roles`. */
   favoriteRoles: string[];
@@ -243,10 +264,10 @@ export async function fetchMyRankName(
   supabase: SupabaseClient,
   catalog: GameInfo[],
   gameSlug: string,
+  userId: string | null,
 ): Promise<string> {
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) return "";
-  const setups = await fetchPlayerGameSetups(supabase, data.user.id, catalog);
+  if (!userId) return "";
+  const setups = await fetchPlayerGameSetups(supabase, userId, catalog);
   return setups.find((setup) => setup.gameSlug === gameSlug)?.rank ?? "";
 }
 
@@ -326,6 +347,7 @@ export async function fetchPlayerGameSetups(
         region: regionLabel(game.slug, mapping.region),
         regionValue: mapping.region ?? "",
         rank: game.ranks.find((rank) => rank.id === mapping.rank_id)?.name ?? "",
+        rankTier: game.ranks.find((rank) => rank.id === mapping.rank_id)?.tier ?? "",
         roles: game.roles
           .filter((role) => roleIds.includes(role.id))
           .map((role) => role.name),

@@ -22,7 +22,17 @@
 
 # misc
 .DS_Store
+Thumbs.db
+desktop.ini
 *.pem
+*.log
+
+# editors (personal settings)
+.idea/
+.vscode/
+
+# supabase CLI scratch, if it is ever used (the schema is applied by hand)
+/supabase/.temp/
 
 # debug
 npm-debug.log*

@@ -3,11 +3,14 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import RatingModal, { type LobbyReview } from "@/components/lobby/RatingModal";
 import { modeStyles } from "@/components/lfg/LfgTeamCard";
+import UserAvatar from "@/components/UserAvatar";
 import type { MatchRecord, MatchTeammate } from "@/data/match-history";
 import type { ReportSubmission } from "@/data/lfg-lobby";
 import BackLink from "@/components/BackLink";
+import { useRating } from "@/lib/use-rating";
 
 interface MatchDetailViewProps {
   match: MatchRecord;
@@ -15,6 +18,8 @@ interface MatchDetailViewProps {
   username: string;
   /** Only the owner of the history can rate or report from here. */
   isOwner: boolean;
+  /** A real match: ratings and reports are saved. Mock matches only pretend. */
+  live?: boolean;
 }
 
 export default function MatchDetailView({
@@ -22,25 +27,30 @@ export default function MatchDetailView({
   slug,
   username,
   isOwner,
+  live = false,
 }: MatchDetailViewProps) {
   const mode = modeStyles[match.mode];
+  const router = useRouter();
 
-  // Review state lives here while there's no backend, so rating someone
-  // updates the roster in place instead of needing a reload.
+  // Updated in place as ratings are saved, so the roster changes without
+  // waiting for the page to re-read itself.
   const [reviewed, setReviewed] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(match.teammates.map((t) => [t.id, t.reviewed]))
   );
   const [queue, setQueue] = useState<MatchTeammate[]>([]);
   const [justSaved, setJustSaved] = useState(0);
+  const { tagsFor, saveReview, saveReport } = useRating(
+    match.id,
+    live ? match.teammates.map((teammate) => teammate.id) : [],
+  );
 
-  const pending = match.teammates.filter((t) => !reviewed[t.id]);
+  const ratingsOpen = match.rateable !== false;
+  const pending = ratingsOpen ? match.teammates.filter((t) => !reviewed[t.id]) : [];
 
   function handleComplete(
     reviews: LobbyReview[],
     reports: ReportSubmission[]
   ) {
-    // TODO: POST reviews + reports; reviews recalculate reputation, reports
-    // open moderation tickets. Separate tables, per the ERD.
     const touched = new Set([
       ...reviews.map((r) => r.targetId),
       ...reports.map((r) => r.targetId),
@@ -52,6 +62,7 @@ export default function MatchDetailView({
     });
     setJustSaved(touched.size);
     setQueue([]);
+    if (live) router.refresh();
   }
 
   return (
@@ -121,14 +132,20 @@ export default function MatchDetailView({
         </p>
       )}
 
+      {isOwner && !ratingsOpen && (
+        <p className="rounded-xl border border-border-default bg-bg-card-alt px-4 py-3 text-xs text-text-muted">
+          Ratings are closed for this lobby: it ran less than 15 minutes.
+        </p>
+      )}
+
       {isOwner && pending.length > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-star/30 bg-star/[0.07] px-4 py-3">
           <p className="text-xs text-text-subtle">
-            You skipped rating{" "}
+            You haven&apos;t rated{" "}
             <span className="font-bold text-star">
               {pending.length} teammate{pending.length === 1 ? "" : "s"}
             </span>{" "}
-            when this lobby ended. You can still do it here.
+            from this lobby yet. You can still do it here.
           </p>
           <button
             type="button"
@@ -159,13 +176,10 @@ export default function MatchDetailView({
                 key={teammate.id}
                 className="flex flex-wrap items-center gap-3 rounded-xl border border-border-default bg-bg-page p-3"
               >
-                {/* eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization */}
-                <img
+                <UserAvatar
                   src={teammate.avatar}
-                  alt=""
-                  className={`size-10 shrink-0 rounded-full object-cover ${
-                    teammate.wasLeader ? "border-2 border-brand" : ""
-                  }`}
+                  name={teammate.name}
+                  className={`size-10 ${teammate.wasLeader ? "border-2 border-brand" : ""}`}
                 />
 
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -189,37 +203,49 @@ export default function MatchDetailView({
                     )}
                   </div>
                   <div className="flex flex-wrap items-center gap-2.5 text-[11px] text-text-muted">
-                    <span className="flex items-center gap-1">
-                      {/* eslint-disable-next-line @next/next/no-img-element -- static badge icon, no benefit from next/image optimization */}
-                      <img src={teammate.rank.icon} alt="" className="size-3" />
-                      <span className={`font-bold ${teammate.rank.colorClass}`}>
-                        {teammate.rank.name}
+                    {teammate.rank ? (
+                      <span className="flex items-center gap-1">
+                        {teammate.rank.icon && (
+                          // eslint-disable-next-line @next/next/no-img-element -- static badge icon, no benefit from next/image optimization
+                          <img src={teammate.rank.icon} alt="" className="size-3" />
+                        )}
+                        <span className={`font-bold ${teammate.rank.colorClass}`}>
+                          {teammate.rank.name}
+                        </span>
                       </span>
-                    </span>
-                    <span className="flex items-center gap-1">
-                      {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
-                      <img src={teammate.role.icon} alt="" className="size-3" />
-                      {teammate.role.name}
-                    </span>
+                    ) : (
+                      <span className="opacity-60">Unranked</span>
+                    )}
+                    {teammate.role && (
+                      <span className="flex items-center gap-1">
+                        {teammate.role.icon && (
+                          // eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization
+                          <img src={teammate.role.icon} alt="" className="size-3" />
+                        )}
+                        {teammate.role.name}
+                      </span>
+                    )}
                   </div>
                 </div>
 
-                {isReviewed ? (
+                {isReviewed && ratingsOpen ? (
                   <span className="shrink-0 rounded-md bg-success/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-success">
                     Reviewed
                   </span>
                 ) : isOwner ? (
                   <div className="flex shrink-0 items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setQueue([teammate])}
-                      className="flex h-8 items-center justify-center rounded-lg bg-brand px-3 text-[11px] font-bold text-white transition-opacity hover:opacity-90"
-                    >
-                      Rate
-                    </button>
+                    {ratingsOpen && (
+                      <button
+                        type="button"
+                        onClick={() => setQueue([teammate])}
+                        className="flex h-8 items-center justify-center rounded-lg bg-brand px-3 text-[11px] font-bold text-white transition-opacity hover:opacity-90"
+                      >
+                        Rate
+                      </button>
+                    )}
                     {teammate.slug && (
                       <Link
-                        href={`/profile/${teammate.slug}/report`}
+                        href={`/profile/${teammate.slug}/report${live ? `?lobby=${match.id}` : ""}`}
                         className="flex h-8 items-center justify-center rounded-lg border border-border-strong px-3 text-[11px] font-semibold text-text-muted transition-colors hover:border-danger hover:text-danger"
                       >
                         Report
@@ -251,6 +277,7 @@ export default function MatchDetailView({
           lobbyId={match.id}
           onClose={() => setQueue([])}
           onComplete={handleComplete}
+          {...(live && { tagsFor, onSaveReview: saveReview, onSaveReport: saveReport })}
         />
       )}
     </div>

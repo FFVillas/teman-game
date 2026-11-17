@@ -425,8 +425,8 @@ export interface ReportSubmission {
   targetId: string;
   reason: string;
   details: string;
-  /** Screenshot or clip. Not uploaded yet — no storage bucket exists. */
-  evidenceFileName?: string;
+  /** Screenshot or clip, uploaded to the private `report-evidence` bucket. */
+  evidenceFile?: File;
   evidenceUrl?: string;
   /** Set when the report comes from a known lobby, per `reports.lobby_id`. */
   lobbyId?: string;

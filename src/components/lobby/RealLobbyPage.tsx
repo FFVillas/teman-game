@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import RealLobbyDetail from "@/components/lobby/RealLobbyDetail";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUserId } from "@/lib/supabase/server";
 import { fetchGameCatalog, fetchMyRankName } from "@/lib/games";
 import { fetchLobbyDetail } from "@/lib/lobbies";
 
@@ -33,17 +33,15 @@ export default async function RealLobbyPage({
   id: string;
 }) {
   const supabase = await createClient();
-  const catalog = await fetchGameCatalog(supabase);
+  const [catalog, userId] = await Promise.all([fetchGameCatalog(supabase), getUserId()]);
   const game = catalog.find((entry) => entry.slug === slug);
   if (!game) notFound();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const data = await fetchLobbyDetail(supabase, game, id, user?.id ?? null);
+  const [data, myRank] = await Promise.all([
+    fetchLobbyDetail(supabase, game, id, userId),
+    fetchMyRankName(supabase, catalog, slug, userId),
+  ]);
   if (!data) notFound();
-
-  const myRank = await fetchMyRankName(supabase, catalog, slug);
 
   return (
     <>
@@ -53,7 +51,7 @@ export default async function RealLobbyPage({
           <RealLobbyDetail
             data={data}
             game={game}
-            viewerId={user?.id ?? null}
+            viewerId={userId}
             myRank={myRank}
           />
         </div>

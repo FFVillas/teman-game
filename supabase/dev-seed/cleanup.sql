@@ -14,9 +14,17 @@
 delete from public.notifications
 where actor_id in (select id from public.profiles where username like 'demo\_%');
 
-delete from public.lobbies
+delete from public.lobby
 where name = 'My Demo Lobby'
   and description = 'A lobby made by the demo script so you have something to manage.';
+
+-- Reports and sanctions keep their rows when a profile goes (they are
+-- moderation records), so the demo players' ones are removed by hand first.
+delete from public.sanction_reports
+where report_id in (select id from public.reports
+                    where reporter_id in (select id from public.profiles where username like 'demo\_%') or target_id in (select id from public.profiles where username like 'demo\_%'));
+delete from public.reports where reporter_id in (select id from public.profiles where username like 'demo\_%') or target_id in (select id from public.profiles where username like 'demo\_%');
+delete from public.sanction where player_id in (select id from public.profiles where username like 'demo\_%');
 
 delete from auth.users where email like '%@demo.temangame.test';
 

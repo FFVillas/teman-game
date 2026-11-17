@@ -15,6 +15,8 @@ type HeaderStatus = LobbyStatus | "scheduled" | "closed";
 export interface LobbyHeaderLobby {
   cover: string;
   mode: LfgMode;
+  /** The mode's own name; falls back to the kind ("Ranked") when absent. */
+  modeLabel?: string;
   name: string;
   bio?: string;
   region: string;
@@ -111,7 +113,7 @@ export default function LobbyHeader({
             <span
               className={`inline-flex items-center rounded-full border px-3 py-1 text-[9px] font-semibold uppercase tracking-wide ${mode.className}`}
             >
-              {mode.label}
+              {lobby.modeLabel ?? mode.label}
             </span>
             <span
               className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[9px] font-semibold uppercase tracking-wide ${statusStyle.className}`}

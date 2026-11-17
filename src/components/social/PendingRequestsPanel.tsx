@@ -5,6 +5,7 @@ import PendingRequestRow from "./PendingRequestRow";
 import { EmptyState } from "@/components/EmptyState";
 import { useAuth } from "@/contexts/AuthContext";
 import { createClient } from "@/lib/supabase/client";
+import { useFriendshipChanges } from "@/lib/use-friendship-changes";
 import { fetchIncomingRequests, type IncomingRequestRow } from "@/lib/social";
 
 export default function PendingRequestsPanel() {
@@ -28,6 +29,12 @@ export default function PendingRequestsPanel() {
       cancelled = true;
     };
   }, [isReady, user]);
+
+  // A new request, or one answered from somewhere else, shows without a reload.
+  useFriendshipChanges(user?.id, () => {
+    if (!user) return;
+    fetchIncomingRequests(createClient(), user.id).then(setRequests);
+  });
 
   function handleResolved(friendshipId: string) {
     setRequests((prev) => prev.filter((r) => r.friendshipId !== friendshipId));

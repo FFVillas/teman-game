@@ -53,20 +53,27 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 /**
  * Figures out whether a signed-in Supabase user is staff or a player, and
- * builds the shape the rest of the app reads. Checks `admins` first —
- * RLS on that table only lets an actual admin see rows in it at all (see
- * the migration), so a non-admin's query here simply comes back empty
- * rather than needing a separate permission error to handle.
+ * builds the shape the rest of the app reads. RLS on `admins` only lets an
+ * actual admin see rows in it at all (see the migration), so a non-admin's
+ * query simply comes back empty rather than needing a separate permission
+ * error to handle.
  */
 async function buildAuthUser(
   supabase: ReturnType<typeof createClient>,
   authUser: User,
 ): Promise<AuthUser> {
-  const { data: admin } = await supabase
-    .from("admins")
-    .select("display_name")
-    .eq("user_id", authUser.id)
-    .maybeSingle();
+  const [{ data: admin }, { data: profile }] = await Promise.all([
+    supabase
+      .from("admins")
+      .select("display_name")
+      .eq("user_id", authUser.id)
+      .maybeSingle(),
+    supabase
+      .from("profiles")
+      .select("username, avatar_path")
+      .eq("id", authUser.id)
+      .maybeSingle(),
+  ]);
 
   if (admin) {
     return {
@@ -77,12 +84,6 @@ async function buildAuthUser(
       role: "admin",
     };
   }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("username, avatar_path")
-    .eq("id", authUser.id)
-    .maybeSingle();
 
   return {
     id: authUser.id,
