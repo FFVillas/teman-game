@@ -1,7 +1,12 @@
 /**
- * Role icons, in `public/roles/<game>/`. Valorant's are SVG, League of
- * Legends' are small WebP. Games with no roles (CS2, PUBG Mobile, Free Fire)
- * never reach this; Mobile Legends has roles but no art yet, so it shows text.
+ * Role icons, in `public/roles/<game>/`. Valorant's are SVG, League of Legends'
+ * and Mobile Legends' are small WebP. Games with no roles (CS2, PUBG Mobile,
+ * Free Fire) never reach this — none of them defines official ones, so that is
+ * a modelling decision, not missing art.
+ *
+ * Mobile Legends' are the game's own lane glyphs. They are a pale gradient on
+ * a dark plate, so they sit quieter at 12px than Valorant's flat brand-blue
+ * set; that is the official artwork, not a processing mistake.
  *
  * Keys are the role names stored in `game_role`.
  */
@@ -11,6 +16,13 @@ const icons: Record<string, Record<string, string>> = {
     Initiator: "/roles/valorant/initiator.svg",
     Sentinel: "/roles/valorant/sentinel.svg",
     Controller: "/roles/valorant/controller.svg",
+  },
+  "mobile-legends": {
+    "Gold Lane": "/roles/mobile-legends/gold-lane.webp",
+    "EXP Lane": "/roles/mobile-legends/exp-lane.webp",
+    "Mid Lane": "/roles/mobile-legends/mid-lane.webp",
+    Jungle: "/roles/mobile-legends/jungle.webp",
+    Roam: "/roles/mobile-legends/roam.webp",
   },
   "league-of-legends": {
     Top: "/roles/league-of-legends/top.webp",

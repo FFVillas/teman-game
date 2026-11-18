@@ -10,6 +10,10 @@ import { gameBySlug } from "@/data/games";
 const coverCounts: Record<string, number> = {
   valorant: 4,
   "league-of-legends": 4,
+  "mobile-legends": 4,
+  "pubg-mobile": 4,
+  "free-fire": 4,
+  // Counter-Strike 2 has none yet, so its lobbies fall back to the card art.
 };
 
 export function coverKeysFor(gameSlug: string): string[] {
