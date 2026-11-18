@@ -1,15 +1,22 @@
 /**
- * Rank badge art, in `public/ranks/<game>/`. Valorant has one image per
- * division (`gold-3.webp`, matching the game's own badges); League of Legends
- * has one per tier (`gold.webp`), because its crests carry no division.
+ * Rank badge art, in `public/ranks/<game>/`.
+ *
+ * Valorant is keyed per division (`gold-3.webp`) because its badges really do
+ * differ per division. The rest are keyed per tier (`gold.webp`): their art
+ * repeats within a tier, so one image covers Gold I through Gold IV and the
+ * division shows as text beside it.
+ *
  * Games missing here have no art yet, and `RankRangeBadge` falls back to a
- * plain marker for them.
+ * plain marker for them — PUBG Mobile is still in that state.
  *
  * Source and rights notes: docs/image-credits.md.
  */
 const keyedBy: Record<string, "name" | "tier"> = {
   valorant: "name",
   "league-of-legends": "tier",
+  "mobile-legends": "tier",
+  "free-fire": "tier",
+  "counter-strike-2": "tier",
 };
 
 const slugify = (value: string) =>

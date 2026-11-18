@@ -9,7 +9,7 @@ const gameOptions = [
   "CS2",
   "MLBB",
   "Free Fire",
-  "PUBG",
+  "PUBGM",
 ];
 
 export default function GameFilterDropdown() {
