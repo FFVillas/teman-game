@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useNotifications } from "@/contexts/NotificationContext";
 import { createClient } from "@/lib/supabase/client";
 import { blockUser, sendFriendRequest } from "@/lib/social";
+import { fetchMyInvitingLobby, inviteToLobby } from "@/lib/lobbies";
 import type { MessageParticipant } from "@/data/lfg-messages";
 
 interface PlayerRowActionsProps {
@@ -54,12 +55,42 @@ export default function PlayerRowActions({
     event.stopPropagation();
 
     if (isFriend) {
-      // Party invites need an active lobby, which this row doesn't have —
-      // no real target to send to yet.
+      if (!real || !user) {
+        // Mock row: nobody real to invite.
+        toast({
+          tone: "success",
+          title: "Invite sent",
+          body: `${target.name} has been notified.`,
+        });
+        return;
+      }
+      // A real invitation into the lobby this player leads (the same one the
+      // lobby page's "Invite players" sends), so it reaches the friend's bell
+      // and, with push on, their phone.
+      setSending(true);
+      const supabase = createClient();
+      const lobby = await fetchMyInvitingLobby(supabase, user.id);
+      if (!lobby) {
+        setSending(false);
+        toast({
+          tone: "info",
+          title: "Create a lobby first",
+          body: "You can invite friends to a lobby you lead that is still looking for players.",
+        });
+        return;
+      }
+      const error = await inviteToLobby(supabase, lobby.id, target.id);
+      setSending(false);
+      if (error) {
+        toast({ tone: "danger", title: "Couldn't invite them", body: error });
+        return;
+      }
+      setSent(true);
+      // The row doesn't show where they were invited, so say it.
       toast({
         tone: "success",
-        title: "Invite sent",
-        body: `${target.name} has been notified.`,
+        title: `Invited ${target.name}`,
+        body: `To ${lobby.name}. They can accept from their notifications.`,
       });
       return;
     }
@@ -142,17 +173,25 @@ export default function PlayerRowActions({
         disabled={sending || sent}
         aria-label={
           isFriend
-            ? `Invite ${target.name} to party`
+            ? sent
+              ? `${target.name} is invited to your lobby`
+              : `Invite ${target.name} to your lobby`
             : sent
               ? `Friend request sent to ${target.name}`
               : `Add ${target.name} as friend`
         }
         title={
-          isFriend ? "Invite to party" : sent ? "Request sent" : "Add friend"
+          isFriend
+            ? sent
+              ? "Invited"
+              : "Invite to your lobby"
+            : sent
+              ? "Request sent"
+              : "Add friend"
         }
         className={iconButton}
       >
-        {isFriend ? (
+        {isFriend && !sent ? (
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
             <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.3" />
             <path

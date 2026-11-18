@@ -411,6 +411,28 @@ export async function respondToApplication(
 }
 
 /** The leader asks a player to join. Returns an error message, or null when sent. */
+/**
+ * The lobby a player can invite friends into from Social: one they lead that
+ * is still recruiting. The live one first, else the soonest scheduled one.
+ */
+export async function fetchMyInvitingLobby(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<{ id: string; name: string } | null> {
+  const { data } = await supabase
+    .from("lobby")
+    .select("id, name, status, starts_at")
+    .eq("leader_id", userId)
+    .in("status", ["open", "scheduled"]);
+  const rows = (data ?? []) as { id: string; name: string; status: string; starts_at: string | null }[];
+  const pick =
+    rows.find((row) => row.status === "open") ??
+    rows
+      .filter((row) => row.status === "scheduled")
+      .sort((a, b) => (a.starts_at ?? "").localeCompare(b.starts_at ?? ""))[0];
+  return pick ? { id: pick.id, name: pick.name } : null;
+}
+
 export async function inviteToLobby(
   supabase: SupabaseClient,
   lobbyId: string,
