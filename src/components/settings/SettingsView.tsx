@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import BackLink from "@/components/BackLink";
 import { controlClass, labelClass } from "@/components/profile/DossierFields";
 import InstallAppCard from "@/components/InstallAppCard";
+import PushSettingsCard from "@/components/PushSettingsCard";
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -257,8 +258,9 @@ export default function SettingsView({ email }: { email: string }) {
 
           <Card
             title="Notifications"
-            description="Join requests, invites and friend requests always arrive in the app. Choosing which ones also reach your phone comes later, with push notifications."
+            description="Join requests, invites, answers to your requests and friend requests always arrive in the app. Turn on notifications to get them on this device too, even when TemanGame is closed."
           >
+            <PushSettingsCard />
             <Link
               href="/notifications"
               className="flex h-10 items-center justify-center rounded-lg border border-border-strong text-xs font-semibold text-text-subtle transition-colors hover:text-white"

@@ -268,9 +268,9 @@ are actionable.
 
 Two limits worth knowing:
 
-- **No push yet.** New rows arrive live while the app is open (realtime), but
-  nothing reaches a closed app until FCM push is built (step 5B). The PWA
-  half is done, see "PWA" below.
+- **Push (FCM) reaches closed apps**, for players who turned it on in
+  Settings → Notifications (per device). Every new `notifications` row is
+  pushed; there is no separate push list to keep in step. See "PWA" below.
 - **The insert policy only allows rows addressed to yourself.** So
   cross-player notifications are written by the database, never by the browser.
   The lobby ones are triggers (`20261010000000_lobby_notifications.sql`): an
@@ -372,6 +372,30 @@ TemanGame installs as an app (proposal: PWA). Pieces:
   Home Screen, which iOS also requires before it allows push.
 - The Claude desktop app's browser pane can't register service workers; check
   the PWA in real Chrome (DevTools → Application) or on a phone.
+
+**Push (FCM)**, `20261119000000_push_notifications.sql`:
+
+1. Settings → Notifications → "Turn on for this device" (`PushSettingsCard`,
+   `lib/push.ts`): browser permission, then an FCM token tied to **our**
+   service worker (no `firebase-messaging-sw.js`), stored with
+   `register_push_token` in `push_tokens` (key = token, one row per device).
+   `PwaSetup` refreshes it on each start; logout removes it first, so the next
+   person on that device gets nothing of the last one's.
+2. A trigger on `notifications` insert posts the row and the player's tokens
+   to `/api/push` through `pg_net` (asynchronous: a failed push never blocks
+   the insert). URL and shared secret come from **Supabase Vault**
+   (`push_webhook_url`, `push_webhook_secret`); without them it does nothing.
+3. `src/app/api/push/route.ts` checks `x-push-secret`, sends a **data-only**
+   message with `firebase-admin`, and reports dead tokens back through
+   `forget_push_tokens` (which checks the same secret).
+4. `public/sw.js` draws it (`push`) and opens `href` on tap
+   (`notificationclick`), reusing an open window.
+
+Settings: `NEXT_PUBLIC_FIREBASE_CONFIG` (the web app's config as JSON) and
+`NEXT_PUBLIC_FIREBASE_VAPID_KEY` are public; `FIREBASE_SERVICE_ACCOUNT` (JSON,
+one line) and `PUSH_WEBHOOK_SECRET` are server-only, on Vercel and never in
+the repo. Push only works in production builds (the service worker isn't
+registered in dev), and on iPhone only in the home-screen app (iOS 16.4+).
 
 ## Settings
 

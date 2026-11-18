@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import CreateTeamForm from "@/components/lfg/CreateTeamForm";
 import { createClient, getUserId } from "@/lib/supabase/server";
 import { fetchGameCatalog, fetchMyRankName } from "@/lib/games";
+import { withNext } from "@/lib/auth-redirect";
 
 export const metadata: Metadata = {
   title: "Create a Lobby — TemanGame",
@@ -13,6 +15,10 @@ export const metadata: Metadata = {
 export default async function CreateTeamPage() {
   const supabase = await createClient();
   const [catalog, userId] = await Promise.all([fetchGameCatalog(supabase), getUserId()]);
+  // Only players can make a lobby (create_lobby refuses anyone else), so a
+  // visitor goes to log in first and comes straight back here, instead of
+  // filling in the whole form to be told at the end.
+  if (!userId) redirect(withNext("/login", "/lfg/valorant/create"));
   const leaderRank = await fetchMyRankName(supabase, catalog, "valorant", userId);
 
   return (

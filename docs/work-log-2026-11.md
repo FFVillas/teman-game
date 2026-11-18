@@ -5,8 +5,8 @@ It continues `docs/proposal-revision-2026-10.md` (the plan your teammate wrote,
 in Indonesian): Phase 1 there, the database side of the reputation engine, was
 done by 16 November. This file covers the app side that followed.
 
-**Status on 18 November 2026:** steps 1 to 4 done, step 5 half done (the PWA;
-push is next), steps 6 to 8 not started.
+**Status on 19 November 2026:** steps 1 to 4 done, step 5 built (push waits
+on the Firebase setup and a phone test), steps 6 to 8 not started.
 
 ---
 
@@ -21,7 +21,7 @@ evaluation the proposal promises (UAT, black-box, k6, Precision@5).
 | 2 | Real match history, ratings after a real lobby, reports saved | ✅ Done |
 | 3 | Reputation on screen: new-player label, sanction history, suspended players left out | ✅ Done (member stars on the card removed for now, see "Open") |
 | 4 | Deploy (Vercel) | ✅ https://teman-game.vercel.app, region `sin1` next to Supabase |
-| 5 | PWA (manifest, service worker) and FCM push | ◐ PWA done, push next |
+| 5 | PWA (manifest, service worker) and FCM push | ◐ PWA done and installed on Windows; push built, needs Firebase setup and phone tests |
 | 6 | Admin console on Supabase, admin check on the server | ⬜ |
 | 7 | Evaluation kit: Precision@5 seed ✅, Vitest ✅, sensitivity-analysis script, black-box table with traceability matrix, k6 scripts | ◐ Partly |
 | 8 | Remove the mock lobby routes and data before UAT | ⬜ |
@@ -144,6 +144,18 @@ Proposal 3.3.1.2: hard filters, then lobbies ordered by S_total.
   can't register service workers, so installing must be checked in Chrome or
   on a phone.
 
+## Step 5B: push (FCM)
+
+- Opt-in per device in Settings → Notifications; iPhone needs the home-screen
+  app first, and the card says so.
+- Every new notification row is pushed: join requests, answers, invites,
+  lobby started, friend requests. Tapping opens the same page the bell would.
+- Path: `notifications` insert → trigger (pg_net) → `/api/push` → FCM → the
+  service worker shows it. Secrets: Firebase service account on Vercel,
+  webhook URL and secret in Supabase Vault.
+- Verified so far: build passes, `/api/push` refuses calls without the
+  secret. Real delivery waits on the Firebase project.
+
 ## Migrations
 
 Applied by hand in the Supabase SQL editor; never edit one that has run.
@@ -155,6 +167,7 @@ Applied by hand in the Supabase SQL editor; never edit one that has run.
 | `20261118000100_report_evidence.sql` | Report insert rights, no self-reports, evidence bucket | ✅ |
 | `20261118000200_reputation_display.sql` | `rater_count`, `is_suspended`, `sanction_history()` | ✅ |
 | `20261118000300_withdraw_other_requests.sql` | Withdraw pending requests on joining or starting a live lobby | ⬜ run it |
+| `20261119000000_push_notifications.sql` | `push_tokens`, the push trigger (pg_net), token functions | ⬜ run it |
 
 ## Where things are now
 
@@ -172,7 +185,6 @@ Applied by hand in the Supabase SQL editor; never edit one that has run.
 
 ## Next
 
-Step 5B, push through FCM. Needs a Firebase project (free): the web config and
-VAPID key (public), and a service-account key that stays secret (Supabase
-secrets, never in the repo or the chat). Test early on a real iPhone (iOS
-16.4+, installed to the home screen) and an Android phone.
+Finish 5B: Firebase project, the four settings on Vercel, the Vault secrets,
+then test on Android and a real iPhone (iOS 16.4+, home-screen app). After
+that, the open decisions above, then step 6 (admin console on Supabase).
