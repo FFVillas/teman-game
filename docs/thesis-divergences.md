@@ -69,17 +69,17 @@ in `thesis-spec.md` plus `game_modes`, `lobby_roles` and `lobby_invites` (23 if
 | 20 | Lobby chat | `lobby_messages` (persistence not rechecked) | Chats are temporary: ending a lobby clears them. Backend TODO: keep a moderator-only copy, since reports use chat as evidence | Open | Mock only |
 | 21 | Landing page | Not specified | No survey figures, no comparison against Discord/Lita, no formula on the public page | Narrowing | Built |
 
-| 22 | Match history | Not modelled as an entity | No table: a match is a `completed` lobby, read through `player_matches()`, which also tells the caller which teammates they have rated without opening `reviews` (anonymity) | Addition (function) | Written, not run | `20261118000000_match_history.sql` |
-| 23 | Report evidence and insert rights | `reports` holds "bukti" | Evidence files in a private bucket `report-evidence` (reporter and admins read), path in `reports.evidence_path`; players may insert only the descriptive columns, so they can't file a report already marked resolved; no self-reports | Addition | Written, not run | `20261118000100_report_evidence.sql` |
+| 22 | Match history | Not modelled as an entity | No table: a match is a `completed` lobby, read through `player_matches()`, which also tells the caller which teammates they have rated without opening `reviews` (anonymity) | Addition (function) | Built | `20261118000000_match_history.sql` |
+| 23 | Report evidence and insert rights | `reports` holds "bukti" | Evidence files in a private bucket `report-evidence` (reporter and admins read), path in `reports.evidence_path`; players may insert only the descriptive columns, so they can't file a report already marked resolved; no self-reports | Addition | Built | `20261118000100_report_evidence.sql` |
+| 24 | Pending join requests | Not specified (one live lobby per player) | When a player starts a live lobby or is accepted into one, their pending requests to other live lobbies are withdrawn automatically, so no leader is left with a request that can only fail. Scheduled lobbies and pending invites are untouched | Addition (rule) | Written, not run | `20261118000300_withdraw_other_requests.sql` |
 
 ## C. Not built yet (in the proposal, absent from the code)
 
-Tracked in the "Spec vs. code" table of `thesis-spec.md`. Headline items:
-lobbies and applications on real data, reviews, friendships and messages on
-real data, reports and sanctions (migration written, not run), push (FCM) and
-PWA, Discord linking, the recommendation formula wired into the lobby list,
+Tracked in the "Spec vs. code" table of `thesis-spec.md`. Still open on
+18 November 2026: push (FCM; the PWA itself is built), Discord linking, and
 server-side enforcement for the admin console (`AdminGate` is a client check;
-RLS is the real protection).
+RLS is the real protection). Lobbies, ratings, reports, friendships, messages
+and the ranked lobby list are now on real data.
 
 ## D. Questions to settle with the advisor
 

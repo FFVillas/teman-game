@@ -1,9 +1,10 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import ToastHost from "@/components/notifications/ToastHost";
 import NavOriginTracker from "@/components/NavOriginTracker";
+import PwaSetup from "@/components/PwaSetup";
 import "./globals.css";
 
 const inter = Inter({
@@ -22,7 +23,23 @@ const jakarta = Plus_Jakarta_Sans({
 export const metadata: Metadata = {
   title: "TemanGame — Find Your Team",
   description:
-    "Connect with thousands of players worldwide. Filter by rank, role, and playstyle to dominate the leaderboard in your favorite competitive games.",
+    "Find teammates for competitive games by rank, role and playstyle, with a reputation you can check before you play.",
+  applicationName: "TemanGame",
+  // Installed on an iPhone home screen: full-screen, own name under the icon.
+  appleWebApp: {
+    capable: true,
+    title: "TemanGame",
+    statusBarStyle: "black-translucent",
+  },
+  icons: {
+    apple: "/pwa/apple-touch-icon.png",
+  },
+};
+
+// The browser bar and the installed app's title bar take the page colour.
+export const viewport: Viewport = {
+  themeColor: "#0e1015",
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -46,6 +63,7 @@ export default function RootLayout({
         <AuthProvider>
           <NotificationProvider>
             <NavOriginTracker />
+            <PwaSetup />
             {children}
             <ToastHost />
           </NotificationProvider>

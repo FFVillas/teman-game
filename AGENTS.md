@@ -268,9 +268,9 @@ are actionable.
 
 Two limits worth knowing:
 
-- **Delivery is still "on page load".** Push (FCM + service worker, per the
-  proposal) and PWA are not built. A Supabase realtime subscription on this
-  table is the cheaper first step.
+- **No push yet.** New rows arrive live while the app is open (realtime), but
+  nothing reaches a closed app until FCM push is built (step 5B). The PWA
+  half is done, see "PWA" below.
 - **The insert policy only allows rows addressed to yourself.** So
   cross-player notifications are written by the database, never by the browser.
   The lobby ones are triggers (`20261010000000_lobby_notifications.sql`): an
@@ -348,6 +348,30 @@ An admin **cannot** read DMs through the API — there's no policy for it.
 That's deliberate: if reporting a DM is added later, the reporter should
 attach the specific messages to the report instead of handing moderators a
 window into every private conversation.
+
+## PWA
+
+TemanGame installs as an app (proposal: PWA). Pieces:
+
+- `src/app/manifest.ts` serves `/manifest.webmanifest` (standalone, dark
+  theme colour). Icons in `public/pwa/` are drawn from the logo mark by
+  `node scripts/generate-pwa-icons.mjs`; rerun it if the logo changes. iOS
+  gets `apple-touch-icon.png` and `appleWebApp` in the root layout.
+- `public/sw.js` is the service worker, deliberately small: **pages always
+  come from the network** (lobbies and slots must be current), with the static
+  `/offline` screen as the fallback when there is none; hashed build files are
+  cached for good, `public/` images are served from the cache and refreshed in
+  the background (so a replaced logo shows on the next visit); Supabase, `/api`
+  and Server Component payloads are never touched. Bump its `VERSION` when changing it. `next.config.ts`
+  serves it with `no-store` so updates reach players at once.
+- `src/lib/pwa.ts` registers it (**production builds only**, so it never
+  fights `npm run dev`'s hot reload; test with `npm run build && npx next
+  start`) and keeps the browser's `beforeinstallprompt` so "Install app" (the
+  account menu, and the App card in Settings) can open the install dialog.
+  Safari on iPhone has no such dialog, so there the UI shows Share → Add to
+  Home Screen, which iOS also requires before it allows push.
+- The Claude desktop app's browser pane can't register service workers; check
+  the PWA in real Chrome (DevTools → Application) or on a phone.
 
 ## Settings
 
@@ -603,7 +627,9 @@ confidence marks and open questions before changing any of them.
   accepting joins as an accepted application and re-checks capacity, rank and the
   one-live-lobby rule, a declined invite can't be repeated, and invites lapse when
   the lobby starts or ends. The invited player answers on the lobby page or the
-  bell. The lobby page re-reads itself when the lobby, its applications, invites
+  bell. Starting a live lobby or being accepted into one withdraws the player's
+  other pending requests to live lobbies (`20261118000300_withdraw_other_requests.sql`),
+  since those could only fail on Accept. The lobby page re-reads itself when the lobby, its applications, invites
   or system chat lines change (`LiveRefresh`, below). Once a lobby has ended,
   the people who played rate each other from its page. The navbar lobby button
   and the "Your lobby" banner read the player's real lobbies
