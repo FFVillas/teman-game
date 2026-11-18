@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth, type AuthUser } from "@/contexts/AuthContext";
+import { promptInstall, useInstallState } from "@/lib/pwa";
 import {
   adminMenuLinks,
   userMenuLinks,
@@ -15,6 +16,7 @@ export default function UserMenu({ user }: { user: AuthUser }) {
   const menuLinks = isAdmin ? adminMenuLinks : userMenuLinks;
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const installState = useInstallState();
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -26,6 +28,14 @@ export default function UserMenu({ user }: { user: AuthUser }) {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // The browser's own dialog where there is one; on an iPhone, the steps in
+  // Settings (Safari has no install dialog).
+  function handleInstall() {
+    setOpen(false);
+    if (installState === "prompt") void promptInstall();
+    else router.push("/settings#app");
+  }
 
   function handleLogout() {
     setOpen(false);
@@ -75,6 +85,17 @@ export default function UserMenu({ user }: { user: AuthUser }) {
               {link.label}
             </Link>
           ))}
+
+          {(installState === "prompt" || installState === "ios") && (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={handleInstall}
+              className="flex w-full items-center gap-2 px-3.5 py-2 text-left text-sm font-semibold text-brand transition-colors hover:bg-white/5"
+            >
+              Install app
+            </button>
+          )}
 
           <div className="my-1.5 border-t border-white/10" />
 

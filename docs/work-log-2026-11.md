@@ -5,8 +5,8 @@ It continues `docs/proposal-revision-2026-10.md` (the plan your teammate wrote,
 in Indonesian): Phase 1 there, the database side of the reputation engine, was
 done by 16 November. This file covers the app side that followed.
 
-**Status on 18 November 2026:** steps 1 to 3 done and tested in the browser,
-steps 4 to 8 not started.
+**Status on 18 November 2026:** steps 1 to 4 done, step 5 half done (the PWA;
+push is next), steps 6 to 8 not started.
 
 ---
 
@@ -20,8 +20,8 @@ evaluation the proposal promises (UAT, black-box, k6, Precision@5).
 | 1 | Ranked and filtered LFG list (S_total for the applicant, R_lobi, filters) | ✅ Done |
 | 2 | Real match history, ratings after a real lobby, reports saved | ✅ Done |
 | 3 | Reputation on screen: new-player label, sanction history, suspended players left out | ✅ Done (member stars on the card removed for now, see "Open") |
-| 4 | Deploy (Vercel) | ⬜ Next |
-| 5 | PWA (manifest, service worker) and FCM push | ⬜ |
+| 4 | Deploy (Vercel) | ✅ https://teman-game.vercel.app, region `sin1` next to Supabase |
+| 5 | PWA (manifest, service worker) and FCM push | ◐ PWA done, push next |
 | 6 | Admin console on Supabase, admin check on the server | ⬜ |
 | 7 | Evaluation kit: Precision@5 seed ✅, Vitest ✅, sensitivity-analysis script, black-box table with traceability matrix, k6 scripts | ◐ Partly |
 | 8 | Remove the mock lobby routes and data before UAT | ⬜ |
@@ -113,6 +113,37 @@ Proposal 3.3.1.2: hard filters, then lobbies ordered by S_total.
 
 ---
 
+## After step 3 (18 Nov)
+
+- **Create form:** hint lines removed; "Any rank" / "Any role" are pills
+  instead of checkboxes; languages are added with a "+ Add" pill; the mic icon
+  is no longer stretched; group size can't go below 2 (the database already
+  refused it).
+- **Add friend on a profile works** (it had no click handler): add, request
+  sent (click to cancel), accept their request, or friends.
+- **Pointer cursor** on everything clickable (Tailwind v4 had dropped it).
+- **Empty lobby list** is quieter.
+- **Filters** show the new choice at once; the list follows when the server
+  answers.
+- **Pending join requests** are withdrawn automatically when the player starts
+  a live lobby or is accepted into one (`20261118000300`).
+- **Performance check:** each Supabase round trip costs 80–300 ms from
+  Indonesia, so pages are slow because of trips in a row, not missing indexes.
+  The main queries are all indexed. Kept for later: pg_cron for
+  `expire_stale_lobbies` (one trip less per lobby page) and an index on
+  `sanction(player_id)`.
+
+## Step 5A: PWA
+
+- Installable: manifest, icons, iOS home-screen tags, "Install app" in the
+  account menu and an App card in Settings (with the iPhone steps).
+- Service worker: offline screen when there is no network, cached build files
+  and images. Pages and data are never cached.
+- Verified on a production build: manifest served, `sw.js` sent uncached,
+  `/offline` and every file it needs load. The desktop app's browser pane
+  can't register service workers, so installing must be checked in Chrome or
+  on a phone.
+
 ## Migrations
 
 Applied by hand in the Supabase SQL editor; never edit one that has run.
@@ -123,6 +154,7 @@ Applied by hand in the Supabase SQL editor; never edit one that has run.
 | `20261118000000_match_history.sql` | `player_matches()` | ✅ |
 | `20261118000100_report_evidence.sql` | Report insert rights, no self-reports, evidence bucket | ✅ |
 | `20261118000200_reputation_display.sql` | `rater_count`, `is_suspended`, `sanction_history()` | ✅ |
+| `20261118000300_withdraw_other_requests.sql` | Withdraw pending requests on joining or starting a live lobby | ⬜ run it |
 
 ## Where things are now
 
@@ -131,7 +163,7 @@ Applied by hand in the Supabase SQL editor; never edit one that has run.
 - **Dev server:** `npm run dev` on port 3000.
 - **Uncommitted:** everything since step 2, i.e. step 3, the wording review and the latest fixes.
 
-## Open decisions
+## Open decisions (come back to these after the PWA)
 
 1. **Out-of-scope promises:** onboarding's "Connect your accounts" step, its "Detect rank automatically (preview)" button, and the profile's "Connections" card. The proposal excludes Discord and game-API integration. I'd remove them.
 2. **Member reputation on the LFG card:** the proposal says the card shows each member's reputation. Removed for now; it needs a better design.
@@ -140,6 +172,7 @@ Applied by hand in the Supabase SQL editor; never edit one that has run.
 
 ## Next
 
-Step 4, deploy. It needs your Vercel account and the two Supabase environment
-variables. After that, step 5 (PWA, then push), which must be tested early on a
-real iPhone (iOS 16.4+, installed to the home screen).
+Step 5B, push through FCM. Needs a Firebase project (free): the web config and
+VAPID key (public), and a service-account key that stays secret (Supabase
+secrets, never in the repo or the chat). Test early on a real iPhone (iOS
+16.4+, installed to the home screen) and an Android phone.

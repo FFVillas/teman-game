@@ -8,6 +8,7 @@ import { useNotifications } from "@/contexts/NotificationContext";
 import { createClient } from "@/lib/supabase/client";
 import BackLink from "@/components/BackLink";
 import { controlClass, labelClass } from "@/components/profile/DossierFields";
+import InstallAppCard from "@/components/InstallAppCard";
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -244,6 +245,15 @@ export default function SettingsView({ email }: { email: string }) {
               Edit profile
             </Link>
           </Card>
+
+          <div id="app" className="scroll-mt-24">
+            <Card
+              title="App"
+              description="Install TemanGame to your home screen: it opens in its own window, and on iPhone it's needed for notifications."
+            >
+              <InstallAppCard />
+            </Card>
+          </div>
 
           <Card
             title="Notifications"
