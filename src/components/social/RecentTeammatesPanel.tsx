@@ -1,7 +1,22 @@
 import PlayerCard from "./PlayerCard";
-import { recentTeammates } from "@/data/social-recent";
+import { EmptyState } from "@/components/EmptyState";
 
-export default function RecentTeammatesPanel() {
+export interface RecentTeammate {
+  id: string;
+  name: string;
+  avatar: string;
+  /** "Night Ranked · 2 days ago" */
+  context: string;
+}
+
+/** Real teammates from finished lobbies; the page reads them. */
+export default function RecentTeammatesPanel({
+  teammates,
+  signedIn,
+}: {
+  teammates: RecentTeammate[];
+  signedIn: boolean;
+}) {
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="flex items-center gap-2 border-b border-border-default px-6 py-4">
@@ -14,24 +29,47 @@ export default function RecentTeammatesPanel() {
         <span className="text-sm font-bold text-white">Recent Teammates</span>
       </div>
 
-      <div className="px-6 pb-2 pt-4">
-        <p className="text-sm text-text-muted">
-          Players you&apos;ve recently matched with — add them as friends to
-          stay in touch.
-        </p>
-      </div>
-
-      <div className="grid min-h-0 flex-1 auto-rows-min grid-cols-1 gap-1 overflow-y-auto p-6 pt-2 sm:grid-cols-1 lg:grid-cols-2">
-        {recentTeammates.map((teammate) => (
-          <PlayerCard
-            key={teammate.id}
-            id={teammate.id}
-            avatar={teammate.avatar}
-            name={teammate.name}
-            context={`${teammate.teamName} · ${teammate.playedAgo}`}
+      {teammates.length === 0 ? (
+        <div className="flex flex-1 flex-col p-6">
+          <EmptyState
+            fill
+            icon="/icons/social-recent-teammates.svg"
+            title={signedIn ? "No teammates yet" : "Log in to see your teammates"}
+            description={
+              signedIn
+                ? "People you finish a lobby with show up here, so you can add the good ones as friends."
+                : "Players you finish a lobby with show up here."
+            }
+            action={
+              signedIn
+                ? { label: "Find a lobby", href: "/lfg/valorant" }
+                : { label: "Log in", href: "/login?next=%2Fsocial%2Frecent" }
+            }
           />
-        ))}
-      </div>
+        </div>
+      ) : (
+        <>
+          <div className="px-6 pb-2 pt-4">
+            <p className="text-sm text-text-muted">
+              Players you&apos;ve finished a lobby with. Add them as friends to
+              stay in touch.
+            </p>
+          </div>
+
+          <div className="grid min-h-0 flex-1 auto-rows-min grid-cols-1 gap-1 overflow-y-auto p-6 pt-2 lg:grid-cols-2">
+            {teammates.map((teammate) => (
+              <PlayerCard
+                key={teammate.id}
+                id={teammate.id}
+                avatar={teammate.avatar}
+                name={teammate.name}
+                context={teammate.context}
+                real
+              />
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

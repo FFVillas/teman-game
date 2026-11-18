@@ -156,6 +156,18 @@ Proposal 3.3.1.2: hard filters, then lobbies ordered by S_total.
 - Verified so far: build passes, `/api/push` refuses calls without the
   secret. Real delivery waits on the Firebase project.
 
+## Fake-action sweep (19 Nov)
+
+Buttons that looked like they worked but saved nothing, now fixed:
+
+- **Invite from the friend list** sends a real lobby invite (to the lobby the
+  player leads that is still recruiting), instead of a "sent" toast.
+- **Recent Teammates** lists real people from finished lobbies (newest first,
+  friends left out), not mock players.
+- **"Detect rank automatically (preview)"** in onboarding is gone: it invented
+  a rank from the username and saved it as real.
+- **Social sidebar** no longer shows a mock player to visitors.
+
 ## Migrations
 
 Applied by hand in the Supabase SQL editor; never edit one that has run.
@@ -182,6 +194,13 @@ Applied by hand in the Supabase SQL editor; never edit one that has run.
 2. **Member reputation on the LFG card:** the proposal says the card shows each member's reputation. Removed for now; it needs a better design.
 3. **Footer placeholder links:** they still go nowhere (`#`), and black-box testing will hit them. Hide them before UAT, or give them pages.
 4. **Error state:** a failed lobby query still looks like "No lobbies yet". Worth a "Couldn't load lobbies" message before UAT.
+5. **Google / Discord login:** the buttons show but do nothing yet (kept
+   visible on request; `OAUTH_ENABLED` in `components/auth/OAuthButtons.tsx`
+   hides them). To build: enable the providers in Supabase Auth and call
+   `signInWithOAuth`.
+6. **Still mock, by plan:** the admin console (step 6) and the mock lobby
+   routes `lobby-1`… (step 8). The onboarding "Connect your accounts" step
+   (item 1) marks accounts "Connected" without linking anything.
 
 ## Next
 

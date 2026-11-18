@@ -5,7 +5,6 @@ import UserAvatar from "@/components/UserAvatar";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { currentUser as mockCurrentUser } from "@/data/social-friends";
 import { createClient } from "@/lib/supabase/client";
 import { fetchIncomingRequests } from "@/lib/social";
 import { useFriendshipChanges } from "@/lib/use-friendship-changes";
@@ -13,7 +12,6 @@ import { useFriendshipChanges } from "@/lib/use-friendship-changes";
 export default function SocialSidebar() {
   const pathname = usePathname();
   const { user, isReady } = useAuth();
-  const displayUser = user ?? mockCurrentUser;
   const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
@@ -130,14 +128,17 @@ export default function SocialSidebar() {
         })}
       </nav>
 
-      <div className="mt-auto flex items-center gap-3 border-t border-border-subtle p-4">
-        <UserAvatar src={displayUser.avatar} name={displayUser.name} />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate text-sm font-bold text-white">
-            {displayUser.name.split("@")[0]}
-          </span>
+      {/* The signed-in player; a visitor used to see a mock player here. */}
+      {user && (
+        <div className="mt-auto flex items-center gap-3 border-t border-border-subtle p-4">
+          <UserAvatar src={user.avatar} name={user.name} />
+          <div className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate text-sm font-bold text-white">
+              {user.name.split("@")[0]}
+            </span>
+          </div>
         </div>
-      </div>
+      )}
       </aside>
     </>
   );

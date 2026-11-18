@@ -28,20 +28,13 @@ interface RankRoleStepProps {
   onUpdate: (slug: string, patch: ProfilePatch) => void;
 }
 
-/** Only Valorant has a rank lookup preview today. */
-const GAMES_WITH_RANK_LOOKUP = new Set(["valorant"]);
-
 /**
- * Deterministic stand-in for a real Riot API lookup. The same input always
- * "detects" the same rank, so it reads as a lookup rather than random noise.
- * Swap for a real fetch once there's a backend to call it from.
+ * The player picks their rank themselves. There used to be a "detect rank
+ * automatically (preview)" button here, but with no Riot API behind it, it
+ * made a rank up from the username and saved it as the player's real rank,
+ * straight into the eligibility filter and the score. Game-account lookup is
+ * outside the proposal's scope, so it was removed rather than kept as a mock.
  */
-function mockDetectRank(riotId: string, rankNames: string[]): string {
-  let hash = 0;
-  for (const char of riotId) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
-  return rankNames[hash % rankNames.length];
-}
-
 function GameCard({
   game,
   profile,
@@ -51,60 +44,8 @@ function GameCard({
   profile: GameProfile;
   onUpdate: (patch: ProfilePatch) => void;
 }) {
-  const [status, setStatus] = useState<"idle" | "connecting" | "connected">("idle");
-  const hasRankLookup = GAMES_WITH_RANK_LOOKUP.has(game.slug);
-
-  function handleDetect() {
-    if (!profile.username.trim() || game.ranks.length === 0) return;
-    setStatus("connecting");
-    // Mocked: no backend to actually call Riot's API from yet.
-    setTimeout(() => {
-      onUpdate({
-        rank: mockDetectRank(
-          profile.username.trim(),
-          game.ranks.map((rank) => rank.name),
-        ),
-      });
-      setStatus("connected");
-    }, 700);
-  }
-
   return (
-    <div className="flex flex-col gap-4">
-      <GameDetailsFields
-        game={game}
-        profile={profile}
-        onUpdate={onUpdate}
-        size="md"
-      />
-
-      {hasRankLookup && (
-        <div className="flex flex-col gap-1.5 rounded-lg border border-dashed border-border-strong p-3">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
-            Or detect rank automatically (preview)
-          </span>
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs text-text-muted">
-              Uses the username above as your Riot ID.
-            </p>
-            <button
-              type="button"
-              onClick={handleDetect}
-              disabled={!profile.username.trim() || status === "connecting"}
-              className="flex h-9 shrink-0 items-center justify-center rounded-lg border border-border-strong px-4 text-xs font-bold text-text-subtle transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {status === "connecting" ? "Looking up…" : "Connect"}
-            </button>
-          </div>
-          {status === "connected" && (
-            <p className="text-xs text-brand">
-              Connected {profile.rank} from {profile.username}. This is a
-              preview, not a live lookup yet.
-            </p>
-          )}
-        </div>
-      )}
-    </div>
+    <GameDetailsFields game={game} profile={profile} onUpdate={onUpdate} size="md" />
   );
 }
 
