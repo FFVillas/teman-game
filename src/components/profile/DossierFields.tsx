@@ -174,36 +174,60 @@ export function LanguagesField({
   onChange,
   max = MAX_LANGUAGES,
   size = "sm",
+  addAsChip = false,
 }: {
   languages: string[];
   onChange: (languages: string[]) => void;
   /** How many can be picked (a lobby takes up to 4). */
   max?: number;
   size?: "sm" | "md";
+  /** Put a small "+ Add" pill after the chips instead of a full-width field. */
+  addAsChip?: boolean;
 }) {
   const isFull = languages.length >= max;
+  const addLanguage = (language: string) => {
+    if (!language || languages.includes(language) || isFull) return;
+    onChange([...languages, language]);
+  };
+  const remaining = languageOptions
+    .filter((language) => !languages.includes(language))
+    .map((language) => ({ value: language, label: language }));
+
+  if (addAsChip) {
+    return (
+      <div className="flex flex-wrap items-center gap-1.5">
+        {languages.map((language) => (
+          <LanguageChip
+            key={language}
+            language={language}
+            onRemove={() => onChange(languages.filter((item) => item !== language))}
+          />
+        ))}
+        {!isFull && (
+          <FormDropdown
+            variant="add"
+            label="Add a language"
+            placeholder={languages.length > 0 ? "Add" : "Add a language"}
+            allowEmpty={false}
+            value=""
+            onChange={addLanguage}
+            options={remaining}
+          />
+        )}
+      </div>
+    );
+  }
 
   return (
     <>
       {languages.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {languages.map((language) => (
-            <span
+            <LanguageChip
               key={language}
-              className="flex items-center gap-1.5 rounded-full bg-white/10 py-1 pl-2.5 pr-1.5 text-[11px] font-semibold text-text-subtle"
-            >
-              {language}
-              <button
-                type="button"
-                onClick={() =>
-                  onChange(languages.filter((item) => item !== language))
-                }
-                aria-label={`Remove ${language}`}
-                className="flex size-4 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-white/10 hover:text-white"
-              >
-                ×
-              </button>
-            </span>
+              language={language}
+              onRemove={() => onChange(languages.filter((item) => item !== language))}
+            />
           ))}
         </div>
       )}
@@ -214,15 +238,32 @@ export function LanguagesField({
         allowEmpty={false}
         disabled={isFull}
         value=""
-        onChange={(language) => {
-          if (!language || languages.includes(language) || isFull) return;
-          onChange([...languages, language]);
-        }}
-        options={languageOptions
-          .filter((language) => !languages.includes(language))
-          .map((language) => ({ value: language, label: language }))}
+        onChange={addLanguage}
+        options={remaining}
       />
     </>
+  );
+}
+
+function LanguageChip({
+  language,
+  onRemove,
+}: {
+  language: string;
+  onRemove: () => void;
+}) {
+  return (
+    <span className="flex items-center gap-1.5 rounded-full bg-white/10 py-1 pl-2.5 pr-1.5 text-[11px] font-semibold text-text-subtle">
+      {language}
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={`Remove ${language}`}
+        className="flex size-4 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-white/10 hover:text-white"
+      >
+        ×
+      </button>
+    </span>
   );
 }
 

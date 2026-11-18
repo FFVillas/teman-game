@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { PlayerProfile } from "@/data/player-profiles";
 import { matchesForSlug, type MatchRecord } from "@/data/match-history";
 import MatchHistoryList from "./MatchHistoryList";
+import ProfileFriendButton from "./ProfileFriendButton";
 import BackLink from "@/components/BackLink";
 import { EmptyState, NotSet, NotSetOrAdd } from "@/components/EmptyState";
 import { connectProviders } from "@/data/connect-providers";
@@ -212,18 +213,10 @@ export default function PlayerProfileView({
                 >
                   Report
                 </Link>
-                <button
-                  type="button"
-                  className="flex h-10 items-center justify-center gap-2 rounded-lg border border-border-strong px-4 text-xs font-semibold text-text-subtle transition-colors hover:text-white"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
-                  <img
-                    src="/icons/player-add-friend.svg"
-                    alt=""
-                    className="h-3 w-3.5"
-                  />
-                  Add friend
-                </button>
+                <ProfileFriendButton
+                  targetId={profile.userId}
+                  targetName={profile.username}
+                />
                 <Link
                   href={`/messages?user=${encodeURIComponent(profile.slug)}&name=${encodeURIComponent(profile.username)}&avatar=${encodeURIComponent(profile.avatar)}`}
                   className="flex h-10 items-center justify-center rounded-lg bg-brand px-5 text-xs font-bold text-white transition-opacity hover:opacity-90"

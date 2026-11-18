@@ -230,3 +230,28 @@ body {
     animation: none;
   }
 }
+
+/*
+ * Tailwind v4 dropped the pointer cursor on buttons. Anything clickable shows
+ * the hand again; a disabled control shows "not allowed". In the base layer,
+ * so a cursor-* utility on a component still wins.
+ */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="switch"],
+  [role="option"],
+  summary,
+  label:has(input:not(:disabled)),
+  select:not(:disabled),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled),
+  input[type="file"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  select:disabled {
+    cursor: not-allowed;
+  }
+}

@@ -43,11 +43,11 @@ export default function LfgTeamGrid({
 
   if (teams.length === 0) {
     return (
-      <div className="mt-2 flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border-strong px-6 py-14 text-center">
-        <h3 className="text-base font-bold text-white">
+      <div className="mt-2 flex flex-col items-center gap-1.5 rounded-2xl border border-dashed border-white/10 px-6 py-10 text-center">
+        <h3 className="text-sm font-semibold text-text-muted">
           {filtered ? "No lobbies match" : `No ${gameName} lobbies yet`}
         </h3>
-        <p className="max-w-[420px] text-sm text-text-muted">
+        <p className="max-w-[420px] text-xs text-text-muted/60">
           {filtered
             ? "Try another rank, role or region, or clear the search."
             : "Nobody is looking for players right now. Start one with Create Lobby above and others can find you."}
