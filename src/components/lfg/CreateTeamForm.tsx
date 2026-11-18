@@ -15,10 +15,7 @@ import type { GameInfo } from "@/lib/games";
 import {
   OPEN_BOUNDS,
   boundsFromTierRange,
-  describeBounds,
-  lobbyJoinBounds,
   ordinalFits,
-  partyRuleFor,
   rankRangeEnds,
   tiersOf,
   type TierRange,
@@ -169,6 +166,10 @@ function SelectField({
   );
 }
 
+// A lobby is a group: the leader plus at least one more (the database
+// refuses capacity below 2 as well).
+const MIN_GROUP_SIZE = 2;
+
 export default function CreateTeamForm({
   gameSlug,
   gameName,
@@ -261,7 +262,7 @@ export default function CreateTeamForm({
   const maxGroupSize =
     modes.find((mode) => mode.label === modeLabel)?.maxParty ?? 5;
   const [requestedGroupSize, setGroupSize] = useState(edit?.capacity ?? 3);
-  const groupSize = Math.min(requestedGroupSize, maxGroupSize);
+  const groupSize = Math.max(MIN_GROUP_SIZE, Math.min(requestedGroupSize, maxGroupSize));
 
   // Who could join, from two sources: the game's own rule about how far apart
   // ranks in a party may be (applied to the people already in: just the
@@ -270,16 +271,9 @@ export default function CreateTeamForm({
   const activeMode = modes.find((mode) => mode.label === modeLabel);
   const leaderOrdinal =
     game?.ranks.find((rank) => rank.name === leaderRank)?.ordinal ?? null;
-  const gameRule = partyRuleFor(activeMode, groupSize, game?.ranks ?? []);
   const chosenBounds = anyRank
     ? OPEN_BOUNDS
     : boundsFromTierRange(tiers, rankRange);
-  const joinBounds = lobbyJoinBounds(
-    gameRule,
-    tiers,
-    leaderOrdinal === null ? [] : [leaderOrdinal],
-    chosenBounds
-  );
   const leaderOutsideRange =
     leaderOrdinal !== null && !ordinalFits(leaderOrdinal, chosenBounds);
   // Up to four, from the same list as profiles (the database allows four).
@@ -496,15 +490,11 @@ export default function CreateTeamForm({
                     <span className="text-xs font-bold uppercase tracking-wider text-text-muted">
                       Rank Requirement
                     </span>
-                    <label className="flex items-center gap-1.5 text-xs text-text-muted">
-                      <input
-                        type="checkbox"
-                        checked={anyRank}
-                        onChange={(event) => setAnyRank(event.target.checked)}
-                        className="size-4 rounded accent-brand"
-                      />
-                      Any rank
-                    </label>
+                    <AnyToggle
+                      label="Any rank"
+                      on={anyRank}
+                      onChange={setAnyRank}
+                    />
                   </div>
 
                   {anyRank ? (
@@ -521,21 +511,6 @@ export default function CreateTeamForm({
                     />
                   )}
 
-                  {leaderOrdinal !== null && (
-                    <p className="text-xs leading-relaxed text-text-muted">
-                      Players who can join:{" "}
-                      <span className="font-semibold text-white">
-                        {describeBounds(tiers, joinBounds)}
-                      </span>
-                      {gameRule.kind !== "none" && (
-                        <>
-                          {" "}
-                          · {gameName} limits how far apart ranks in a group
-                          can be in this mode.
-                        </>
-                      )}
-                    </p>
-                  )}
                   {leaderOutsideRange && (
                     <p className="text-xs text-danger">
                       Your own rank ({leaderRank}) is outside this range.
@@ -564,9 +539,6 @@ export default function CreateTeamForm({
                 placeholder="https://discord.gg/yourcode"
                 className={inputClass}
               />
-              <span className="text-[11px] text-text-muted">
-                Only you and the players you accept can see this link.
-              </span>
             </FormField>
 
             {/*
@@ -600,16 +572,17 @@ export default function CreateTeamForm({
                 <span>Very casual</span>
                 <span>Very competitive</span>
               </div>
-              <p className="text-[11px] text-text-muted">
-                The lobby&apos;s own answer, not yours — a competitive player
-                can still run a relaxed lobby. Leave it unset to skip it.
-              </p>
             </div>
 
             <div className="flex flex-col gap-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-text-muted">
-                Teammates you&apos;re looking for
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-text-muted">
+                  Teammates you&apos;re looking for
+                </span>
+                <span className="text-xs font-bold text-text-muted">
+                  {wantedTagIds.length}/3
+                </span>
+              </div>
               <div className="flex flex-wrap gap-2">
                 {tagCatalog.map((tag) => {
                   const picked = wantedTagIds.includes(tag.id);
@@ -632,10 +605,6 @@ export default function CreateTeamForm({
                   );
                 })}
               </div>
-              <p className="text-[11px] text-text-muted">
-                {wantedTagIds.length}/3 picked. Players carrying these rank
-                higher in your suggestions. Leave it empty to stay open.
-              </p>
             </div>
 
             <div className="flex flex-col gap-3">
@@ -713,9 +682,10 @@ export default function CreateTeamForm({
                       type="button"
                       aria-label="Decrease group size"
                       onClick={() =>
-                        setGroupSize(Math.max(1, groupSize - 1))
+                        setGroupSize(Math.max(MIN_GROUP_SIZE, groupSize - 1))
                       }
-                      className="flex size-7 items-center justify-center rounded border border-border-strong bg-white/[0.06] transition-colors hover:bg-white/10"
+                      disabled={groupSize <= MIN_GROUP_SIZE}
+                      className="flex size-7 items-center justify-center rounded border border-border-strong bg-white/[0.06] transition-colors hover:bg-white/10 disabled:opacity-35 disabled:hover:bg-white/[0.06]"
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
                       <img
@@ -730,7 +700,8 @@ export default function CreateTeamForm({
                       onClick={() =>
                         setGroupSize(Math.min(maxGroupSize, groupSize + 1))
                       }
-                      className="flex size-7 items-center justify-center rounded border border-border-strong bg-white/[0.06] transition-colors hover:bg-white/10"
+                      disabled={groupSize >= maxGroupSize}
+                      className="flex size-7 items-center justify-center rounded border border-border-strong bg-white/[0.06] transition-colors hover:bg-white/10 disabled:opacity-35 disabled:hover:bg-white/[0.06]"
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
                       <img
@@ -750,6 +721,7 @@ export default function CreateTeamForm({
                   onChange={setLanguages}
                   max={4}
                   size="md"
+                  addAsChip
                 />
               </FormField>
 
@@ -878,15 +850,11 @@ export default function CreateTeamForm({
                     <span className="text-xs font-bold uppercase tracking-wider text-text-muted">
                       Seeking Roles
                     </span>
-                    <label className="flex items-center gap-1.5 text-xs text-text-muted">
-                      <input
-                        type="checkbox"
-                        checked={anyRole}
-                        onChange={(event) => setAnyRole(event.target.checked)}
-                        className="size-4 rounded accent-brand"
-                      />
-                      Any Role
-                    </label>
+                    <AnyToggle
+                      label="Any role"
+                      on={anyRole}
+                      onChange={setAnyRole}
+                    />
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {roles.map((role) => {
@@ -929,7 +897,7 @@ export default function CreateTeamForm({
                     <img
                       src="/icons/lfg-mic-outline.svg"
                       alt=""
-                      className="size-4"
+                      className="h-4 w-3"
                     />
                   </div>
                   <div className="flex flex-col">
@@ -985,5 +953,52 @@ export default function CreateTeamForm({
         </div>
       </div>
     </form>
+  );
+}
+
+/**
+ * "Any rank" / "Any role": a small pill beside the section heading that
+ * lights up when on, instead of a bare browser checkbox.
+ */
+function AnyToggle({
+  label,
+  on,
+  onChange,
+}: {
+  label: string;
+  on: boolean;
+  onChange: (on: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      onClick={() => onChange(!on)}
+      className={`flex items-center gap-1 rounded-full border py-0.5 pl-1.5 pr-2.5 text-[11px] font-semibold transition-colors ${
+        on
+          ? "border-brand bg-brand/15 text-white"
+          : "border-white/15 text-text-muted hover:border-white/30 hover:text-white"
+      }`}
+    >
+      <span
+        className={`flex size-3.5 items-center justify-center rounded-full ${
+          on ? "bg-brand" : "border border-white/25"
+        }`}
+      >
+        {on && (
+          <svg viewBox="0 0 16 16" aria-hidden="true" className="size-2.5 text-white">
+            <path
+              d="M3.5 8.5l3 3L12.5 5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        )}
+      </span>
+      {label}
+    </button>
   );
 }

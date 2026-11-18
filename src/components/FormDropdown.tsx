@@ -33,6 +33,11 @@ interface FormDropdownProps {
    * Each lines up with the controls around it on its own screen.
    */
   size?: "sm" | "md" | "bar";
+  /**
+   * "add" draws the trigger as a small dashed "+" pill that sits in a row of
+   * chips (picking adds to a list, so there is no selected value to show).
+   */
+  variant?: "field" | "add";
 }
 
 /**
@@ -52,7 +57,9 @@ export default function FormDropdown({
   invalid,
   disabled,
   size = "sm",
+  variant = "field",
 }: FormDropdownProps) {
+  const isAdd = variant === "add";
   const buttonSize =
     size === "md"
       ? "px-4 py-3 text-sm"
@@ -61,8 +68,8 @@ export default function FormDropdown({
         : "px-3 py-2.5 text-xs";
   // Rows are tall and roomy on purpose: a menu this size is something you
   // scan and tap, and the check on the right needs a little breathing space.
-  const itemSize = size === "sm" ? "px-3 py-2.5 text-xs" : "px-3.5 py-3 text-sm";
-  const estimatedRowHeight = size === "sm" ? 38 : 46;
+  const itemSize = size === "sm" || isAdd ? "px-3 py-2.5 text-xs" : "px-3.5 py-3 text-sm";
+  const estimatedRowHeight = size === "sm" || isAdd ? 38 : 46;
   const buttonBackground = size === "bar" ? "bg-[#0e1015]" : "bg-bg-page";
   const idleBorder =
     size === "bar"
@@ -156,7 +163,39 @@ export default function FormDropdown({
   }
 
   return (
-    <div className="relative" ref={rootRef} onKeyDown={handleKeyDown}>
+    <div
+      className={isAdd ? "relative inline-block" : "relative"}
+      ref={rootRef}
+      onKeyDown={handleKeyDown}
+    >
+      {isAdd ? (
+        <button
+          ref={buttonRef}
+          type="button"
+          disabled={disabled}
+          onClick={() => (open ? setOpen(false) : openMenu())}
+          aria-label={label}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-controls={open ? listId : undefined}
+          className={`flex items-center gap-1 rounded-full border border-dashed py-1 pl-2 pr-2.5 text-[11px] font-semibold transition-colors focus:outline-none focus:ring-1 focus:ring-brand disabled:cursor-not-allowed disabled:opacity-50 ${
+            open
+              ? "border-brand text-white"
+              : "border-white/25 text-text-muted hover:border-white/40 hover:text-white"
+          }`}
+        >
+          <svg viewBox="0 0 16 16" aria-hidden="true" className="size-3.5">
+            <path
+              d="M8 3.5v9M3.5 8h9"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+            />
+          </svg>
+          {placeholder}
+        </button>
+      ) : (
       <button
         ref={buttonRef}
         type="button"
@@ -192,6 +231,7 @@ export default function FormDropdown({
           className={`size-3.5 shrink-0 opacity-50 transition-transform duration-150 ${open ? "rotate-180" : ""}`}
         />
       </button>
+      )}
 
       {open && (
         <div
@@ -199,7 +239,7 @@ export default function FormDropdown({
           role="listbox"
           aria-label={label}
           style={{ maxHeight: menuMaxHeight }}
-          className={`dropdown-scroll absolute left-0 z-20 min-w-full overflow-y-auto overscroll-contain rounded-xl border border-border-strong bg-bg-page p-1.5 shadow-xl shadow-black/40 ${
+          className={`dropdown-scroll absolute left-0 z-20 ${isAdd ? "min-w-[200px]" : "min-w-full"} overflow-y-auto overscroll-contain rounded-xl border border-border-strong bg-bg-page p-1.5 shadow-xl shadow-black/40 ${
             openUp ? "bottom-[calc(100%+6px)]" : "top-[calc(100%+6px)]"
           }`}
         >

@@ -43,7 +43,9 @@ export default function LfgSearchBar({
   const modes = game?.modes ?? [];
   const roles = game?.roles ?? [];
   const tiers = useMemo(() => tiersOf(game?.ranks ?? []), [game]);
-  const { apply, isPending } = useLobbyFilters(filters);
+  // `shown` changes the moment a dropdown is picked; the list follows once
+  // the server answers.
+  const { apply, isPending, filters: shown } = useLobbyFilters(filters);
   const [query, setQuery] = useState(filters.query);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -112,7 +114,7 @@ export default function LfgSearchBar({
           size="bar"
           label="Region"
           placeholder="All regions"
-          value={filters.region}
+          value={shown.region}
           onChange={(region) => apply({ region })}
           options={regions}
         />
@@ -127,7 +129,7 @@ export default function LfgSearchBar({
             size="bar"
             label="Mode"
             placeholder="All modes"
-            value={filters.mode}
+            value={shown.mode}
             onChange={(mode) => apply({ mode })}
             options={modes.map((m) => ({ value: m.value, label: m.label }))}
           />
@@ -143,7 +145,7 @@ export default function LfgSearchBar({
             size="bar"
             label="Rank"
             allowEmpty={false}
-            value={filters.rank}
+            value={shown.rank}
             onChange={(rank) => apply({ rank })}
             options={[
               {
@@ -166,7 +168,7 @@ export default function LfgSearchBar({
             size="bar"
             label="Role"
             placeholder="Any role"
-            value={filters.role}
+            value={shown.role}
             onChange={(role) => apply({ role })}
             options={roles.map((role) => ({ value: role.name, label: role.name }))}
           />
