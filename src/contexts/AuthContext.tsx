@@ -10,6 +10,7 @@ import {
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { avatarUrl } from "@/lib/avatar";
+import { disablePush } from "@/lib/push";
 
 /**
  * DIVERGENCE FROM PROPOSAL: the ERD models admin via `role` +
@@ -132,7 +133,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   function logout() {
     const supabase = createClient();
-    supabase.auth.signOut();
+    // Stop pushes to this device first (it needs the session), so the next
+    // person to sign in here doesn't get the last one's notifications.
+    void disablePush(supabase)
+      .catch(() => {})
+      .finally(() => supabase.auth.signOut());
     // onAuthStateChange fires from this too, but setting it here as well
     // means the UI updates immediately rather than waiting a round trip.
     setUser(null);

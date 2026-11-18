@@ -10,10 +10,12 @@
 //   replaced image (a new logo under the same name) shows on the next visit.
 // - Data (Supabase, /api, Server Component payloads) is never cached or
 //   touched: a stale lobby list would be worse than none.
+// - Push: draws the notification FCM delivers (sent by /api/push as data
+//   only), and opens its page when tapped.
 //
 // Bump VERSION when this file changes so old caches are cleared.
 
-const VERSION = "v1";
+const VERSION = "v2";
 const STATIC_CACHE = `temangame-static-${VERSION}`;
 const PAGE_CACHE = `temangame-pages-${VERSION}`;
 const OFFLINE_URL = "/offline";
@@ -120,4 +122,48 @@ self.addEventListener("fetch", (event) => {
     );
   }
   // Everything else goes to the network untouched.
+});
+
+// ── push ────────────────────────────────────────────────────────────────
+
+// FCM wraps the data /api/push sent in `data`; read it either way.
+function pushPayload(event) {
+  try {
+    const json = event.data ? event.data.json() : {};
+    return json.data || json;
+  } catch {
+    return {};
+  }
+}
+
+self.addEventListener("push", (event) => {
+  const data = pushPayload(event);
+  // Browsers require a notification for every push, so one is always shown.
+  // The row's title is the sentence ("Rina invited you to Night Ranked"); the
+  // phone shows the app's name and icon beside it. The tag replaces an
+  // earlier one about the same notification row.
+  event.waitUntil(
+    self.registration.showNotification(data.title || "TemanGame", {
+      body: data.body || "",
+      icon: "/pwa/icon-192.png",
+      badge: "/pwa/icon-192.png",
+      tag: data.id || undefined,
+      data: { href: data.href || "/notifications" },
+    }),
+  );
+});
+
+// Tapping it: reuse an open TemanGame window if there is one, else open one.
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = new URL(event.notification.data?.href || "/notifications", self.location.origin).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => {
+      const open = windows.find((client) => new URL(client.url).origin === self.location.origin);
+      if (open) {
+        return open.focus().then(() => open.navigate(target));
+      }
+      return self.clients.openWindow(target);
+    }),
+  );
 });

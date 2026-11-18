@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import CreateTeamForm from "@/components/lfg/CreateTeamForm";
 import { gameBySlug } from "@/data/games";
 import { createClient, getUserId } from "@/lib/supabase/server";
 import { fetchGameCatalog, fetchMyRankName } from "@/lib/games";
+import { withNext } from "@/lib/auth-redirect";
 
 interface CreateTeamPageProps {
   params: Promise<{ game: string }>;
@@ -33,6 +34,10 @@ export default async function CreateTeamPage({ params }: CreateTeamPageProps) {
 
   const supabase = await createClient();
   const [catalog, userId] = await Promise.all([fetchGameCatalog(supabase), getUserId()]);
+  // Only players can make a lobby (create_lobby refuses anyone else), so a
+  // visitor goes to log in first and comes straight back here, instead of
+  // filling in the whole form to be told at the end.
+  if (!userId) redirect(withNext("/login", `/lfg/${slug}/create`));
   const leaderRank = await fetchMyRankName(supabase, catalog, slug, userId);
 
   return (
