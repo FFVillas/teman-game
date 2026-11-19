@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import UserAvatar from "@/components/UserAvatar";
+import { profileHrefFor } from "@/data/profile-lookup";
 import { useNotifications } from "@/contexts/NotificationContext";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -58,9 +60,16 @@ export default function PendingRequestRow({
   return (
     <div className="flex items-center justify-between gap-3 rounded-xl px-3 py-3 transition-colors hover:bg-white/5">
       <div className="flex items-center gap-3">
-        <UserAvatar src={request.avatar} name={request.username} className="size-10" />
+        <Link href={profileHrefFor(request.username)} className="shrink-0" aria-label={`${request.username}'s profile`}>
+          <UserAvatar src={request.avatar} name={request.username} className="size-10" />
+        </Link>
         <div className="flex flex-col">
-          <span className="text-sm font-bold text-white">{request.username}</span>
+          <Link
+            href={profileHrefFor(request.username)}
+            className="text-sm font-bold text-white transition-colors hover:text-brand"
+          >
+            {request.username}
+          </Link>
           <span className="text-xs text-text-muted">
             {resolved === "accepted"
               ? "Friend added"

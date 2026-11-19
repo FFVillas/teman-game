@@ -2,10 +2,10 @@ import Image from "next/image";
 import Link from "next/link";
 import type { LfgTeam } from "@/data/lfg-teams";
 import { modeBadgeLabel } from "@/data/mode-badges";
-import { findProfileByUsername } from "@/data/player-profiles";
 import type { GameInfo } from "@/lib/games";
 import RankRangeBadge from "./RankRangeBadge";
 import PlayerAvatar from "./PlayerAvatar";
+import CancelRequestButton from "./CancelRequestButton";
 
 export const modeStyles: Record<LfgTeam["mode"], { label: string; className: string }> = {
   ranked: {
@@ -45,11 +45,8 @@ export default function LfgTeamCard({
 }: LfgTeamCardProps) {
   const mode = modeStyles[team.mode];
   const hasOpenSlots = team.slotsFilled < team.slotsTotal;
-  // Real lobbies link to the leader's real profile; mock ones only when a mock
-  // profile exists.
-  const leaderSlug = team.leaderId
-    ? team.leaderName
-    : findProfileByUsername(team.leaderName)?.slug;
+  // Every lobby is real now, so the leader's username is their profile link.
+  const leaderSlug = team.leaderName;
   // CS2, PUBG Mobile and Free Fire have no roles, so nothing to look for.
   const hasRoles = (game?.roles.length ?? 1) > 0;
 
@@ -201,13 +198,17 @@ export default function LfgTeamCard({
           ) : (
             <span />
           )}
-          <button
-            type="button"
-            onClick={onOpenDetails}
-            className="flex h-6 min-w-[64px] items-center justify-center rounded-md bg-[#272c33] px-2 text-xs font-bold text-white transition-opacity hover:opacity-90"
-          >
-            {joinLabel[team.viewerState ?? "none"]}
-          </button>
+          <div className="flex shrink-0 items-center gap-1.5">
+            {/* Waiting on the leader: the request can be taken back right here. */}
+            {team.viewerState === "pending" && <CancelRequestButton lobbyId={team.id} />}
+            <button
+              type="button"
+              onClick={onOpenDetails}
+              className="flex h-6 min-w-[64px] items-center justify-center rounded-md bg-[#272c33] px-2 text-xs font-bold text-white transition-opacity hover:opacity-90"
+            >
+              {joinLabel[team.viewerState ?? "none"]}
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -10,7 +10,12 @@ export const DEFAULT_REDIRECT = "/lfg/valorant";
 
 /** Auth screens themselves are never a valid destination — that would loop. */
 function isAuthPath(path: string) {
-  return path.startsWith("/login") || path.startsWith("/signup");
+  return (
+    path.startsWith("/login") ||
+    path.startsWith("/signup") ||
+    path.startsWith("/forgot-password") ||
+    path.startsWith("/reset-password")
+  );
 }
 
 /**

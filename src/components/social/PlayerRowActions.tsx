@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNotifications } from "@/contexts/NotificationContext";
 import { createClient } from "@/lib/supabase/client";
-import { blockUser, sendFriendRequest } from "@/lib/social";
+import { blockUser, removeFriendship, sendFriendRequest } from "@/lib/social";
 import { fetchMyInvitingLobby, inviteToLobby } from "@/lib/lobbies";
 import type { MessageParticipant } from "@/data/lfg-messages";
 
@@ -22,6 +22,10 @@ interface PlayerRowActionsProps {
   real?: boolean;
   /** Called after a successful block, so the caller can drop this row. */
   onBlocked?: () => void;
+  /** Friends only: the friendship, so the row can offer "Remove friend". */
+  friendshipId?: string;
+  /** Called after the friendship was removed. */
+  onRemoved?: () => void;
 }
 
 const iconButton =
@@ -40,12 +44,37 @@ export default function PlayerRowActions({
   isFriend = false,
   real = false,
   onBlocked,
+  friendshipId,
+  onRemoved,
 }: PlayerRowActionsProps) {
   const { toast, notifyPlayer } = useNotifications();
   const { user } = useAuth();
   const [sent, setSent] = useState(false);
   const [sending, setSending] = useState(false);
   const [blocking, setBlocking] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const [removing, setRemoving] = useState(false);
+
+  // Two clicks, so a stray one doesn't end a friendship.
+  async function handleRemove(event: React.MouseEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!friendshipId) return;
+    if (!confirmRemove) {
+      setConfirmRemove(true);
+      setTimeout(() => setConfirmRemove(false), 4000);
+      return;
+    }
+    setRemoving(true);
+    const ok = await removeFriendship(createClient(), friendshipId);
+    setRemoving(false);
+    setConfirmRemove(false);
+    if (!ok) {
+      toast({ tone: "danger", title: "Couldn't remove them", body: "Try again in a moment." });
+      return;
+    }
+    onRemoved?.();
+  }
 
   const messageHref = `/messages?user=${encodeURIComponent(target.id)}&name=${encodeURIComponent(target.name)}&avatar=${encodeURIComponent(target.avatar)}`;
 
@@ -229,6 +258,31 @@ export default function PlayerRowActions({
           </svg>
         )}
       </button>
+
+      {isFriend && real && friendshipId && (
+        <button
+          type="button"
+          onClick={handleRemove}
+          disabled={removing}
+          aria-label={confirmRemove ? `Confirm removing ${target.name}` : `Remove ${target.name} from friends`}
+          title={confirmRemove ? "Click again to remove" : "Remove friend"}
+          className={
+            confirmRemove
+              ? "flex h-7 shrink-0 items-center justify-center rounded-lg border border-danger bg-danger/10 px-2 text-[11px] font-bold text-danger"
+              : iconButton
+          }
+        >
+          {confirmRemove ? (
+            "Remove?"
+          ) : (
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <circle cx="6.5" cy="5.5" r="2.75" stroke="currentColor" strokeWidth="1.3" />
+              <path d="M1.5 15C1.5 12 3.75 9.75 6.5 9.75C9.25 9.75 11.5 12 11.5 15" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+              <path d="M11.25 7H15.25" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+            </svg>
+          )}
+        </button>
+      )}
 
       {real && (
         <button

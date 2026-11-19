@@ -177,8 +177,12 @@ Signup, login and logout go through Supabase Auth. Setup:
 `refreshUser` (call it after editing the profile so the navbar updates).
 There is no `login()` setter — `onAuthStateChange` is the only writer.
 
-Still open: Google/Discord buttons are stubs, there is no forgot-password
-flow, and `AdminGate` is a client check (RLS is the real protection).
+**Forgot password**: `/forgot-password` sends Supabase's reset email (same
+answer whether or not the address exists), and the link lands on
+`/reset-password`, which exchanges the `?code=` (or picks up the hash token)
+and saves the new password. Both are exempt from the onboarding gate and
+count as auth routes for `?next=`. Still open: Google/Discord buttons are
+shown but not wired (`OAUTH_ENABLED`).
 
 ## Image cropping
 
@@ -406,15 +410,31 @@ registered in dev), and on iPhone only in the home-screen app (iOS 16.4+).
 ## Settings
 
 `/settings` covers what belongs to the *login*, not the player profile:
-email, password, logout, and where account deletion goes. Profile fields
-stay on `/profile/me/edit`, so there's one place to edit who you are.
+email, password, the app and push on this device, logout, and where account
+deletion goes. Profile fields stay on `/profile/me/edit`, so there's one
+place to edit who you are. Laid out like GitHub's settings: sections listed on
+the left (a scrolling strip on phones), one at a time on the right, each a
+set of rows (label and explanation, then the control). The open section is
+the URL hash (`#account`, `#password`, `#app`, `#session`).
+
+**Push prompt** (`components/PushPrompt.tsx`, root layout): a signed-in
+player whose push is off on this device gets a small "Get notified on this
+device?" card once, 2.5 s after a page loads. "Turn on" is the tap Safari
+needs before it shows the permission dialog (and asking on load would make
+Chrome hide it); "Not now" waits 14 days. Quiet on onboarding, settings,
+auth, admin and offline pages; never where push can't work.
 
 **No new table, on purpose.** Everything there is already owned by Supabase
 Auth. Notification preferences and profile visibility would each need
 storage the proposal doesn't model — add them when a screen actually reads
-them, not before. Account deletion is admin-handled for now: removing an
-auth record needs a server-side job, which a signed-in browser can't be
-trusted with.
+them, not before. **Account deletion is self-service**
+(`DeleteAccountSection`, `delete_my_account()` in
+`20261119000300_delete_own_account.sql`): the player types their username and
+re-enters their password; the app removes their avatar files and push token,
+then the function deletes only the caller, refusing staff accounts and running
+suspensions. It clears the reports and sanctions that would block the delete,
+cascades everything else, and recomputes the reputation of everyone they had
+rated.
 
 ## Admin console
 
@@ -647,6 +667,16 @@ confidence marks and open questions before changing any of them.
   kept separate from closeness (`M_rank`, which only orders). A lobby carries
   an optional leader-set range, default "Any rank". The party rules are
   approximations from guides; see the reference doc before changing them.
+- **No mock lobbies any more** (step 8): `lobby-1`… and their screens
+  (`LobbyDetail`, `LobbyChatRoom`, `InvitePlayersModal`), the session store,
+  the mock profiles, teams, candidates, match history, Social data and the
+  admin seed are gone; the `src/data/` files keep only their types and option
+  lists. An unknown lobby id or username is a 404. Profile links are the
+  username (`profileHrefFor`).
+- **A pending request can be cancelled from the LFG card** ("Cancel", then
+  "Sure?"; `CancelRequestButton`) as well as from the lobby page ("Cancel
+  request"). **The leader's join-request list is ranked** by S_total with the
+  applicant's own R (proposal's reciprocal side), never showing the score.
 - **Lobbies are real** (`20261006000000_lobbies.sql` plus `20261007000000_lobby_start.sql` and `20261008000000_lobby_lifecycle.sql` and `20261009000000_lobby_edit.sql`: `game_modes`, `lobbies`,
   `lobby_roles`, `applications`, the `lobby_members` view and the write
   functions; plan and gaps in `docs/lobby-slice-plan.md`). Every LFG page lists
@@ -712,6 +742,12 @@ ratings. `lib/matches.ts` turns it into `MatchRecord`s for the profile, the
 match list and the match page. Reports insert only their own columns, and an
 evidence file goes to the private `report-evidence` bucket under the
 reporter's folder (`20261118000100_report_evidence.sql`, `lib/reports.ts`).
+
+Friends can be removed from the friend list (the person-minus icon, then
+"Remove?") and from their profile (the "Friends" button, then "Remove
+friend?"). Avatars and names open the player's profile everywhere people are
+listed: Social lists, pending and blocked rows, the DM thread header and
+message bubbles, lobby chat and rosters.
 
 ## Row actions and full-row links
 

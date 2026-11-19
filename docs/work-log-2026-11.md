@@ -24,7 +24,7 @@ evaluation the proposal promises (UAT, black-box, k6, Precision@5).
 | 5 | PWA (manifest, service worker) and FCM push | ◐ PWA done and installed on Windows; push built, needs Firebase setup and phone tests |
 | 6 | Admin console on Supabase, admin check on the server | ◐ Built; run the migration and test with an admin account |
 | 7 | Evaluation kit: Precision@5 seed ✅, Vitest ✅, sensitivity-analysis script, black-box table with traceability matrix, k6 scripts | ◐ Partly |
-| 8 | Remove the mock lobby routes and data before UAT | ⬜ |
+| 8 | Remove the mock lobby routes and data before UAT | ✅ 19 Nov |
 
 ---
 
@@ -180,6 +180,21 @@ Buttons that looked like they worked but saved nothing, now fixed:
   load) and sees the rule and dates; their lobbies leave the list; it shows in
   their sanction history. Lengths 1, 3, 7, 30 days; no ban.
 
+## Before UAT (19 Nov)
+
+- **Step 8:** mock lobbies, their screens and every mock dataset removed;
+  unknown lobbies and usernames 404.
+- **Join requests ranked** for the leader (proposal's reciprocal ranking).
+- **Forgot password** (`/forgot-password`, `/reset-password`); the login
+  page's link used to lead to a 404.
+- **"Couldn't load lobbies"** with Try again, instead of an empty list.
+- **Cancel a join request** from the LFG card.
+- **Remove friend** from the friend list and the profile.
+- **Avatars open profiles** in Social and chat.
+- **Settings** redesigned (GitHub-style sections).
+- **Push prompt** once after sign-in, again after 14 days on "Not now";
+  Settings keeps the switch.
+
 ## Migrations
 
 Applied by hand in the Supabase SQL editor; never edit one that has run.
@@ -193,6 +208,7 @@ Applied by hand in the Supabase SQL editor; never edit one that has run.
 | `20261118000300_withdraw_other_requests.sql` | Withdraw pending requests on joining or starting a live lobby | ⬜ run it |
 | `20261119000000_push_notifications.sql` | `push_tokens`, the push trigger (pg_net), token functions | ⬜ run it |
 | `20261119000100_chat_push.sql` | Push for DMs and lobby chat, with a per-conversation cooldown | ⬜ run it |
+| `20261119000300_delete_own_account.sql` | Self-service account deletion | ⬜ run it |
 | `20261119000200_admin_moderation.sql` | Admin functions (claim, dismiss, sanction, lift, close lobby, remove member), admin-only reads, suspension notice; direct moderation writes revoked | ⬜ run it |
 
 ## Where things are now

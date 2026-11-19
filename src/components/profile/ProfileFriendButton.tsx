@@ -17,7 +17,7 @@ type Relation =
   | { kind: "none" }
   | { kind: "sent"; friendshipId: string }
   | { kind: "incoming"; friendshipId: string }
-  | { kind: "friends" };
+  | { kind: "friends"; friendshipId: string };
 
 const buttonClass =
   "flex h-10 items-center justify-center gap-2 rounded-lg border px-4 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60";
@@ -40,6 +40,7 @@ export default function ProfileFriendButton({
   const { toast, notifyPlayer } = useNotifications();
   const [loaded, setRelation] = useState<Relation>({ kind: "loading" });
   const [busy, setBusy] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const viewerId = user?.id;
   const pathname = usePathname();
   const relation: Relation =
@@ -60,7 +61,8 @@ export default function ProfileFriendButton({
       .then(({ data }) => {
         if (cancelled) return;
         if (!data) setRelation({ kind: "none" });
-        else if (data.status === "accepted") setRelation({ kind: "friends" });
+        else if (data.status === "accepted")
+          setRelation({ kind: "friends", friendshipId: data.id as string });
         else if (data.requester_id === viewerId)
           setRelation({ kind: "sent", friendshipId: data.id as string });
         else setRelation({ kind: "incoming", friendshipId: data.id as string });
@@ -127,7 +129,7 @@ export default function ProfileFriendButton({
       else toast({ tone: "danger", title: "Couldn't cancel the request", body: "Try again in a moment." });
     } else if (relation.kind === "incoming") {
       const ok = await acceptFriendRequest(supabase, relation.friendshipId);
-      if (ok) setRelation({ kind: "friends" });
+      if (ok) setRelation({ kind: "friends", friendshipId: relation.friendshipId });
       else toast({ tone: "danger", title: "Couldn't accept the request", body: "Try again in a moment." });
     }
 
@@ -135,14 +137,36 @@ export default function ProfileFriendButton({
   }
 
   if (relation.kind === "friends") {
+    const friendshipId = relation.friendshipId;
+    // "Friends" until clicked; a second click removes them, so a stray tap
+    // doesn't end a friendship.
     return (
-      <span
-        className={`${buttonClass} border-success/40 text-success`}
-        title="Remove friends from the Social page"
+      <button
+        type="button"
+        disabled={busy}
+        onClick={async () => {
+          if (!confirmRemove) {
+            setConfirmRemove(true);
+            setTimeout(() => setConfirmRemove(false), 4000);
+            return;
+          }
+          setBusy(true);
+          const ok = await removeFriendship(createClient(), friendshipId);
+          setBusy(false);
+          setConfirmRemove(false);
+          if (ok) setRelation({ kind: "none" });
+          else toast({ tone: "danger", title: "Couldn't remove them", body: "Try again in a moment." });
+        }}
+        title={confirmRemove ? "Click again to remove" : "Click to remove this friend"}
+        className={`${buttonClass} ${
+          confirmRemove
+            ? "border-danger bg-danger/10 text-danger"
+            : "border-success/40 text-success hover:border-danger hover:text-danger"
+        }`}
       >
-        <CheckIcon />
-        Friends
-      </span>
+        {confirmRemove ? null : <CheckIcon />}
+        {confirmRemove ? "Remove friend?" : "Friends"}
+      </button>
     );
   }
 

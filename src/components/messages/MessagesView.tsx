@@ -303,7 +303,7 @@ export default function MessagesView() {
               fill
               icon="/icons/nav-chat.svg"
               title={`No account for ${missingTarget}`}
-              description="That player comes from the sample data, not a registered account — there's nobody to message yet."
+              description="There's no player with that username. Check the spelling, or find them through Social."
             />
           </div>
         ) : (

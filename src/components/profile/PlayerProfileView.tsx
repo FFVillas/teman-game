@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { PlayerProfile } from "@/data/player-profiles";
-import { matchesForSlug, type MatchRecord } from "@/data/match-history";
+import type { MatchRecord } from "@/data/match-history";
 import MatchHistoryList from "./MatchHistoryList";
 import ProfileFriendButton from "./ProfileFriendButton";
 import BackLink from "@/components/BackLink";
@@ -102,7 +102,7 @@ function gamesOf(profile: PlayerProfile): GameSummary[] {
 
 export default function PlayerProfileView({
   profile,
-  matches = matchesForSlug(profile.slug),
+  matches = [],
 }: {
   profile: PlayerProfile;
   /** Real players' completed lobbies; mock profiles use their mock history. */

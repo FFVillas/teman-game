@@ -110,6 +110,7 @@ export default function SocialFriendsPanel() {
                   id={friend.id}
                   name={friend.username}
                   avatar={friend.avatar}
+                  friendshipId={friend.friendshipId}
                   onBlocked={() =>
                     setFriends((prev) =>
                       prev.filter((f) => f.friendshipId !== friend.friendshipId)

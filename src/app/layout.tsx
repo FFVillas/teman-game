@@ -5,6 +5,7 @@ import { NotificationProvider } from "@/contexts/NotificationContext";
 import ToastHost from "@/components/notifications/ToastHost";
 import NavOriginTracker from "@/components/NavOriginTracker";
 import PwaSetup from "@/components/PwaSetup";
+import PushPrompt from "@/components/PushPrompt";
 import "./globals.css";
 
 const inter = Inter({
@@ -69,6 +70,7 @@ export default function RootLayout({
           <NotificationProvider>
             <NavOriginTracker />
             <PwaSetup />
+            <PushPrompt />
             {children}
             <ToastHost />
           </NotificationProvider>

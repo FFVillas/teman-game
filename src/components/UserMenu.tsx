@@ -117,7 +117,7 @@ export default function UserMenu({ user }: { user: AuthUser }) {
             type="button"
             role="menuitem"
             onClick={handleLogout}
-            className="flex w-full items-center px-3.5 py-2 text-left text-sm font-semibold text-danger transition-colors hover:bg-white/5"
+            className="flex w-full items-center px-3.5 py-2 text-left text-sm text-white/80 transition-colors hover:bg-white/5 hover:text-white"
           >
             Logout
           </button>

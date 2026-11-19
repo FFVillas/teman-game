@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import type { LobbyMember } from "@/data/lfg-lobby";
-import { findProfileByUsername } from "@/data/player-profiles";
 import PlayerAvatar from "@/components/lfg/PlayerAvatar";
 
 /** Someone invited who hasn't answered: the mock candidates and real invitees both fit. */
@@ -68,7 +67,7 @@ export default function LobbyMembers({
         {members.map((member) => {
           const isMe = member.id === currentUserId;
           const slug =
-            member.profileSlug ?? findProfileByUsername(member.name)?.slug;
+            member.profileSlug ?? member.name;
           const profileHref = isMe ? "/profile/me" : `/profile/${slug ?? ""}`;
           const canLink = isMe || Boolean(slug);
 

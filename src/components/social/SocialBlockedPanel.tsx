@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import UserAvatar from "@/components/UserAvatar";
+import { profileHrefFor } from "@/data/profile-lookup";
 import { EmptyState } from "@/components/EmptyState";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNotifications } from "@/contexts/NotificationContext";
@@ -75,8 +77,15 @@ export default function SocialBlockedPanel() {
               className="flex items-center justify-between gap-3 rounded-xl px-3 py-3 transition-colors hover:bg-white/5"
             >
               <div className="flex items-center gap-3">
-                <UserAvatar src={row.avatar} name={row.username} className="size-10" />
-                <span className="text-sm font-bold text-white">{row.username}</span>
+                <Link href={profileHrefFor(row.username)} className="shrink-0" aria-label={`${row.username}'s profile`}>
+                  <UserAvatar src={row.avatar} name={row.username} className="size-10" />
+                </Link>
+                <Link
+                  href={profileHrefFor(row.username)}
+                  className="text-sm font-bold text-white transition-colors hover:text-brand"
+                >
+                  {row.username}
+                </Link>
               </div>
               <button
                 type="button"

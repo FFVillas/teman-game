@@ -152,8 +152,9 @@ export default function PrivacyPolicyPage() {
                   The previous file is deleted when you do.
                 </Bullet>
                 <Bullet label="Delete your account">
-                  Request deletion of your account and the data tied to it by
-                  reaching out through Support.
+                  Delete your account and the data tied to it yourself, any
+                  time, from Settings → Session &amp; account. It can&apos;t be
+                  undone, and isn&apos;t available while a suspension is running.
                 </Bullet>
               </ul>
             </Section>

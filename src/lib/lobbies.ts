@@ -7,6 +7,8 @@ import { roleIconFor } from "@/data/role-icons";
 import { avatarUrl } from "@/lib/avatar";
 import type { GameInfo } from "@/lib/games";
 import { isNewPlayer } from "@/lib/reputation";
+import { playstyleScore, reputationScore, tagScore, totalScore } from "@/lib/recommendation";
+import { fetchTagCatalog, fetchTagStrengths } from "@/lib/tags";
 
 /**
  * Lobbies, applications and the functions that change them
@@ -384,18 +386,34 @@ export async function fetchLobbyTeams(
   game: GameInfo,
   options: { viewerId?: string | null; lobbyId?: string } = {},
 ): Promise<LfgTeam[]> {
+  return (await queryLobbyTeams(supabase, game, options)).teams;
+}
+
+/**
+ * Like `fetchLobbyTeams`, but says whether the read failed, so the LFG list
+ * can show "Couldn't load lobbies" instead of an empty list that looks like
+ * nobody is playing.
+ */
+export async function queryLobbyTeams(
+  supabase: SupabaseClient,
+  game: GameInfo,
+  options: { viewerId?: string | null; lobbyId?: string } = {},
+): Promise<{ teams: LfgTeam[]; failed: boolean }> {
   const { viewerId, lobbyId } = options;
   await expireStaleLobbies(supabase);
 
   const query = supabase.from("lobby").select(LOBBY_SELECT).eq("game_id", game.id);
-  const { data } = await (lobbyId
+  const { data, error } = await (lobbyId
     ? query.eq("id", lobbyId)
     : query
         .in("status", ["open", "scheduled"])
         .order("created_at", { ascending: false })
         .limit(60));
 
-  return ((data ?? []) as unknown as LobbyRow[]).map((row) => toTeam(row, game, viewerId));
+  return {
+    teams: ((data ?? []) as unknown as LobbyRow[]).map((row) => toTeam(row, game, viewerId)),
+    failed: Boolean(error),
+  };
 }
 
 export async function respondToApplication(
@@ -585,6 +603,12 @@ export interface LobbyApplicationView extends LobbyPerson {
   message: string | null;
   status: "pending" | "accepted" | "declined" | "left";
   createdAt: string;
+  /**
+   * S_total for this applicant, worked out for the leader only (the proposal's
+   * reciprocal side: R is the applicant's own reputation). Orders the
+   * join-request list; never shown.
+   */
+  score?: number | null;
 }
 
 /** An invitation the leader has sent and nobody has answered yet. */
@@ -690,16 +714,24 @@ export async function fetchLobbyDetail(
       ...rateableIds,
     ]),
   ];
-  const [{ data: profileRows }, { data: rankRows }] = await Promise.all([
+  // The leader's join requests are ranked (proposal 3.3.1.2), which needs
+  // each applicant's playstyle, R* and tag strengths.
+  const pendingIds =
+    team.viewerState === "leader"
+      ? applications.filter((a) => a.status === "pending").map((a) => a.applicant_id)
+      : [];
+  const [{ data: profileRows }, { data: rankRows }, strengths, tagCatalog] = await Promise.all([
     supabase
       .from("profiles")
-      .select("id, username, avatar_path, reputation_score, review_count")
+      .select("id, username, avatar_path, reputation_score, review_count, playstyle, reputation_bayes")
       .in("id", userIds),
     supabase
       .from("user_game_mapping")
       .select("user_id, rank_id")
       .eq("game_id", game.id)
       .in("user_id", userIds),
+    pendingIds.length > 0 ? fetchTagStrengths(supabase, pendingIds) : Promise.resolve(null),
+    pendingIds.length > 0 ? fetchTagCatalog(supabase) : Promise.resolve(null),
   ]);
   const profiles = new Map(
     (
@@ -709,6 +741,8 @@ export async function fetchLobbyDetail(
         avatar_path: string | null;
         reputation_score: number | string;
         review_count: number;
+        playstyle: number | null;
+        reputation_bayes: number | string | null;
       }>
     ).map((profile) => [profile.id, profile]),
   );
@@ -735,6 +769,34 @@ export async function fetchLobbyDetail(
     };
   };
 
+  // Persamaan 3.1 from the leader's side: Pb is the lobby's playstyle, R the
+  // applicant's own (not the lobby mean), T their strength in the wanted tags.
+  const tagNameOf = new Map((tagCatalog ?? []).map((tag) => [tag.id, tag.name]));
+  const wanted = (team.wantedTagIds ?? []).filter((id) => tagNameOf.has(id));
+  const lobbyPlaystyle = team.playstyle ?? team.leaderPlaystyle ?? null;
+  const applicantScore = (userId: string): number | null => {
+    if (!pendingIds.includes(userId)) return null;
+    const profile = profiles.get(userId);
+    if (!profile || profile.playstyle == null || lobbyPlaystyle == null) return null;
+    const P = playstyleScore(profile.playstyle, lobbyPlaystyle);
+    const R = reputationScore(Number(profile.reputation_bayes ?? 3));
+    const held = new Map(
+      [...(strengths?.get(userId) ?? new Map<number, number>())].flatMap(([id, value]) => {
+        const name = tagNameOf.get(id);
+        return name ? [[name, value] as const] : [];
+      }),
+    );
+    const T =
+      wanted.length === 0
+        ? null
+        : tagScore(
+            [...held.keys()],
+            wanted.map((id) => tagNameOf.get(id)!),
+            (tag) => held.get(tag) ?? 0,
+          );
+    return totalScore(P, R, T);
+  };
+
   const acceptedRole = new Map(
     applications
       .filter((application) => application.status === "accepted")
@@ -753,6 +815,7 @@ export async function fetchLobbyDetail(
       message: application.message,
       status: application.status,
       createdAt: application.created_at,
+      score: applicantScore(application.applicant_id),
     })),
     invites: sentInvites.map((invite) => ({
       ...person(invite.invitee_id, null),

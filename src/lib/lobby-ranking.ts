@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { LfgTeam } from "@/data/lfg-teams";
 import type { PersonalityTag } from "@/data/player-profiles";
 import type { GameInfo } from "@/lib/games";
-import { fetchLobbyTeams } from "@/lib/lobbies";
+import { queryLobbyTeams } from "@/lib/lobbies";
 import { boundsAcceptTier, ordinalFits, teamJoinBounds, tiersOf } from "@/lib/ranks";
 import {
   lobbyReputation,
@@ -172,6 +172,8 @@ export function sortLobbies(
 export interface RecommendedLobbies {
   lobbies: LfgTeam[];
   viewer: Viewer | null;
+  /** The lobby read failed: show an error, not "no lobbies yet". */
+  failed: boolean;
 }
 
 /** The whole pipeline for one game's LFG list. */
@@ -181,8 +183,8 @@ export async function recommendLobbies(
   userId: string | null,
   filters: LobbyFilters,
 ): Promise<RecommendedLobbies> {
-  const [teams, viewer, catalog] = await Promise.all([
-    fetchLobbyTeams(supabase, game, { viewerId: userId }),
+  const [{ teams, failed }, viewer, catalog] = await Promise.all([
+    queryLobbyTeams(supabase, game, { viewerId: userId }),
     userId ? fetchViewer(supabase, game, userId) : null,
     tagCatalog(supabase),
   ]);
@@ -196,5 +198,6 @@ export async function recommendLobbies(
   return {
     lobbies: sortLobbies(visible, filters.sort, (team) => scores.get(team.id) ?? null),
     viewer,
+    failed,
   };
 }
