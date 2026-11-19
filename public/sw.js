@@ -15,7 +15,7 @@
 //
 // Bump VERSION when this file changes so old caches are cleared.
 
-const VERSION = "v2";
+const VERSION = "v3";
 const STATIC_CACHE = `temangame-static-${VERSION}`;
 const PAGE_CACHE = `temangame-pages-${VERSION}`;
 const OFFLINE_URL = "/offline";
@@ -147,7 +147,10 @@ self.addEventListener("push", (event) => {
       body: data.body || "",
       icon: "/pwa/icon-192.png",
       badge: "/pwa/icon-192.png",
-      tag: data.id || undefined,
+      // Chat pushes share a tag per conversation, so the newest replaces the
+      // last instead of stacking; `renotify` still buzzes for the new one.
+      tag: data.tag || data.id || undefined,
+      renotify: Boolean(data.tag),
       data: { href: data.href || "/notifications" },
     }),
   );

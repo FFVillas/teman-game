@@ -390,6 +390,12 @@ TemanGame installs as an app (proposal: PWA). Pieces:
    `forget_push_tokens` (which checks the same secret).
 4. `public/sw.js` draws it (`push`) and opens `href` on tap
    (`notificationclick`), reusing an open window.
+5. **Chat** (`20261119000100_chat_push.sql`): DMs and lobby chat lines push
+   straight from their own triggers (`send_push_to`), not through
+   `notifications`. One push per player per conversation per cooldown (1 min
+   DM, 3 min lobby chat; `push_throttle`, `push_slot_free`), and a `tag` per
+   conversation so the newest replaces the last on the device. In-app, chat
+   still doesn't pop up a toast.
 
 Settings: `NEXT_PUBLIC_FIREBASE_CONFIG` (the web app's config as JSON) and
 `NEXT_PUBLIC_FIREBASE_VAPID_KEY` are public; `FIREBASE_SERVICE_ACCOUNT` (JSON,

@@ -180,6 +180,7 @@ Applied by hand in the Supabase SQL editor; never edit one that has run.
 | `20261118000200_reputation_display.sql` | `rater_count`, `is_suspended`, `sanction_history()` | ✅ |
 | `20261118000300_withdraw_other_requests.sql` | Withdraw pending requests on joining or starting a live lobby | ⬜ run it |
 | `20261119000000_push_notifications.sql` | `push_tokens`, the push trigger (pg_net), token functions | ⬜ run it |
+| `20261119000100_chat_push.sql` | Push for DMs and lobby chat, with a per-conversation cooldown | ⬜ run it |
 
 ## Where things are now
 

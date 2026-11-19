@@ -5,10 +5,12 @@ import { createClient } from "@supabase/supabase-js";
 
 /**
  * Sends one notification to a player's devices through Firebase Cloud
- * Messaging. Called only by the database: the `notifications_send_push`
- * trigger (20261119000000_push_notifications.sql) posts here through pg_net
- * whenever a notification row is written, with the shared secret in
- * `x-push-secret`. Anyone else gets a 401.
+ * Messaging. Called only by the database, through pg_net, with the shared
+ * secret in `x-push-secret` (anyone else gets a 401):
+ *   - `notifications_send_push` for every new bell notification
+ *     (20261119000000_push_notifications.sql);
+ *   - `direct_messages_push` and `lobby_messages_push` for chat, with a
+ *     per-conversation cooldown (20261119000100_chat_push.sql).
  *
  * Server-only settings (Vercel → Settings → Environment Variables, and
  * .env.local to run it locally):
@@ -24,6 +26,8 @@ interface PushRequest {
   title: string;
   body?: string | null;
   href: string;
+  /** One per conversation for chat pushes, so a new one replaces the last. */
+  tag?: string | null;
   tokens: string[];
 }
 
@@ -68,6 +72,7 @@ export async function POST(request: NextRequest) {
       title: push.title,
       body: push.body ?? "",
       href: push.href,
+      tag: push.tag ?? push.id,
     },
     webpush: {
       // Deliver now rather than when the phone next wakes on its own.

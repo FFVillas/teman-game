@@ -5,7 +5,7 @@ import Footer from "@/components/Footer";
 import CreateTeamForm from "@/components/lfg/CreateTeamForm";
 import { gameBySlug } from "@/data/games";
 import { createClient, getUserId } from "@/lib/supabase/server";
-import { fetchGameCatalog, fetchMyRankName } from "@/lib/games";
+import { fetchGameCatalog, fetchMyPlaystyle, fetchMyRankName } from "@/lib/games";
 import { withNext } from "@/lib/auth-redirect";
 
 interface CreateTeamPageProps {
@@ -38,7 +38,10 @@ export default async function CreateTeamPage({ params }: CreateTeamPageProps) {
   // visitor goes to log in first and comes straight back here, instead of
   // filling in the whole form to be told at the end.
   if (!userId) redirect(withNext("/login", `/lfg/${slug}/create`));
-  const leaderRank = await fetchMyRankName(supabase, catalog, slug, userId);
+  const [leaderRank, leaderPlaystyle] = await Promise.all([
+    fetchMyRankName(supabase, catalog, slug, userId),
+    fetchMyPlaystyle(supabase, userId),
+  ]);
 
   return (
     <>
@@ -50,6 +53,7 @@ export default async function CreateTeamPage({ params }: CreateTeamPageProps) {
             gameName={meta.name}
             game={catalog.find((g) => g.slug === slug)}
             leaderRank={leaderRank}
+            leaderPlaystyle={leaderPlaystyle}
           />
         </div>
       </main>
