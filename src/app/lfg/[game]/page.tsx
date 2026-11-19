@@ -91,6 +91,7 @@ export default async function LfgGamePage({ params, searchParams }: LfgGamePageP
             key={JSON.stringify(filters)}
             teams={teams}
             filtered={isFiltered(filters)}
+            failed={!game || Boolean(list?.failed)}
             gameName={meta.name}
             game={game}
             myRank={myRank}

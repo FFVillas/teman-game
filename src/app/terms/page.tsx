@@ -166,9 +166,9 @@ export default function TermsOfServicePage() {
 
             <Section title="Ending Your Account">
               <p>
-                You can stop using TemanGame anytime, and you can request
-                deletion of your account and the data tied to it by reaching
-                out through Support. We may suspend or terminate an account
+                You can stop using TemanGame anytime, and delete your account
+                and the data tied to it yourself from Settings, except while a
+                suspension is running. We may suspend or terminate an account
                 that seriously or repeatedly breaks these terms.
               </p>
             </Section>

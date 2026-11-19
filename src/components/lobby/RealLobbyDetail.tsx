@@ -156,8 +156,13 @@ export default function RealLobbyDetail({
     router.refresh();
   }
 
+  // Best match first (S_total for the leader, never shown); then oldest first.
   const pending: LobbyApplication[] = applications
     .filter((entry) => entry.status === "pending")
+    .sort(
+      (a, b) =>
+        (b.score ?? -1) - (a.score ?? -1) || a.createdAt.localeCompare(b.createdAt),
+    )
     .map((entry) => ({
       id: entry.applicationId,
       status: "pending",
@@ -253,7 +258,7 @@ export default function RealLobbyDetail({
         onClick={() => setConfirming("leave")}
         className={`${topButton} border border-white/20 bg-[rgba(15,23,42,0.8)] text-white shadow-md shadow-black/50 backdrop-blur-sm hover:border-danger hover:text-danger`}
       >
-        Withdraw application
+        Cancel request
       </button>
     ) : state === "declined" || started || myInvite ? null : !viewerId ? (
       <Link

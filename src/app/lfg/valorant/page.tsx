@@ -77,6 +77,7 @@ export default async function LfgValorantPage({
             key={JSON.stringify(filters)}
             teams={teams}
             filtered={isFiltered(filters)}
+            failed={!game || Boolean(list?.failed)}
             gameName="Valorant"
             game={game}
             myRank={myRank}

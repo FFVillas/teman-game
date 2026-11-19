@@ -97,6 +97,23 @@ function readState(): PushState {
   return Notification.permission === "granted" && storedToken() ? "on" : "off";
 }
 
+/**
+ * Why push is "unsupported" here, so the message can say the right thing
+ * instead of blaming a browser that would work fine:
+ * - `dev`: `npm run dev` (no service worker there, see lib/pwa.ts);
+ * - `insecure`: plain http on another device (push needs https);
+ * - `config`: the Firebase settings are missing or not valid JSON;
+ * - `browser`: the browser really has no push.
+ */
+export function unsupportedReason(): "dev" | "insecure" | "config" | "browser" {
+  if (process.env.NODE_ENV !== "production") return "dev";
+  if (!window.isSecureContext) return "insecure";
+  if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
+    return "browser";
+  }
+  return firebaseConfig() ? "browser" : "config";
+}
+
 let messagingPromise: Promise<Messaging | null> | null = null;
 
 /** Loads Firebase only when push is actually used, so other pages stay light. */

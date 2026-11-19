@@ -5,7 +5,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { LfgTeam } from "@/data/lfg-teams";
-import { findProfileByUsername } from "@/data/player-profiles";
 import { modeStyles } from "./LfgTeamCard";
 import RankRangeBadge from "./RankRangeBadge";
 import PlayerAvatar from "./PlayerAvatar";
@@ -101,11 +100,8 @@ export default function RequestToJoinModal({
   const mode = modeStyles[team.mode];
   const leaderAvatar = team.members[0]?.avatar;
   const emptySlots = Math.max(team.slotsTotal - team.members.length, 0);
-  // Real lobbies link to the leader's real profile; mock ones only when a mock
-  // profile exists.
-  const leaderSlug = team.leaderId
-    ? team.leaderName
-    : findProfileByUsername(team.leaderName)?.slug;
+  // Every lobby is real now, so the leader's username is their profile link.
+  const leaderSlug = team.leaderName;
 
   // The card only shows the range the leader typed. Whether *you* can join
   // right now is checked here, where it matters: the game's party rule applied

@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import type { LobbyApplication } from "@/data/lfg-lobby";
-import { findProfileByUsername } from "@/data/player-profiles";
 import PlayerAvatar from "@/components/lfg/PlayerAvatar";
 
 /**
@@ -70,7 +69,7 @@ export default function LobbyApplications({
         <ul className="flex flex-col gap-2">
           {pending.map((app) => {
             const slug =
-              app.profileSlug ?? findProfileByUsername(app.applicantName)?.slug;
+              app.profileSlug ?? app.applicantName;
 
             return (
             <li

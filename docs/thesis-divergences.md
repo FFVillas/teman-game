@@ -66,7 +66,7 @@ migrations run.
 | B2 | Hard filters | Game and the lobby's rank range | Same, plus each game's **party rule** (how far apart ranks may be in a group, given who is already in), checked again when the leader accepts | Addition | Live | `lib/ranks.ts`, `lobby_join_bounds()` |
 | B3 | Optional filters | Role (lobbies needing other roles still show) | Same, plus region, mode and text search, and sort (Recommended, Latest, Most players, Open slots) | Addition | Live | `lib/lobby-filters.ts` |
 | B4 | Lobby playstyle (Pb) | Pre-filled from the leader's profile playstyle, changeable | As written (since 19 Nov). Older lobbies saved without one fall back to the leader's profile playstyle | Same | Live | `CreateTeamForm.tsx`, `fetchMyPlaystyle()` |
-| B5 | Reciprocal ranking (leader's side) | When the leader reviews applicants, R is the applicant's reputation and applicants are ranked | The invite picker ranks candidates by S_total; the **join-request list is not ranked** (database order) | Narrowing | Partly built | `RealInvitePlayersModal`, `LobbyApplications` |
+| B5 | Reciprocal ranking (leader's side) | When the leader reviews applicants, R is the applicant's reputation and applicants are ranked | As written (since 19 Nov): the join-request list and the invite picker are both ordered by S_total with the applicant's own R; the score is never shown | Same | Live | `fetchLobbyDetail` (`applicantScore`), `RealInvitePlayersModal` |
 | B6 | Neutral prior m | Average of all ratings on the platform; 3 at launch | Fixed at 3 | Narrowing | Live | `20261116000300_reputation_bayes.sql` |
 | B7 | Rating weight w_i | Computed and **stored** when the review is sent | Bias and corrected rating are stored then; the weight (1/k per rater in the window) is computed when reputation is recomputed, from the current window | Substitution | Live | `review_weight()` |
 | B8 | Release of ratings | After everyone rated or 48 hours | Same; released on the next read (`release_due_reviews()`), no scheduler | Substitution (mechanism) | Live | `20261116000300` |
@@ -89,6 +89,7 @@ migrations run.
 | C8 | Lobby chat kept | Not specified | Kept after the lobby ends (closed to players, readable by admins as evidence); `system` lines from triggers; 30 messages a minute | Addition | Live | `20261011000000_lobby_messages.sql` |
 | C9 | Direct messages | Between players who are **already friends** | Any signed-in player can message any other; the database does not check friendship or blocks | Narrowing | Live | `20261007000000_direct_messages.sql` |
 | C10 | Voice | Optional Discord link on the lobby | Same, readable only by the leader and members | Same | Live | `lobby_voice_link()` |
+| C12 | Deleting an account | Not specified | Self-service from Settings (username typed, password re-entered); refused while suspended and for staff; removes the player's reports and sanctions with everything else, and recomputes the reputation of players they rated (their ratings go with them). Backs the UU PDP right to erasure | Addition (function) | Written | `20261119000300_delete_own_account.sql` |
 | C11 | Match history | Not an entity | A match is a completed lobby, read through `player_matches()` | Addition (function) | Live | `20261118000000_match_history.sql` |
 
 ## D. Notifications, PWA, push
@@ -106,7 +107,7 @@ migrations run.
 |---|------|------|
 | E1 | Admin console on real data | Built 19 Nov (step 6), waits on migration `20261119000200`. Admin check on the server, real reports, sanctions, lobbies and audit log; suspension enforced at sign-in. Gap: an already-open tab keeps API access until its token expires (≤ 1 h) |
 | E2 | Connected accounts (A3) | Open decision: build or narrow the proposal |
-| E3 | Join-request list ranked by S_total (B5) | Small; worth doing before UAT |
+| E3 | Join-request list ranked by S_total (B5) | Done 19 Nov |
 | E4 | Sensitivity analysis (B12), black-box table with traceability matrix, k6 scripts | Step 7 |
 | E5 | Adding a game "only by adding data" (scope 1.3) | Nearly: game, ranks, roles and modes are data, but regions (`data/game-regions.ts`), account-ID formats (`data/game-accounts.ts`) and the navbar list (`data/games.ts`) are in code |
 | E6 | Google / Discord sign-in | Not in the proposal; buttons shown but not wired (`OAUTH_ENABLED`) |

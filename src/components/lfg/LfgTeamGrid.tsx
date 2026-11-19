@@ -16,11 +16,14 @@ export default function LfgTeamGrid({
   game,
   myRank,
   filtered = false,
+  failed = false,
 }: {
   teams: LfgTeam[];
   gameName: string;
   /** The list is narrowed by search or filters, so empty means "no match". */
   filtered?: boolean;
+  /** The lobbies couldn't be read; say so rather than "nobody is playing". */
+  failed?: boolean;
   /** The game's ranks, so the join dialog can check the viewer's rank fits. */
   game?: GameInfo;
   /** The signed-in viewer's rank in this game; "" if unknown. */
@@ -40,6 +43,27 @@ export default function LfgTeamGrid({
     else setSelectedTeam(team);
   }
   const [currentPage, setCurrentPage] = useState(1);
+
+  if (failed) {
+    return (
+      <div
+        role="alert"
+        className="mt-2 flex flex-col items-center gap-2 rounded-2xl border border-dashed border-danger/30 px-6 py-10 text-center"
+      >
+        <h3 className="text-sm font-semibold text-danger">Couldn&apos;t load lobbies</h3>
+        <p className="max-w-[420px] text-xs text-text-muted">
+          Something went wrong on our side. Check your connection, then try again.
+        </p>
+        <button
+          type="button"
+          onClick={() => router.refresh()}
+          className="mt-1 flex h-9 items-center justify-center rounded-lg border border-border-strong px-4 text-xs font-semibold text-text-subtle transition-colors hover:text-white"
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
 
   if (teams.length === 0) {
     return (

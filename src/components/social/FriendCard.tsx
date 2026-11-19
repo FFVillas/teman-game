@@ -7,6 +7,9 @@ interface FriendCardProps {
   id: string;
   name: string;
   avatar: string;
+  /** Lets the row offer "Remove friend". */
+  friendshipId?: string;
+  /** Called after a block or a removal, so the list drops the row. */
   onBlocked?: () => void;
 }
 
@@ -16,7 +19,7 @@ interface FriendCardProps {
  * Showing a status here without tracking it for real would be exactly the
  * kind of invented-looking data this product is supposed to avoid.
  */
-export default function FriendCard({ id, name, avatar, onBlocked }: FriendCardProps) {
+export default function FriendCard({ id, name, avatar, friendshipId, onBlocked }: FriendCardProps) {
   return (
     <div className="group relative flex w-full items-center gap-2.5 rounded-xl p-2.5 transition-colors hover:bg-white/5">
       <UserAvatar src={avatar} name={name} className="size-9" />
@@ -35,7 +38,9 @@ export default function FriendCard({ id, name, avatar, onBlocked }: FriendCardPr
         target={{ id, name, avatar }}
         isFriend
         real
+        friendshipId={friendshipId}
         onBlocked={onBlocked}
+        onRemoved={onBlocked}
       />
     </div>
   );

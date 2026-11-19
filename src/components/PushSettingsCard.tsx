@@ -1,7 +1,7 @@
 "use client";
 
 import { createClient } from "@/lib/supabase/client";
-import { usePush } from "@/lib/push";
+import { unsupportedReason, usePush } from "@/lib/push";
 
 /**
  * The body of the "Notifications" card in Settings: push on this device.
@@ -58,8 +58,14 @@ export default function PushSettingsCard() {
 
       {state === "unsupported" && (
         <p className="text-[11px] leading-relaxed text-text-muted">
-          This browser can&apos;t receive notifications from TemanGame. Try
-          Chrome or Edge, or the installed app on your phone.
+          {
+            {
+              dev: "Notifications only work on the deployed site, not in npm run dev.",
+              insecure: "Notifications need a secure (https) address. Open TemanGame from its usual web address.",
+              config: "Notifications aren't set up on this server yet (Firebase settings missing).",
+              browser: "This browser can't receive notifications from TemanGame. Try Chrome or Edge, or the installed app on your phone.",
+            }[unsupportedReason()]
+          }
         </p>
       )}
 

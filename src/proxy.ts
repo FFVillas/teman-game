@@ -105,6 +105,8 @@ const SETUP_EXEMPT = [
   "/privacy",
   "/support",
   "/offline",
+  "/forgot-password",
+  "/reset-password",
 ];
 
 function needsSetupGate(request: NextRequest): boolean {

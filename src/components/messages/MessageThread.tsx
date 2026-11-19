@@ -1,10 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { EmptyState } from "@/components/EmptyState";
 import UserAvatar from "@/components/UserAvatar";
+import { profileHrefFor } from "@/data/profile-lookup";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { currentUser as mockCurrentUser } from "@/data/social-friends";
 import { CURRENT_USER_ID, type Conversation } from "@/data/lfg-messages";
 
 interface MessageThreadProps {
@@ -44,7 +45,8 @@ export default function MessageThread({
   const [draft, setDraft] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
-  const currentUser = user ?? mockCurrentUser;
+  // Messages need an account; until the session has loaded, a neutral "You".
+  const currentUser = user ?? { name: "You", avatar: "" };
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: "end" });
@@ -75,15 +77,21 @@ export default function MessageThread({
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="flex items-center gap-3 border-b border-border-default px-4 py-3 sm:px-6 sm:py-4">
         <BackToList onBack={onBack} />
-        <UserAvatar
-          src={conversation.participant.avatar}
-          name={conversation.participant.name}
-          className="size-9"
-          textClassName="text-xs"
-        />
-        <span className="text-sm font-bold text-white">
-          {conversation.participant.name}
-        </span>
+        {/* The person you're talking to opens their profile. */}
+        <Link
+          href={profileHrefFor(conversation.participant.name)}
+          className="group flex min-w-0 items-center gap-3"
+        >
+          <UserAvatar
+            src={conversation.participant.avatar}
+            name={conversation.participant.name}
+            className="size-9"
+            textClassName="text-xs"
+          />
+          <span className="truncate text-sm font-bold text-white transition-colors group-hover:text-brand">
+            {conversation.participant.name}
+          </span>
+        </Link>
       </div>
 
       <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-4 sm:p-6">
@@ -104,12 +112,18 @@ export default function MessageThread({
               key={message.id}
               className={`flex items-end gap-2 ${isMine ? "flex-row-reverse" : ""}`}
             >
-              <UserAvatar
-                src={isMine ? currentUser.avatar : conversation.participant.avatar}
-                name={isMine ? currentUser.name : conversation.participant.name}
-                className="size-7"
-                textClassName="text-[10px]"
-              />
+              <Link
+                href={isMine ? "/profile/me" : profileHrefFor(conversation.participant.name)}
+                aria-label={isMine ? "Your profile" : `${conversation.participant.name}'s profile`}
+                className="shrink-0"
+              >
+                <UserAvatar
+                  src={isMine ? currentUser.avatar : conversation.participant.avatar}
+                  name={isMine ? currentUser.name : conversation.participant.name}
+                  className="size-7"
+                  textClassName="text-[10px]"
+                />
+              </Link>
               <div
                 className={`flex max-w-[78%] flex-col gap-1 ${isMine ? "items-end" : ""}`}
               >

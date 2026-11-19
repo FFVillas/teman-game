@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import type { LobbyMessage } from "@/data/lfg-lobby";
-import { findProfileByUsername } from "@/data/player-profiles";
 import PlayerAvatar from "@/components/lfg/PlayerAvatar";
 
 interface LobbyChatProps {
@@ -120,10 +119,8 @@ export default function LobbyChat({
               }
 
               const isMine = message.authorId === currentUserId;
-              // Real players carry their username; mock ones are looked up.
-              const slug =
-                message.profileSlug ??
-                findProfileByUsername(message.authorName)?.slug;
+              // A player's username is their profile link.
+              const slug = message.profileSlug ?? message.authorName;
               const profileHref = isMine
                 ? "/profile/me"
                 : slug
