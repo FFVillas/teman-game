@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { MIN_PERSONALITY_TAGS } from "@/data/profile-options";
+import { withNext } from "@/lib/auth-redirect";
 
 /**
  * Refreshes the Supabase session cookie on every request. Without this,
@@ -75,9 +76,16 @@ export async function proxy(request: NextRequest) {
 
     if (incomplete) {
       const url = request.nextUrl.clone();
+      // Where they were trying to go, so onboarding can hand off there when
+      // it finishes. This is the only way an OAuth signup keeps its
+      // destination: the email form passes `?next=` to /onboarding itself,
+      // but an OAuth account arrives via /auth/callback and is bounced here
+      // on its first page load instead.
+      const intended = url.pathname + url.search;
       url.pathname = "/onboarding";
       url.search = "";
-      return NextResponse.redirect(url);
+      const target = withNext(url.toString(), intended);
+      return NextResponse.redirect(target);
     }
   }
 
@@ -97,6 +105,9 @@ const SETUP_EXEMPT = [
   "/onboarding",
   "/login",
   "/signup",
+  // Google and Discord come back to /auth/callback, which has to be allowed
+  // to finish the code exchange before any gate looks at the account.
+  "/auth",
   "/logout",
   "/account-restricted",
   "/settings",

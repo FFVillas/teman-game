@@ -181,8 +181,30 @@ There is no `login()` setter — `onAuthStateChange` is the only writer.
 answer whether or not the address exists), and the link lands on
 `/reset-password`, which exchanges the `?code=` (or picks up the hash token)
 and saves the new password. Both are exempt from the onboarding gate and
-count as auth routes for `?next=`. Still open: Google/Discord buttons are
-shown but not wired (`OAUTH_ENABLED`).
+count as auth routes for `?next=`.
+
+**Google and Discord are real** — `OAuthButtons` calls `signInWithOAuth` and
+the round trip comes back to `src/app/auth/callback/route.ts`, which swaps the
+code for a session on the *server* (the cookies have to exist before the first
+navigation, or `proxy.ts`'s onboarding gate misses the new account) and then
+applies LoginForm's admin rule. **Each provider still has to be switched on in
+the Supabase dashboard with its own client ID and secret — step by step in
+[`docs/oauth-setup.md`](docs/oauth-setup.md).** Three things worth knowing:
+
+- **Nobody types a username**, so `handle_new_user` makes one
+  (`20261119000400_oauth_signup.sql`): Discord's own handle, or the email's
+  local part for Google (its `name` is the person's real name, and a username
+  is public — it is in the URL), cleaned to `[A-Za-z0-9_.-]`, capped at 24, and
+  numbered when it collides. An explicitly typed username is still inserted
+  as-is so a duplicate raises, which is what SignupForm turns into "That
+  username is already taken". The name generator is a separate function with
+  EXECUTE revoked, so the migration can test its own boundary values.
+- **The provider's avatar is not imported.** `avatar_path` is CHECKed to the
+  owner's own folder in the `avatars` bucket precisely so no outside URL lands
+  there; new accounts show initials.
+- **Suspension isn't checked in the callback.** `signOutIfSuspended` writes to
+  `sessionStorage`, which a Route Handler can't reach — `proxy.ts` catches
+  `is_suspended` on the next page load instead.
 
 ## Image cropping
 

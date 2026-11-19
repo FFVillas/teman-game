@@ -14,7 +14,10 @@ function isAuthPath(path: string) {
     path.startsWith("/login") ||
     path.startsWith("/signup") ||
     path.startsWith("/forgot-password") ||
-    path.startsWith("/reset-password")
+    path.startsWith("/reset-password") ||
+    // The OAuth callback. Sending someone back there would hand a spent
+    // `?code=` to Supabase a second time and fail.
+    path.startsWith("/auth/")
   );
 }
 
