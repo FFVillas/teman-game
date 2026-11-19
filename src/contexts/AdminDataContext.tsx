@@ -8,16 +8,9 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useAuth } from "./AuthContext";
-import {
-  createSeedAdminData,
-  type AdminAction,
-  type AdminData,
-  type Sanction,
-  type SanctionType,
-} from "@/data/admin-moderation";
-import { describeSanction } from "@/lib/admin";
-import { ADMIN_STORAGE_KEY } from "@/lib/admin-store";
+import type { AdminData, SanctionType } from "@/data/admin-moderation";
+import { createClient } from "@/lib/supabase/client";
+import { adminErrorMessage, fetchAdminData } from "@/lib/admin-data";
 
 export interface IssueSanctionInput {
   playerId: string;
@@ -29,293 +22,97 @@ export interface IssueSanctionInput {
   reportIds: string[];
 }
 
+/** Each action resolves to null when it saved, or the reason it didn't. */
+type Result = Promise<string | null>;
+
 interface AdminDataContextValue extends AdminData {
-  claimReport: (reportId: string) => void;
-  dismissReport: (reportId: string, note: string) => void;
-  issueSanction: (input: IssueSanctionInput) => Sanction;
-  liftSanction: (sanctionId: string, reason: string) => void;
-  closeLobby: (lobbyId: string, reason: string) => void;
-  removeLobbyMember: (lobbyId: string, playerId: string, reason: string) => void;
+  claimReport: (reportId: string) => Result;
+  dismissReport: (reportId: string, note: string) => Result;
+  issueSanction: (input: IssueSanctionInput) => Result;
+  liftSanction: (sanctionId: string, reason: string) => Result;
+  closeLobby: (lobbyId: string, reason: string) => Result;
+  removeLobbyMember: (lobbyId: string, playerId: string, reason: string) => Result;
+  /** Re-reads everything, e.g. after another moderator acted. */
+  reload: () => Promise<void>;
 }
 
-const AdminDataContext = createContext<AdminDataContextValue | undefined>(
-  undefined
-);
-
-const STORAGE_KEY = ADMIN_STORAGE_KEY;
+const AdminDataContext = createContext<AdminDataContextValue | undefined>(undefined);
 
 /**
- * Frontend-only stand-in for the moderation API. Every mutation here is one
- * server call later (and one RLS-protected write); each also appends to the
- * audit log, which in the database should happen in the same transaction.
+ * The moderation data for /admin, read from Supabase (`lib/admin-data.ts`).
+ * Every action is a database function that checks the caller is an admin,
+ * requires a reason and writes the audit log entry in the same transaction
+ * (`20261119000200_admin_moderation.sql`); afterwards everything is re-read,
+ * so the screens always show what the database holds.
  */
 export function AdminDataProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
-  const adminId = user?.id ?? "adm-1";
-  const [data, setData] = useState<AdminData>(createSeedAdminData);
+  const [data, setData] = useState<AdminData | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (!stored) return;
+  const reload = useCallback(async () => {
     try {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setData(JSON.parse(stored) as AdminData);
-    } catch {
-      window.localStorage.removeItem(STORAGE_KEY);
+      setData(await fetchAdminData(createClient()));
+      setLoadError(null);
+    } catch (error) {
+      // Loading isn't saving: say what failed, so a missing migration
+      // ("function admin_accounts does not exist") is obvious.
+      const detail = (error as { message?: string })?.message ?? "";
+      setLoadError(
+        detail.includes("does not exist") || detail.includes("Could not find")
+          ? "The moderation functions aren't in the database yet. Run migration 20261119000200_admin_moderation.sql, then reload."
+          : `Couldn't load moderation data. ${detail}`.trim(),
+      );
     }
   }, []);
 
-  const update = useCallback((recipe: (prev: AdminData) => AdminData) => {
-    setData((prev) => {
-      const next = recipe(prev);
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      return next;
-    });
-  }, []);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the first load of external data
+    void reload();
+  }, [reload]);
 
-  const logAction = useCallback(
-    (action: Omit<AdminAction, "id" | "adminId" | "at">): AdminAction => ({
-      ...action,
-      id: `act-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      adminId,
-      at: new Date().toISOString(),
-    }),
-    [adminId]
-  );
-
-  const claimReport = useCallback(
-    (reportId: string) => {
-      update((prev) => ({
-        ...prev,
-        reports: prev.reports.map((report) =>
-          report.id === reportId
-            ? { ...report, status: "in_review", assignedTo: adminId }
-            : report
-        ),
-        actions: [
-          logAction({
-            type: "report_claimed",
-            targetType: "report",
-            targetId: reportId,
-            summary: "Claimed report",
-            reason: "",
-          }),
-          ...prev.actions,
-        ],
-      }));
+  const run = useCallback(
+    async (fn: string, args: Record<string, unknown>): Result => {
+      const { error } = await createClient().rpc(fn, args);
+      if (error) return adminErrorMessage(error);
+      await reload();
+      return null;
     },
-    [adminId, logAction, update]
+    [reload],
   );
 
-  const dismissReport = useCallback(
-    (reportId: string, note: string) => {
-      const now = new Date().toISOString();
-      update((prev) => ({
-        ...prev,
-        reports: prev.reports.map((report) =>
-          report.id === reportId
-            ? {
-                ...report,
-                status: "rejected",
-                assignedTo: report.assignedTo ?? adminId,
-                resolution: {
-                  outcome: "rejected",
-                  note,
-                  resolvedBy: adminId,
-                  resolvedAt: now,
-                },
-              }
-            : report
-        ),
-        actions: [
-          logAction({
-            type: "report_dismissed",
-            targetType: "report",
-            targetId: reportId,
-            summary: "Dismissed report",
-            reason: note,
-          }),
-          ...prev.actions,
-        ],
-      }));
-    },
-    [adminId, logAction, update]
-  );
-
-  const issueSanction = useCallback(
-    (input: IssueSanctionInput): Sanction => {
-      const issuedAt = new Date();
-      const sanction: Sanction = {
-        id: `san-${issuedAt.getTime()}`,
-        playerId: input.playerId,
-        type: input.type,
-        durationDays: input.type === "suspension" ? input.durationDays : undefined,
-        reason: input.reason,
-        note: input.note,
-        reportIds: input.reportIds,
-        issuedBy: adminId,
-        issuedAt: issuedAt.toISOString(),
-        expiresAt:
-          input.type === "suspension" && input.durationDays
-            ? new Date(
-                issuedAt.getTime() + input.durationDays * 24 * 60 * 60 * 1000
-              ).toISOString()
-            : undefined,
-      };
-
-      update((prev) => ({
-        ...prev,
-        sanctions: [sanction, ...prev.sanctions],
-        reports: prev.reports.map((report) =>
-          input.reportIds.includes(report.id)
-            ? {
-                ...report,
-                status: "resolved",
-                assignedTo: report.assignedTo ?? adminId,
-                resolution: {
-                  outcome: "sanctioned",
-                  sanctionId: sanction.id,
-                  note: input.note,
-                  resolvedBy: adminId,
-                  resolvedAt: sanction.issuedAt,
-                },
-              }
-            : report
-        ),
-        actions: [
-          logAction({
-            type: "sanction_issued",
-            targetType: "player",
-            targetId: input.playerId,
-            summary: describeSanction(sanction),
-            reason: input.note,
-          }),
-          ...prev.actions,
-        ],
-      }));
-
-      // TODO: notify the player (FCM) and, for suspensions and bans, revoke
-      // their active sessions server-side.
-      return sanction;
-    },
-    [adminId, logAction, update]
-  );
-
-  const liftSanction = useCallback(
-    (sanctionId: string, reason: string) => {
-      update((prev) => {
-        const sanction = prev.sanctions.find((s) => s.id === sanctionId);
-        if (!sanction) return prev;
-        return {
-          ...prev,
-          sanctions: prev.sanctions.map((s) =>
-            s.id === sanctionId
-              ? {
-                  ...s,
-                  liftedAt: new Date().toISOString(),
-                  liftedBy: adminId,
-                  liftReason: reason,
-                }
-              : s
-          ),
-          actions: [
-            logAction({
-              type: "sanction_lifted",
-              targetType: "player",
-              targetId: sanction.playerId,
-              summary: `Lifted ${describeSanction(sanction).toLowerCase()}`,
-              reason,
-            }),
-            ...prev.actions,
-          ],
-        };
-      });
-    },
-    [adminId, logAction, update]
-  );
-
-  const closeLobby = useCallback(
-    (lobbyId: string, reason: string) => {
-      update((prev) => ({
-        ...prev,
-        lobbies: prev.lobbies.map((lobby) =>
-          lobby.id === lobbyId
-            ? {
-                ...lobby,
-                status: "closed",
-                closedAt: new Date().toISOString(),
-                closedBy: adminId,
-                closedReason: reason,
-              }
-            : lobby
-        ),
-        actions: [
-          logAction({
-            type: "lobby_closed",
-            targetType: "lobby",
-            targetId: lobbyId,
-            summary: "Closed lobby",
-            reason,
-          }),
-          ...prev.actions,
-        ],
-      }));
-      // TODO: notify every member that the lobby was closed by a moderator.
-    },
-    [adminId, logAction, update]
-  );
-
-  const removeLobbyMember = useCallback(
-    (lobbyId: string, playerId: string, reason: string) => {
-      update((prev) => {
-        const player = prev.players.find((p) => p.id === playerId);
-        return {
-          ...prev,
-          lobbies: prev.lobbies.map((lobby) =>
-            lobby.id === lobbyId
-              ? {
-                  ...lobby,
-                  memberIds: lobby.memberIds.filter((id) => id !== playerId),
-                  messages: [
-                    ...lobby.messages,
-                    {
-                      id: `sys-${Date.now()}`,
-                      authorId: "system",
-                      authorName: "System",
-                      body: `${player?.username ?? "A player"} was removed by a moderator`,
-                      sentAt: "now",
-                      isSystem: true,
-                    },
-                  ],
-                }
-              : lobby
-          ),
-          actions: [
-            logAction({
-              type: "member_removed",
-              targetType: "lobby",
-              targetId: lobbyId,
-              summary: `Removed ${player?.username ?? playerId}`,
-              reason,
-            }),
-            ...prev.actions,
-          ],
-        };
-      });
-    },
-    [logAction, update]
-  );
+  if (!data) {
+    return (
+      <div className="flex min-h-dvh flex-1 items-center justify-center bg-bg-page px-6 text-center">
+        <p className="text-sm text-text-muted">
+          {loadError ?? "Loading moderation data…"}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <AdminDataContext.Provider
       value={{
         ...data,
-        claimReport,
-        dismissReport,
-        issueSanction,
-        liftSanction,
-        closeLobby,
-        removeLobbyMember,
+        reload,
+        claimReport: (reportId) => run("admin_claim_report", { p_report: reportId }),
+        dismissReport: (reportId, note) =>
+          run("admin_dismiss_report", { p_report: reportId, p_note: note }),
+        issueSanction: (input) =>
+          run("admin_issue_sanction", {
+            p_player: input.playerId,
+            p_type: input.type,
+            p_duration_days: input.type === "suspension" ? (input.durationDays ?? null) : null,
+            p_reason: input.reason,
+            p_note: input.note,
+            p_report_ids: input.reportIds,
+          }),
+        liftSanction: (sanctionId, reason) =>
+          run("admin_lift_sanction", { p_sanction: sanctionId, p_reason: reason }),
+        closeLobby: (lobbyId, reason) =>
+          run("admin_close_lobby", { p_lobby: lobbyId, p_reason: reason }),
+        removeLobbyMember: (lobbyId, playerId, reason) =>
+          run("admin_remove_member", { p_lobby: lobbyId, p_player: playerId, p_reason: reason }),
       }}
     >
       {children}

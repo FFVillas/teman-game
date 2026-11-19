@@ -171,16 +171,34 @@ export function AdminSearch({
   );
 }
 
+/**
+ * A player's picture, or their initial when they have none: real accounts
+ * start without one, and an <img src=""> makes the browser re-request the page.
+ */
 export function Avatar({
   src,
+  name = "",
   size = "md",
   dimmed = false,
 }: {
   src: string;
+  /** For the initial shown when there is no picture. */
+  name?: string;
   size?: "sm" | "md" | "lg";
   dimmed?: boolean;
 }) {
   const sizeClass = { sm: "size-6", md: "size-8", lg: "size-14" }[size];
+  if (!src) {
+    const textClass = { sm: "text-[10px]", md: "text-xs", lg: "text-lg" }[size];
+    return (
+      <span
+        aria-hidden="true"
+        className={`${sizeClass} ${textClass} flex shrink-0 items-center justify-center rounded-full bg-brand/15 font-bold uppercase text-brand ${dimmed ? "opacity-50 grayscale" : ""}`}
+      >
+        {name.charAt(0) || "?"}
+      </span>
+    );
+  }
   return (
     // eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization
     <img

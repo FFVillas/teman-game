@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { useAdminData } from "@/contexts/AdminDataContext";
+import { useNotifications } from "@/contexts/NotificationContext";
 import type { AdminPlayer } from "@/data/admin-moderation";
 import {
   accountStatusMeta,
@@ -22,6 +23,7 @@ import {
 import { ReasonModal } from "./AdminModal";
 
 export default function LobbyRecord({ lobbyId }: { lobbyId: string }) {
+  const { toast } = useNotifications();
   const { lobbies, players, reports, sanctions, closeLobby, removeLobbyMember } =
     useAdminData();
   const [closing, setClosing] = useState(false);
@@ -40,14 +42,16 @@ export default function LobbyRecord({ lobbyId }: { lobbyId: string }) {
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const reportedIds = new Set(linkedReports.map((r) => r.targetId));
 
-  function handleClose(reason: string) {
-    closeLobby(lobby!.id, reason);
+  async function handleClose(reason: string) {
+    const failure = await closeLobby(lobby!.id, reason);
+    if (failure) return toast({ tone: "danger", title: "Couldn't close the lobby", body: failure });
     setClosing(false);
   }
 
-  function handleRemove(reason: string) {
+  async function handleRemove(reason: string) {
     if (!removing) return;
-    removeLobbyMember(lobby!.id, removing.id, reason);
+    const failure = await removeLobbyMember(lobby!.id, removing.id, reason);
+    if (failure) return toast({ tone: "danger", title: "Couldn't remove them", body: failure });
     setRemoving(null);
   }
 
@@ -98,7 +102,7 @@ export default function LobbyRecord({ lobbyId }: { lobbyId: string }) {
                   const memberStatus = accountStatus(member.id, sanctions);
                   return (
                     <li key={member.id} className="flex items-center gap-3 py-2.5">
-                      <Avatar src={member.avatar} />
+                      <Avatar src={member.avatar} name={member.username} />
                       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                         <Link
                           href={`/admin/players/${member.id}`}
@@ -188,7 +192,7 @@ export default function LobbyRecord({ lobbyId }: { lobbyId: string }) {
                         : "border-transparent"
                     }`}
                   >
-                    {message.avatar && <Avatar src={message.avatar} size="sm" />}
+                    {!message.isSystem && <Avatar src={message.avatar ?? ""} name={message.authorName} size="sm" />}
                     <div className="flex min-w-0 flex-col gap-0.5">
                       <span className="text-[11px] font-bold text-white">
                         {message.authorName}

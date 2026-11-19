@@ -45,7 +45,7 @@ The proposal's ERD has 22 tables: `user`, `access_role`, `user_access_role`,
 | A13 | Notifications | Notification feature (3.2.4 no. 5), no table in the ERD | `notifications` rows, written by database triggers so nobody can forge one | Addition (1 table) | Live | `20261006000000`, `20261010000000` |
 | A14 | Blocks | Not modelled | `blocks` (a player hides another from their Social lists) | Addition (1 table) | Live | `20261007010000_social.sql` |
 | A15 | News | Not modelled | `news` per game on the LFG page | Addition (1 table) | Live | `20261007000000_news.sql` |
-| A16 | Moderation records | `reports`, `sanction` | Plus `sanction_reports` (which reports a sanction answers) and `admin_actions` (audit log); `reports.status` has an extra `in_review` (a moderator has claimed it) | Addition (2 tables) | Live (console still mock, see E1) | `20260919000200_reports_moderation.sql` |
+| A16 | Moderation records | `reports`, `sanction` | Plus `sanction_reports` (which reports a sanction answers) and `admin_actions` (audit log); `reports.status` has an extra `in_review` (a moderator has claimed it). Written only through admin functions that require a reason and log themselves | Addition (2 tables) | Written (functions) | `20260919000200_reports_moderation.sql`, `20261119000200_admin_moderation.sql` |
 | A17 | Report evidence | `reports` holds "bukti" | A file in the private `report-evidence` bucket, path in `reports.evidence_path`; players insert only the descriptive columns; no self-reports | Substitution | Live | `20261118000100_report_evidence.sql` |
 | A18 | Push devices | FCM named, no table | `push_tokens` (one row per device, moved on sign-in, removed on logout) | Addition (1 table) | Written | `20261119000000_push_notifications.sql` |
 | A19 | Push cooldown | Not specified | `push_throttle` (when each player was last pushed about each chat) | Addition (1 table) | Written | `20261119000100_chat_push.sql` |
@@ -104,7 +104,7 @@ migrations run.
 
 | # | What | Plan |
 |---|------|------|
-| E1 | Admin console on real data (review reports, warn or suspend, server-side admin check) | Step 6. Screens exist on mock data; `AdminGate` is a client check |
+| E1 | Admin console on real data | Built 19 Nov (step 6), waits on migration `20261119000200`. Admin check on the server, real reports, sanctions, lobbies and audit log; suspension enforced at sign-in. Gap: an already-open tab keeps API access until its token expires (≤ 1 h) |
 | E2 | Connected accounts (A3) | Open decision: build or narrow the proposal |
 | E3 | Join-request list ranked by S_total (B5) | Small; worth doing before UAT |
 | E4 | Sensitivity analysis (B12), black-box table with traceability matrix, k6 scripts | Step 7 |

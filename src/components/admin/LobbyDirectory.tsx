@@ -102,7 +102,7 @@ export default function LobbyDirectory() {
                 <td className="px-4 py-3">
                   {leader && (
                     <div className="flex items-center gap-2">
-                      <Avatar src={leader.avatar} size="sm" />
+                      <Avatar src={leader.avatar} name={leader.username} size="sm" />
                       <span className="text-text-subtle">{leader.username}</span>
                     </div>
                   )}

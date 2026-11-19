@@ -28,7 +28,19 @@ export function findAdminByEmail(email: string): AdminAccount | undefined {
   return adminAccounts.find((account) => account.email === target);
 }
 
+/**
+ * Real staff names, filled in by the console when it loads its data
+ * (`lib/admin-data.ts`): the username of each account in `admins`.
+ */
+const staffNames = new Map<string, string>();
+
+export function setStaffNames(entries: Iterable<[string, string]>) {
+  staffNames.clear();
+  for (const [id, name] of entries) staffNames.set(id, name);
+}
+
 export function adminName(id: string | undefined): string {
+  if (id && staffNames.has(id)) return staffNames.get(id)!;
   return adminAccounts.find((account) => account.id === id)?.name ?? "Admin";
 }
 

@@ -140,12 +140,26 @@ export interface AdminAction {
   at: string;
 }
 
+/**
+ * A 1–2 star rating's reason (proposal: "catatan untuk keperluan moderasi").
+ * Never names the rater: ratings stay anonymous, to staff as well.
+ */
+export interface LowRating {
+  playerId: string;
+  stars: number;
+  /** afk, flaming, trolling, verbal_abuse */
+  reason: string;
+  lobbyId: string;
+  at: string;
+}
+
 export interface AdminData {
   players: AdminPlayer[];
   reports: AdminReport[];
   sanctions: Sanction[];
   lobbies: AdminLobby[];
   actions: AdminAction[];
+  lowRatings: LowRating[];
 }
 
 // ---------------------------------------------------------------------------
@@ -969,5 +983,6 @@ export function createSeedAdminData(): AdminData {
     sanctions: seedSanctions,
     lobbies: seedLobbies,
     actions: seedActions,
+    lowRatings: [],
   };
 }

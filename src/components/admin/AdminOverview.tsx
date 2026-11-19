@@ -119,7 +119,7 @@ export default function AdminOverview() {
                       href={`/admin/reports/${report.id}`}
                       className="flex items-center gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-white/[0.03]"
                     >
-                      {target && <Avatar src={target.avatar} />}
+                      {target && <Avatar src={target.avatar} name={target.username} />}
                       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                         <span className="truncate text-xs font-bold text-white">
                           {report.reason}
@@ -157,7 +157,7 @@ export default function AdminOverview() {
                         href={`/admin/players/${playerId}`}
                         className="flex items-center gap-3 rounded-lg transition-opacity hover:opacity-80"
                       >
-                        <Avatar src={player.avatar} size="sm" />
+                        <Avatar src={player.avatar} name={player.username} size="sm" />
                         <span className="flex-1 truncate text-xs font-bold text-white">
                           {player.username}
                         </span>
