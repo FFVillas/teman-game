@@ -1,104 +1,141 @@
-# Divergences from the proposal (running log)
+# Divergences from the proposal
 
-A working list of every place the build differs from the written proposal, so
-nothing has to be reconstructed from memory when it is time for BAB 4 or the
-advisor meeting. Temporary by intent: once the advisor has seen it, fold what
-matters into the thesis text and retire this file.
+Every place the build differs from the written proposal, so nothing has to be
+reconstructed from memory for BAB 4 or the advisor meeting.
 
-The reasoning behind the first four items is argued in full in
-[`thesis-spec.md`](thesis-spec.md) ("Divergences from the proposal"). This file
-is the index plus everything decided since. When you add a divergence, add a
-row here and, if it needs an argument, a paragraph there.
+**Checked against:** *Clean Proposal Revisi 14 Oktober DOCS (1).pdf* (the copy
+received 19 November 2026; its text is the same as the 17 November copy, only
+some Lampiran 2 figures moved), section by section: 1.3 scope, 3.1.6
+evaluation, 3.2.4 requirements, 3.3.1 formula and reputation rules, 3.3.2 use
+cases, state diagram and class diagram, 3.3.4 database. **Code as of:** 19
+November 2026, branch `fabian`.
 
-**How to read the columns**
+When you add or change a divergence, edit the row here. The longer arguments
+for the early data-model choices are in [`thesis-spec.md`](thesis-spec.md).
 
-- **Proposal**: what the written proposal says. Where this was not re-checked
-  against the PDF, it says "not rechecked".
-- **Build**: what the code or schema does.
-- **Kind**: *Addition* (extra thing), *Substitution* (different way to reach the
-  same goal), *Narrowing* (less than the proposal), *Open* (not decided).
-- **Status**: *Live* (in the database or app), *Written* (migration exists, not
-  run), *Planned* (decided, not built).
+**Kind:** *Addition* (more than the proposal), *Substitution* (a different way
+to the same goal), *Narrowing* (less than the proposal), *Not built* (in the
+proposal, missing from the code). **Status:** *Live* (in the database and the
+app), *Written* (migration exists, not yet run), *Planned*.
 
-## A. Data model
+---
+
+## A. Data model (3.3.4, class diagram, ERD)
+
+The proposal's ERD has 22 tables: `user`, `access_role`, `user_access_role`,
+`connected_accounts`, `game`, `rank_tier`, `game_role`, `user_game_mapping`,
+`tag`, `user_tag`, `lobby`, `lobby_member`, `lobby_required_role`, `lobby_tag`,
+`applications`, `friendships`, `direct_messages`, `lobby_messages`, `reviews`,
+`review_tag`, `reports`, `sanction`. Names below are the database's.
 
 | # | Area | Proposal | Build | Kind | Status | Where |
 |---|------|----------|-------|------|--------|-------|
-| 1 | Admin identity | Admin is a `role` mapped to a user (`role`, `user_role_mapping`) | Separate `admins` table, independent of `profiles`; no `role` / `user_role_mapping` | Substitution | Live | `20260919000100_admin_roles.sql` |
-| 2 | Moderation tables | `reports` only | Adds `sanctions`, `sanction_reports`, `admin_actions`; `reports` gains status / assignee / resolution columns | Addition | Written, not run | `20260919000200_reports_moderation.sql` |
-| 3 | Age | A stored age (not rechecked) | Date of birth in private table `profile_private`; others only see derived age via `profile_age()`; 13+ enforced by trigger | Substitution + Addition (1 table) | Live | `20261003000000_profiles_dossier.sql` |
-| 4 | Profile fields | Not rechecked | `gender`, `languages` (list), structured schedule (`play_days`, `play_start`, `play_end`, `timezone`) instead of free-text availability | Addition | Live | `20261003000100_profiles_schedule_languages.sql` |
-| 5 | Profile picture | Not rechecked | File in Storage bucket `avatars`; `profiles.avatar_path` stores a path, never a URL | Addition | Live | `20261004000000_avatars.sql` |
-| 6 | Ranks | `user_game_mapping` holds a rank | Rank is a row of `game_ranks` with an `ordinal`, so ΔR in `M_rank` is a subtraction | Addition (1 table) | Live | `20261003000200_games.sql` |
-| 7 | Roles per game | One "favorite role" per game | Several roles per game via `user_game_roles`; in-game roles named `game_roles` to avoid clashing with the proposal's account `role` | Addition (2 tables) | Live | `20261003000200_games.sql` |
-| 8 | Games that have no roles | A role for every game (not rechecked) | CS2, PUBG Mobile and Free Fire have no official roles, so none is stored or asked | Narrowing | Live | `20261003000200_games.sql` |
-| 8a | Game account IDs | `user_game_mapping` holds an in-game name (not rechecked) | `account_id` and `zone_id` (digits only, optional): the mobile games identify an account by a number, not a name (Mobile Legends needs Player ID plus Zone ID, Free Fire a UID, PUBG Mobile a Character ID). Riot games and CS2 use the name | Addition (2 columns) | Written, not run | `20261015000000_game_account_details.sql`, `src/data/game-accounts.ts` |
-| 8b | Favourite roles | One "favorite role" per game | `user_game_roles.is_favorite`: any of a player's roles can be marked a favourite (tap twice on the role chip), so one or several, not exactly one | Substitution | Written, not run | `20261015000000_game_account_details.sql` |
-| 9 | Region | Per user (not rechecked) | Per game, as text on `user_game_mapping`; regional groups, never countries | Substitution | Live | `src/data/game-regions.ts` |
-| 10 | Game modes | Not specified | Table `game_modes` (37 rows, six games); a lobby points at a mode. Region lists stay app-side; `game_regions` is still undecided | Addition (1 table) | Written, not run | `20261006000000_lobbies.sql` |
-| 11 | Lobby rank range | Only the leader's own rank (`M_rank`) | Lobby gets an optional accepted range (`min_rank_id`, `max_rank_id`, nullable, no new table) | Addition | Written, not run (UI on mock data) | `20261006000000_lobbies.sql`, `src/lib/ranks.ts` |
-| 11a | Roles a lobby seeks | Not rechecked | Join table `lobby_roles` (a lobby can look for several roles) | Addition (1 table) | Written, not run | `20261006000000_lobbies.sql` |
+| A1 | User table | `user` | `profiles`, one row per Supabase Auth user (same id) | Substitution (name) | Live | `20260919000000_profiles.sql` |
+| A2 | Access roles | `access_role` + `user_access_role` (user or admin) | One `admins` table; a player is anyone not in it. Staff have no player profile | Substitution | Live | `20260919000100_admin_roles.sql` |
+| A3 | Connected accounts | `connected_accounts` (Discord, Steam); use case "Mengelola Profil" links third-party accounts | Not built. Onboarding's "Connect your accounts" step and the profile card only *look* connected and save nothing | Not built | Open decision | `components/onboarding/ConnectStep.tsx` |
+| A4 | Age | An age attribute on `user`, minimum 18 | Date of birth in owner-only `profile_private`; others see only the derived age (`profile_age()`); 18+ enforced in the database | Substitution + Addition (1 table) | Live | `20261003000000_profiles_dossier.sql`, `20261115000000_minimum_age_18.sql` |
+| A5 | Profile extras | `gender`, `available_time` | Same, with play time structured (`play_days`, `play_start`, `play_end`, `timezone`) and `languages` (list); picture in Storage (`avatar_path`) | Addition | Live | `20261003000100`, `20261004000000` |
+| A6 | Role per game | `user_game_mapping` holds the main role (`game_role`) | `user_game_roles`: several roles per game, any of them marked favourite | Addition (1 table) | Live | `20261003000200_games.sql`, `20261015000000` |
+| A7 | Game account IDs | In-game name | Plus `account_id` and `zone_id`, since the mobile games identify players by number | Addition (2 columns) | Live | `20261015000000_game_account_details.sql` |
+| A8 | Rank order | `rank_tier.tier_order` | Column is `ordinal`; same meaning (0 = lowest) | Substitution (name) | Live | `20261003000200_games.sql` |
+| A9 | Game modes | Not modelled | `game_modes` (each game's group modes, max party, party rule); a lobby points at one | Addition (1 table) | Live | `20261006000000_lobbies.sql` |
+| A10 | Lobby members | `lobby_member` table with join time | A **view** over accepted `applications` (`joined_at` / `left_at` on the application), so membership has one source | Substitution | Live | `20261008000000`, `20261115000100_thesis_naming.sql` |
+| A11 | Lobby slots | `max_slots` | `capacity` (2–5, capped by the mode) | Substitution (name) | Live | `20261006000000_lobbies.sql` |
+| A12 | Invitations | Use case "Add Pemain"; no invite entity | `lobby_invites` (pending / accepted / declined / cancelled / expired); an invite holds a slot, accepting becomes an accepted application | Addition (1 table) | Live | `20261012000000_lobby_invites.sql` |
+| A13 | Notifications | Notification feature (3.2.4 no. 5), no table in the ERD | `notifications` rows, written by database triggers so nobody can forge one | Addition (1 table) | Live | `20261006000000`, `20261010000000` |
+| A14 | Blocks | Not modelled | `blocks` (a player hides another from their Social lists) | Addition (1 table) | Live | `20261007010000_social.sql` |
+| A15 | News | Not modelled | `news` per game on the LFG page | Addition (1 table) | Live | `20261007000000_news.sql` |
+| A16 | Moderation records | `reports`, `sanction` | Plus `sanction_reports` (which reports a sanction answers) and `admin_actions` (audit log); `reports.status` has an extra `in_review` (a moderator has claimed it). Written only through admin functions that require a reason and log themselves | Addition (2 tables) | Written (functions) | `20260919000200_reports_moderation.sql`, `20261119000200_admin_moderation.sql` |
+| A17 | Report evidence | `reports` holds "bukti" | A file in the private `report-evidence` bucket, path in `reports.evidence_path`; players insert only the descriptive columns; no self-reports | Substitution | Live | `20261118000100_report_evidence.sql` |
+| A18 | Push devices | FCM named, no table | `push_tokens` (one row per device, moved on sign-in, removed on logout) | Addition (1 table) | Written | `20261119000000_push_notifications.sql` |
+| A19 | Push cooldown | Not specified | `push_throttle` (when each player was last pushed about each chat) | Addition (1 table) | Written | `20261119000100_chat_push.sql` |
 
-**Table count:** 13 in the proposal, 22 once the model above is built: the 19
-in `thesis-spec.md` plus `game_modes`, `lobby_roles` and `lobby_invites` (23 if
-`game_regions` is added). `lobbies` and `applications` are already among the proposal's 13.
+**Table count:** 22 in the proposal. The build has 18 of them as tables
+(`lobby_member` is a view; `access_role`, `user_access_role` and
+`connected_accounts` don't exist) plus 12 of its own: `admins`,
+`profile_private`, `user_game_roles`, `game_modes`, `lobby_invites`,
+`notifications`, `blocks`, `news`, `sanction_reports`, `admin_actions`,
+`push_tokens`, `push_throttle`. That is 30 tables once the two push
+migrations run.
 
-## B. Behaviour and rules
+## B. Recommendation and reputation (3.3.1.2, Persamaan 3.1 to 3.15)
 
-| # | Area | Proposal | Build | Kind | Status |
-|---|------|----------|-------|------|--------|
-| 12 | Rank matching | Rank closeness scores a candidate (`M_rank = max(0.30, 1 − 0.07·ΔR)`) | Kept as the *ordering*. Added a separate yes/no *eligibility* step: leader's optional range plus each game's party rule applied to who is already in the lobby | Addition | Logic built and tested, UI on mock data |
-| 12a | Where the eligibility rule lives | Not specified | In the database: `lobby_join_bounds()` and `can_join_lobby()`, checked again when the leader accepts, because who is already in has changed. The app's `src/lib/ranks.ts` computes the same thing for the screens; 600 random scenarios give identical results in both | Addition | Written, not run | `20261006000000_lobbies.sql` |
-| 12b | How lobby data is written | Not specified | Only through functions (`create_lobby`, `apply_to_lobby`, `respond_to_application`, `leave_lobby`, `close_lobby`); clients have no INSERT/UPDATE on these tables | Substitution | Written, not run | `20261006000000_lobbies.sql` |
-| 12c | Lobby lifecycle | Not rechecked | Five statuses: `live` (recruiting), `scheduled`, `started` (playing, no new members), `completed` (a started lobby that was ended) and `closed` (cancelled before it started). The leader starts, reopens, ends or closes; a player may be in one live or started lobby at a time but several scheduled ones | Addition | Written, not run | `20261006000000_lobbies.sql`, `20261007000000_lobby_start.sql`, `20261008000000_lobby_lifecycle.sql` |
-| 12d | Automatic ending | Not rechecked | Safety net for leaders who forget: a started lobby completes 6 hours after it started, a recruiting one is cancelled after 6 hours, a scheduled one that was never started is cancelled 3 hours after it was due. Provisional limits, kept in one function (`expire_stale_lobbies`); no scheduler, it runs whenever a list or lobby is loaded | Addition | Written, not run | `20261008000000_lobby_lifecycle.sql` |
-| 12e | Who played together | Not rechecked | `applications.joined_at` / `left_at` record when a player was in. Someone who leaves after the lobby started still played and stays ratable; one who leaves before it started never did. Only `completed` lobbies will allow ratings and reports between members, so nobody can rate a player they never played with | Addition | Recorded now; rating itself not built | `20261008000000_lobby_lifecycle.sql` |
-| 12g | Editing a lobby, removing a member | Not rechecked | `update_lobby()`: the leader edits text, region, languages, mic, tags and the voice link any time the lobby is not over; group size, rank range, roles and schedule only while it is recruiting (locked once started); the game and mode never change. `remove_member()`: recorded like leaving, and the player may apply again | Addition | Written, not run | `20261009000000_lobby_edit.sql` |
-| 12h | Lobby notifications | `notifications` is a teammate's table; the proposal's notification system (requirement 5, §3.2.4) | Written by database triggers on `applications` and `lobbies` rather than by the app, so a player cannot post as someone else: join request to the leader, accepted or declined to the applicant, started to members. `notifications.ref_id` ties a request to its application | Addition | Written, not run | `20261010000000_lobby_notifications.sql` |
-| 12i | Lobby chat | `lobby_messages` (lobby, sender, content, time) | Same entity with two additions: a `kind` (`message` or `system`; system lines such as "X joined the lobby" come only from triggers) and retention: when a lobby ends the chat is closed for players but the rows are kept and readable by an admin, as evidence for reports. Flood guard of 30 messages a minute. Direct messages stay unreadable to admins | Addition | Written, not run | `20261011000000_lobby_messages.sql` |
-| 12j | Lobby invitations | The proposal's notification flow mentions a join invitation (requirement 5) and the ERD has no invite entity | Table `lobby_invites` (lobby, invitee, inviter, status `pending` / `accepted` / `declined` / `cancelled` / `expired`), written only through `invite_to_lobby`, `respond_to_invite` and `cancel_invite`. A pending invitation holds an open slot; accepting re-checks capacity, rank and the one-live-lobby rule, and joins as an accepted application, so the roster, chat and ratings have no second path. A declined invitation can't be repeated for that lobby; invitations lapse when the lobby starts or ends. The invitee is told through a trigger, like 12h | Addition (1 table) | Written, not run | `20261012000000_lobby_invites.sql` |
-| 12k | Notification kinds | Not rechecked | `message` removed (direct messages have their own unread count; nothing wrote one), and `report_update` removed (the reporter is not pinged about a moderator's decision; re-add it with the trigger that writes it if that changes). `notify_user` now accepts only `friend_request`: `lobby_invite` and `join_request` are written by triggers, because leaving them open let any player forge one with their own title and link | Narrowing | Written, not run | `20261012000000_lobby_invites.sql`, `20261013000000_drop_report_update_notification.sql`. Adds `removed_from_lobby` ("You were removed from X", written by the applications trigger when someone other than the player ends their place) | 
-| 12f | Voice link | Not rechecked (the proposal mentions an optional Discord link) | `lobbies.discord_url`, an optional Discord invite readable only by the leader and members: the column is closed to the API and `lobby_voice_link()` answers only for them | Addition | Written, not run | `20261008000000_lobby_lifecycle.sql` |
-| 13 | Party rules | Not specified | Stored as data on `game_modes` (and `game_ranks.party_band` for Free Fire), approximated from guides: Valorant ≤1 tier apart (not for a 5-stack), LoL Solo/Duo ≤1 tier, MLBB ≤2 tiers, PUBG Mobile ≤10 divisions, Free Fire two bands, CS2 none modelled | Addition | Built; ⚠️ not verified in-game |
-| 14 | Lobby card | Not specified | Shows one rank fact, the leader's accepted range as icons and tier names ("Bronze to Gold", "Any rank"); the leader's own rank is not shown | Substitution | Built |
-| 15 | Rank filter | Rank / role / region filtering (UI wording not rechecked) | One Rank dropdown: "Fits my rank", "All ranks", or a tier, meaning "lobbies that would accept it". Filters are not yet wired to the list | Substitution | Built, not wired |
-| 16 | Score visibility | Not rechecked | Players never see `S_total` or its breakdown, only the resulting order | Narrowing | Built |
-| 17 | Rank source | Not rechecked | Rank, role and in-game name are self-reported picks from the ladder; there is no Riot/Moonton integration and the UI says so | Narrowing | Live |
-| 18 | CS2 ladder | Not rechecked | Models the 18-rank Competitive ladder, not the numeric Premier rating | Narrowing | Live |
-| 19 | Free Fire ladder | Not rechecked | 20 steps; sources disagree (some list 23) | Open | Live; ⚠️ check in-game |
-| 20 | Lobby chat | `lobby_messages` (persistence not rechecked) | Chats are temporary: ending a lobby clears them. Backend TODO: keep a moderator-only copy, since reports use chat as evidence | Open | Mock only |
-| 21 | Landing page | Not specified | No survey figures, no comparison against Discord/Lita, no formula on the public page | Narrowing | Built |
+| # | Area | Proposal | Build | Kind | Status | Where |
+|---|------|----------|-------|------|--------|-------|
+| B1 | Formula | S_total = 0.40P + 0.30R + 0.30T; Persamaan 3.15 when \|B\| = 0 | As written; tested with the proposal's worked example (T = 0.83) and boundaries | Same | Live | `lib/recommendation.ts`, `lib/lobby-ranking.ts`, `*.test.ts` |
+| B2 | Hard filters | Game and the lobby's rank range | Same, plus each game's **party rule** (how far apart ranks may be in a group, given who is already in), checked again when the leader accepts | Addition | Live | `lib/ranks.ts`, `lobby_join_bounds()` |
+| B3 | Optional filters | Role (lobbies needing other roles still show) | Same, plus region, mode and text search, and sort (Recommended, Latest, Most players, Open slots) | Addition | Live | `lib/lobby-filters.ts` |
+| B4 | Lobby playstyle (Pb) | Pre-filled from the leader's profile playstyle, changeable | As written (since 19 Nov). Older lobbies saved without one fall back to the leader's profile playstyle | Same | Live | `CreateTeamForm.tsx`, `fetchMyPlaystyle()` |
+| B5 | Reciprocal ranking (leader's side) | When the leader reviews applicants, R is the applicant's reputation and applicants are ranked | The invite picker ranks candidates by S_total; the **join-request list is not ranked** (database order) | Narrowing | Partly built | `RealInvitePlayersModal`, `LobbyApplications` |
+| B6 | Neutral prior m | Average of all ratings on the platform; 3 at launch | Fixed at 3 | Narrowing | Live | `20261116000300_reputation_bayes.sql` |
+| B7 | Rating weight w_i | Computed and **stored** when the review is sent | Bias and corrected rating are stored then; the weight (1/k per rater in the window) is computed when reputation is recomputed, from the current window | Substitution | Live | `review_weight()` |
+| B8 | Release of ratings | After everyone rated or 48 hours | Same; released on the next read (`release_due_reviews()`), no scheduler | Substitution (mechanism) | Live | `20261116000300` |
+| B9 | Member reputation on the card | The lobby card shows every member's reputation | Removed on request; the data is still on `LfgTeam.members` | Narrowing | Open decision | `LfgTeamCard.tsx` |
+| B10 | Score visibility | Not specified | Players never see S_total, only the order | Narrowing | Live | |
+| B11 | Rank source | Self-declared (scope 1.3 a) | Same; the fake "detect rank automatically (preview)" was removed because it invented a rank | Same | Live | `RankRoleStep.tsx` |
+| B12 | Sensitivity analysis | Weights ±0.10 and the equal-interval playstyle assumption tested at evaluation | Not built yet | Not built | Planned (step 7) | |
 
-| 22 | Match history | Not modelled as an entity | No table: a match is a `completed` lobby, read through `player_matches()`, which also tells the caller which teammates they have rated without opening `reviews` (anonymity) | Addition (function) | Built | `20261118000000_match_history.sql` |
-| 23 | Report evidence and insert rights | `reports` holds "bukti" | Evidence files in a private bucket `report-evidence` (reporter and admins read), path in `reports.evidence_path`; players may insert only the descriptive columns, so they can't file a report already marked resolved; no self-reports | Addition | Built | `20261118000100_report_evidence.sql` |
-| 25 | Push notifications (FCM) | FCM sends notifications to players' devices | Device tokens are a new table `push_tokens` (one row per device, moves to whoever signs in there, removed on logout). A database trigger on `notifications` hands each new row to the app's `/api/push`, which sends it through FCM with the Firebase Admin SDK; push is opt-in per device from Settings. Direct messages and lobby chat lines don't push, matching the in-app rule that they don't pop up | Addition (table) | Written, not run | `20261119000000_push_notifications.sql` |
-| 24 | Pending join requests | Not specified (one live lobby per player) | When a player starts a live lobby or is accepted into one, their pending requests to other live lobbies are withdrawn automatically, so no leader is left with a request that can only fail. Scheduled lobbies and pending invites are untouched | Addition (rule) | Written, not run | `20261118000300_withdraw_other_requests.sql` |
+## C. Lobby, rating and social rules
 
-## C. Not built yet (in the proposal, absent from the code)
+| # | Area | Proposal | Build | Kind | Status | Where |
+|---|------|----------|-------|------|--------|-------|
+| C1 | Lobby states | scheduled / open → in_progress → completed, or cancelled; completed and cancelled final | Same five; **plus** reopen (in_progress → open, when someone left and needs replacing) | Addition | Live | `20261008000000_lobby_lifecycle.sql` |
+| C2 | Automatic ending | Not specified | A started lobby completes after 6 h, a recruiting one is cancelled after 6 h, an unstarted scheduled one 3 h after it was due (`expire_stale_lobbies`, run on read) | Addition | Live | `20261008000000` |
+| C3 | One lobby at a time | Not specified | One live or in-progress lobby per player, several scheduled ones. Starting or joining a live lobby withdraws the player's other pending requests | Addition | Live / Written | `20261118000300_withdraw_other_requests.sql` (Written) |
+| C4 | Lobby edits and removal | Not specified | The leader edits a lobby (size, range, roles, schedule locked once started) and can remove a member | Addition | Live | `20261009000000_lobby_edit.sql` |
+| C5 | Writes | Not specified | Lobby, application, invite and review writes only through database functions; clients can't insert directly | Substitution | Live | |
+| C6 | Rating rules | Completed lobby, ≥ 15 minutes in progress, one rating per member, 1–2 stars need a reason, anonymous | As written | Same | Live | `submit_review` |
+| C7 | Rating pop-up | Shown to every member when the lobby completes | A "Rate teammates" banner on the lobby page and the match page; skippable, picked up later | Substitution | Live | `RealLobbyDetail.tsx` |
+| C8 | Lobby chat kept | Not specified | Kept after the lobby ends (closed to players, readable by admins as evidence); `system` lines from triggers; 30 messages a minute | Addition | Live | `20261011000000_lobby_messages.sql` |
+| C9 | Direct messages | Between players who are **already friends** | Any signed-in player can message any other; the database does not check friendship or blocks | Narrowing | Live | `20261007000000_direct_messages.sql` |
+| C10 | Voice | Optional Discord link on the lobby | Same, readable only by the leader and members | Same | Live | `lobby_voice_link()` |
+| C11 | Match history | Not an entity | A match is a completed lobby, read through `player_matches()` | Addition (function) | Live | `20261118000000_match_history.sql` |
 
-Tracked in the "Spec vs. code" table of `thesis-spec.md`. Still open on
-18 November 2026: push (FCM; the PWA itself is built), Discord linking, and
-server-side enforcement for the admin console (`AdminGate` is a client check;
-RLS is the real protection). Lobbies, ratings, reports, friendships, messages
-and the ranked lobby list are now on real data.
+## D. Notifications, PWA, push
 
-## D. Questions to settle with the advisor
+| # | Area | Proposal | Build | Kind | Status | Where |
+|---|------|----------|-------|------|--------|-------|
+| D1 | Install | PWA, "tanpa perlu instalasi" but installable to the home screen | Manifest, icons, service worker, offline screen, "Install app" | Same | Live | `app/manifest.ts`, `public/sw.js` |
+| D2 | Push path | FCM sends push, e.g. on application or invite | Same, via a database trigger → `/api/push` (Next.js) → FCM; opt-in per device in Settings | Same + detail | Written (needs the Firebase setup) | `20261119000000` |
+| D3 | What pushes | Join invitations, applications | Every bell notification: join request, accepted, declined, invite, lobby started, removed, friend request | Addition | Written | |
+| D4 | Chat push | Not specified | DMs and lobby chat push too, one per conversation per cooldown (1 min DM, 3 min lobby) | Addition | Written | `20261119000100_chat_push.sql` |
 
-1. Is a 19-table model (13 + 6) acceptable, or should the proposal's ERD be
-   revised? (Items 2, 3, 6, 7.)
-2. Is an eligibility step beside `M_rank` within the proposal's scope, or does
-   it need its own section? (Items 11 to 13.)
-3. Are the researched ladders and party rules sufficient evidence, or must they
-   be verified in each game before BAB 4? (Items 13, 18, 19; checklist in
-   `game-reference.md`.)
-4. Is self-reported rank acceptable given the proposal's emphasis on
-   trustworthy behaviour data? (Item 17.)
+## E. In the proposal, not built yet
+
+| # | What | Plan |
+|---|------|------|
+| E1 | Admin console on real data | Built 19 Nov (step 6), waits on migration `20261119000200`. Admin check on the server, real reports, sanctions, lobbies and audit log; suspension enforced at sign-in. Gap: an already-open tab keeps API access until its token expires (≤ 1 h) |
+| E2 | Connected accounts (A3) | Open decision: build or narrow the proposal |
+| E3 | Join-request list ranked by S_total (B5) | Small; worth doing before UAT |
+| E4 | Sensitivity analysis (B12), black-box table with traceability matrix, k6 scripts | Step 7 |
+| E5 | Adding a game "only by adding data" (scope 1.3) | Nearly: game, ranks, roles and modes are data, but regions (`data/game-regions.ts`), account-ID formats (`data/game-accounts.ts`) and the navbar list (`data/games.ts`) are in code |
+| E6 | Google / Discord sign-in | Not in the proposal; buttons shown but not wired (`OAUTH_ENABLED`) |
+
+## F. Questions for the advisor
+
+1. The ERD has 22 tables; the build replaces three (A1–A3) and adds 12
+   (section A). Revise the ERD in BAB 4, or describe the additions there?
+2. Is the party-rule eligibility step (B2) within scope, or does it need its
+   own paragraph in 3.3.1.2?
+3. B6 and B7: is a fixed m = 3 and a weight computed at recompute time
+   acceptable, given C is already fixed at 5 for the same reason (too little
+   UAT data)?
+4. C9: should DMs be limited to friends as written, or should 3.3.4.3 drop
+   "yang sudah berteman"?
+5. Are the researched rank ladders and party rules enough evidence, or must
+   they be verified in each game first? (`game-reference.md`)
 
 ## Decision log (internal)
 
 - **2026-10-06, games schema.** A teammate built a parallel games slice with
   rank stored as free text (`20261005000000_user_games.sql`). It was never
   applied to the shared database and was dropped in favour of the catalog
-  schema in item 6, because text cannot be compared, which `M_rank` and the
-  eligibility step both need. Their UI (games editor, "About you" onboarding
-  step, profile layout) was kept and connected to the catalog.
+  schema, because text cannot be compared, which the rank filter needs. Their
+  UI (games editor, "About you" onboarding step, profile layout) was kept and
+  connected to the catalog.
+- **2026-11-16, thesis names.** Tables and lobby statuses renamed to the
+  proposal's (`20261115000100_thesis_naming.sql`); `access_role` was not
+  adopted (A2), and `lobby_member` stayed a view (A10).
+- **2026-11-19, fake actions removed.** Friend-list invites, Recent
+  Teammates and rank detection used to pretend; the first two are real now,
+  the third is gone.

@@ -22,7 +22,7 @@ evaluation the proposal promises (UAT, black-box, k6, Precision@5).
 | 3 | Reputation on screen: new-player label, sanction history, suspended players left out | ✅ Done (member stars on the card removed for now, see "Open") |
 | 4 | Deploy (Vercel) | ✅ https://teman-game.vercel.app, region `sin1` next to Supabase |
 | 5 | PWA (manifest, service worker) and FCM push | ◐ PWA done and installed on Windows; push built, needs Firebase setup and phone tests |
-| 6 | Admin console on Supabase, admin check on the server | ⬜ |
+| 6 | Admin console on Supabase, admin check on the server | ◐ Built; run the migration and test with an admin account |
 | 7 | Evaluation kit: Precision@5 seed ✅, Vitest ✅, sensitivity-analysis script, black-box table with traceability matrix, k6 scripts | ◐ Partly |
 | 8 | Remove the mock lobby routes and data before UAT | ⬜ |
 
@@ -168,6 +168,18 @@ Buttons that looked like they worked but saved nothing, now fixed:
   a rank from the username and saved it as real.
 - **Social sidebar** no longer shows a mock player to visitors.
 
+## Step 6: admin console on real data
+
+- `/admin` is a 404 for anyone not in `admins`, decided on the server.
+- Reports, sanctions, players, lobbies (with members and chat) and the audit
+  log come from the database. Each action is one admin-only database function
+  that requires a reason and writes the audit entry itself.
+- The case page opens the evidence file (private, 5-minute link) and shows the
+  reasons behind 1–2 star ratings the player received (raters not named).
+- A suspension works: the player is signed out at login (or on the next page
+  load) and sees the rule and dates; their lobbies leave the list; it shows in
+  their sanction history. Lengths 1, 3, 7, 30 days; no ban.
+
 ## Migrations
 
 Applied by hand in the Supabase SQL editor; never edit one that has run.
@@ -180,6 +192,8 @@ Applied by hand in the Supabase SQL editor; never edit one that has run.
 | `20261118000200_reputation_display.sql` | `rater_count`, `is_suspended`, `sanction_history()` | ✅ |
 | `20261118000300_withdraw_other_requests.sql` | Withdraw pending requests on joining or starting a live lobby | ⬜ run it |
 | `20261119000000_push_notifications.sql` | `push_tokens`, the push trigger (pg_net), token functions | ⬜ run it |
+| `20261119000100_chat_push.sql` | Push for DMs and lobby chat, with a per-conversation cooldown | ⬜ run it |
+| `20261119000200_admin_moderation.sql` | Admin functions (claim, dismiss, sanction, lift, close lobby, remove member), admin-only reads, suspension notice; direct moderation writes revoked | ⬜ run it |
 
 ## Where things are now
 

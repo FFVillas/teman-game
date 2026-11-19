@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import AuthShell from "./AuthShell";
+import UserAvatar from "@/components/UserAvatar";
 import { loginPanel } from "@/data/auth";
 import {
   RESTRICTION_NOTICE_KEY,
@@ -10,6 +11,8 @@ import {
   type RestrictionNotice,
 } from "@/data/account-restriction";
 import { formatAgo, formatDateTime } from "@/lib/admin";
+import { createClient } from "@/lib/supabase/client";
+import { signOutIfSuspended } from "@/lib/suspension";
 
 const secondaryButton =
   "flex h-11 items-center justify-center rounded-lg border border-border-strong text-sm font-semibold text-text-subtle transition-colors hover:border-white/30 hover:text-white";
@@ -19,17 +22,28 @@ export default function AccountRestricted() {
   const [notice, setNotice] = useState<RestrictionNotice | null | undefined>();
 
   useEffect(() => {
-    let stored: RestrictionNotice | null = null;
-    try {
-      const raw = window.sessionStorage.getItem(RESTRICTION_NOTICE_KEY);
-      if (raw) stored = JSON.parse(raw) as RestrictionNotice;
-    } catch {
-      stored = null;
-    }
-    // sessionStorage only exists on the client, so this can't be read
-    // during render without a hydration mismatch.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setNotice(stored);
+    let cancelled = false;
+    const read = (): RestrictionNotice | null => {
+      try {
+        const raw = window.sessionStorage.getItem(RESTRICTION_NOTICE_KEY);
+        return raw ? (JSON.parse(raw) as RestrictionNotice) : null;
+      } catch {
+        return null;
+      }
+    };
+    // Sent here by the server (proxy.ts) with a session that was open when
+    // the suspension began: end that session now and read the notice.
+    void (async () => {
+      let stored = read();
+      if (!stored) {
+        await signOutIfSuspended(createClient()).catch(() => false);
+        stored = read();
+      }
+      if (!cancelled) setNotice(stored);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   if (notice === undefined) return <div className="min-h-screen" />;
@@ -75,11 +89,10 @@ export default function AccountRestricted() {
       panelVariant="solo"
     >
       <div className="flex items-center gap-3 rounded-xl border border-border-default bg-bg-page px-3 py-2.5">
-        {/* eslint-disable-next-line @next/next/no-img-element -- small avatar thumbnail, no benefit from next/image optimization */}
-        <img
+        <UserAvatar
           src={notice.avatar}
-          alt=""
-          className="size-9 shrink-0 rounded-full object-cover grayscale"
+          name={notice.username}
+          className="size-9 shrink-0 grayscale"
         />
         <span className="flex-1 truncate text-sm font-bold text-white">
           {notice.username}

@@ -45,6 +45,8 @@ export default function SanctionModal({
   const [reason, setReason] = useState(defaultReason ?? reportReasons[0]);
   const [note, setNote] = useState("");
   const [attempted, setAttempted] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
 
   const confirmLabel =
     type === "warning"
@@ -53,12 +55,14 @@ export default function SanctionModal({
         ? `Suspend for ${durationDays} day${durationDays === 1 ? "" : "s"}`
         : "Ban permanently";
 
-  function handleSubmit(event: FormEvent) {
+  async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setAttempted(true);
-    if (note.trim().length < MIN_ADMIN_NOTE_LENGTH) return;
+    if (note.trim().length < MIN_ADMIN_NOTE_LENGTH || saving) return;
 
-    issueSanction({
+    setSaving(true);
+    setFailure(null);
+    const error = await issueSanction({
       playerId: player.id,
       type,
       durationDays: type === "suspension" ? durationDays : undefined,
@@ -66,6 +70,11 @@ export default function SanctionModal({
       note: note.trim(),
       reportIds,
     });
+    setSaving(false);
+    if (error) {
+      setFailure(error);
+      return;
+    }
     onIssued?.();
     onClose();
   }
@@ -82,7 +91,7 @@ export default function SanctionModal({
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
         <div className="flex items-center gap-3 rounded-xl border border-border-default bg-bg-page px-3 py-2.5">
-          <Avatar src={player.avatar} />
+          <Avatar src={player.avatar} name={player.username} />
           <div className="flex min-w-0 flex-1 flex-col">
             <span className="truncate text-xs font-bold text-white">
               {player.username}
@@ -191,15 +200,18 @@ export default function SanctionModal({
           showError={attempted}
         />
 
+        {failure && <p className="text-[11px] text-danger">{failure}</p>}
+
         <div className="flex justify-end gap-2">
           <button type="button" onClick={onClose} className={adminButton.secondary}>
             Cancel
           </button>
           <button
             type="submit"
+            disabled={saving}
             className={adminButton.primary}
           >
-            {confirmLabel}
+            {saving ? "Saving…" : confirmLabel}
           </button>
         </div>
       </form>

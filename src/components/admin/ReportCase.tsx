@@ -34,6 +34,8 @@ import {
 } from "./AdminUi";
 import { ReasonModal } from "./AdminModal";
 import SanctionModal from "./SanctionModal";
+import EvidenceFile from "./EvidenceFile";
+import LowRatingsCard from "./LowRatingsCard";
 
 /**
  * One report, with everything needed to decide it on a single screen: what
@@ -78,13 +80,15 @@ export default function ReportCase({ reportId }: { reportId: string }) {
     );
   }
 
-  function handleClaim() {
-    claimReport(report!.id);
+  async function handleClaim() {
+    const failure = await claimReport(report!.id);
+    if (failure) return toast({ tone: "danger", title: "Couldn't claim it", body: failure });
     toast({ tone: "info", title: "Case claimed", body: "Other admins will see you're on it." });
   }
 
-  function handleDismiss(note: string) {
-    dismissReport(report!.id, note);
+  async function handleDismiss(note: string) {
+    const failure = await dismissReport(report!.id, note);
+    if (failure) return toast({ tone: "danger", title: "Couldn't dismiss it", body: failure });
     setModal(null);
     toast({ tone: "info", title: "Report dismissed", body: "No action taken against the player." });
   }
@@ -151,18 +155,7 @@ export default function ReportCase({ reportId }: { reportId: string }) {
               &ldquo;{report.details}&rdquo;
             </p>
             {report.evidenceFileName ? (
-              <div className="flex items-center gap-2.5 rounded-lg border border-border-default bg-bg-page px-3 py-2.5">
-                {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
-                <img src="/icons/admin-attachment.svg" alt="" className="size-4 opacity-70" />
-                <div className="flex min-w-0 flex-col">
-                  <span className="truncate text-xs font-semibold text-white">
-                    {report.evidenceFileName}
-                  </span>
-                  <span className="text-[11px] text-text-muted">
-                    Preview available once file storage is connected.
-                  </span>
-                </div>
-              </div>
+              <EvidenceFile reportId={report.id} fileName={report.evidenceFileName} />
             ) : (
               <p className="text-[11px] text-text-muted">No evidence attached.</p>
             )}
@@ -209,7 +202,7 @@ export default function ReportCase({ reportId }: { reportId: string }) {
                               : "border-transparent"
                           }`}
                         >
-                          {message.avatar && <Avatar src={message.avatar} size="sm" />}
+                          {!message.isSystem && <Avatar src={message.avatar ?? ""} name={message.authorName} size="sm" />}
                           <div className="flex min-w-0 flex-col gap-0.5">
                             <span className="text-[11px] font-bold text-white">
                               {message.authorName}
@@ -280,13 +273,15 @@ export default function ReportCase({ reportId }: { reportId: string }) {
               </>
             )}
           </AdminCard>
+
+          {target && <LowRatingsCard playerId={target.id} name={target.username} />}
         </div>
 
         <div className="flex flex-col gap-4">
           {target && (
             <AdminCard title="Reported player">
               <div className="flex items-center gap-3">
-                <Avatar src={target.avatar} size="lg" />
+                <Avatar src={target.avatar} name={target.username} size="lg" />
                 <div className="flex min-w-0 flex-col gap-1">
                   <span className="truncate text-sm font-bold text-white">
                     {target.username}
@@ -341,7 +336,7 @@ export default function ReportCase({ reportId }: { reportId: string }) {
           {reporter && credibility && (
             <AdminCard title="Reporter">
               <div className="flex items-center gap-3">
-                <Avatar src={reporter.avatar} />
+                <Avatar src={reporter.avatar} name={reporter.username} />
                 <Link
                   href={`/admin/players/${reporter.id}`}
                   className="truncate text-xs font-bold text-white hover:text-brand"

@@ -148,7 +148,7 @@ export default function ReportQueue() {
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2.5">
-                    {target && <Avatar src={target.avatar} size="sm" />}
+                    {target && <Avatar src={target.avatar} name={target.username} size="sm" />}
                     <div className="flex flex-col">
                       <span className="font-semibold text-text-subtle">
                         {target?.username ?? report.targetId}

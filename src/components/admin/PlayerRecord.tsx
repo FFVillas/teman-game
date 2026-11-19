@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { useAdminData } from "@/contexts/AdminDataContext";
+import { useNotifications } from "@/contexts/NotificationContext";
 import type { AdminReport, Sanction } from "@/data/admin-moderation";
 import {
   accountStatusMeta,
@@ -33,6 +34,7 @@ import {
 } from "./AdminUi";
 import { ReasonModal } from "./AdminModal";
 import SanctionModal from "./SanctionModal";
+import LowRatingsCard from "./LowRatingsCard";
 
 function ReportList({
   reports,
@@ -74,6 +76,7 @@ function ReportList({
 }
 
 export default function PlayerRecord({ playerId }: { playerId: string }) {
+  const { toast } = useNotifications();
   const { players, reports, sanctions, lobbies, liftSanction } = useAdminData();
   const [sanctioning, setSanctioning] = useState(false);
   const [lifting, setLifting] = useState<Sanction | null>(null);
@@ -99,9 +102,10 @@ export default function PlayerRecord({ playerId }: { playerId: string }) {
     return sanction.type === "warning" || isRestricting(sanction);
   }
 
-  function handleLift(reason: string) {
+  async function handleLift(reason: string) {
     if (!lifting) return;
-    liftSanction(lifting.id, reason);
+    const failure = await liftSanction(lifting.id, reason);
+    if (failure) return toast({ tone: "danger", title: "Couldn't lift it", body: failure });
     setLifting(null);
   }
 
@@ -111,7 +115,7 @@ export default function PlayerRecord({ playerId }: { playerId: string }) {
         back={{ label: "All players", href: "/admin/players" }}
         title={
           <span className="flex items-center gap-3">
-            <Avatar src={player.avatar} size="lg" dimmed={status === "suspended"} />
+            <Avatar src={player.avatar} name={player.username} size="lg" dimmed={status === "suspended"} />
             {player.username}
           </span>
         }
@@ -248,6 +252,8 @@ export default function PlayerRecord({ playerId }: { playerId: string }) {
               personLabel={(report) => `against ${nameOf(report.targetId)}`}
             />
           </AdminCard>
+
+          <LowRatingsCard playerId={player.id} name={player.username} />
         </div>
 
         <div className="flex flex-col gap-4">

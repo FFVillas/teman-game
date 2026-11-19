@@ -8,8 +8,7 @@ import OAuthButtons from "./OAuthButtons";
 import { createClient } from "@/lib/supabase/client";
 import { sanitizeNextPath, withNext } from "@/lib/auth-redirect";
 import { ADMIN_HOME } from "@/data/admin-accounts";
-import { RESTRICTION_NOTICE_KEY } from "@/data/account-restriction";
-import { restrictionForEmail } from "@/lib/admin-store";
+import { signOutIfSuspended } from "@/lib/suspension";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -37,20 +36,6 @@ export default function LoginForm() {
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
-    // Suspended or banned accounts don't get a session — they get told why.
-    // Checked before signing in so no session is ever created for them.
-    // TODO: this reads the mock moderation store; once sanctions are a real
-    // table, Supabase sign-in should reject these server-side instead.
-    const restriction = restrictionForEmail(email);
-    if (restriction) {
-      window.sessionStorage.setItem(
-        RESTRICTION_NOTICE_KEY,
-        JSON.stringify(restriction)
-      );
-      router.push("/account-restricted");
-      return;
-    }
-
     setSubmitting(true);
     const supabase = createClient();
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -61,6 +46,13 @@ export default function LoginForm() {
     if (error || !data.user) {
       setSubmitting(false);
       setErrors({ form: "Wrong email or password." });
+      return;
+    }
+
+    // A suspended account keeps no session: it is signed straight back out
+    // and told why (the rule and the dates, from the real `sanction` table).
+    if (await signOutIfSuspended(supabase)) {
+      router.push("/account-restricted");
       return;
     }
 

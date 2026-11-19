@@ -95,7 +95,7 @@ export default function PlayerDirectory() {
             <tr key={player.id} className={adminRowClass}>
               <td className="px-4 py-3">
                 <div className="flex items-center gap-3">
-                  <Avatar src={player.avatar} dimmed={status === "suspended"} />
+                  <Avatar src={player.avatar} name={player.username} dimmed={status === "suspended"} />
                   <div className="flex min-w-0 flex-col">
                     <AdminRowLink href={`/admin/players/${player.id}`}>
                       {player.username}

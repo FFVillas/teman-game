@@ -271,6 +271,24 @@ export async function fetchMyRankName(
   return setups.find((setup) => setup.gameSlug === gameSlug)?.rank ?? "";
 }
 
+/**
+ * The player's own playstyle (1–5) from their profile, or null. The create
+ * form starts the lobby's playstyle from it (proposal 3.3.1.2: "terisi
+ * otomatis sesuai gaya bermain pada profil pembuat lobi dan dapat diubah").
+ */
+export async function fetchMyPlaystyle(
+  supabase: SupabaseClient,
+  userId: string | null,
+): Promise<number | null> {
+  if (!userId) return null;
+  const { data } = await supabase
+    .from("profiles")
+    .select("playstyle")
+    .eq("id", userId)
+    .maybeSingle();
+  return (data?.playstyle as number | null | undefined) ?? null;
+}
+
 /** Convenience for pages: the catalog, then the player's setups from it. */
 export async function fetchPlayerGames(
   supabase: SupabaseClient,

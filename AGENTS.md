@@ -390,6 +390,12 @@ TemanGame installs as an app (proposal: PWA). Pieces:
    `forget_push_tokens` (which checks the same secret).
 4. `public/sw.js` draws it (`push`) and opens `href` on tap
    (`notificationclick`), reusing an open window.
+5. **Chat** (`20261119000100_chat_push.sql`): DMs and lobby chat lines push
+   straight from their own triggers (`send_push_to`), not through
+   `notifications`. One push per player per conversation per cooldown (1 min
+   DM, 3 min lobby chat; `push_throttle`, `push_slot_free`), and a `tag` per
+   conversation so the newest replaces the last on the device. In-app, chat
+   still doesn't pop up a toast.
 
 Settings: `NEXT_PUBLIC_FIREBASE_CONFIG` (the web app's config as JSON) and
 `NEXT_PUBLIC_FIREBASE_VAPID_KEY` are public; `FIREBASE_SERVICE_ACCOUNT` (JSON,
@@ -425,22 +431,38 @@ trusted with.
   passwords are not in this repo.
 - Staff accounts are exempt from the onboarding gate in `src/proxy.ts`: they
   have no playstyle and no personality tags, and shouldn't be asked for any.
-- `/admin/*` is wrapped in `AdminGate`, which waits for `useAuth().isReady`
-  and then calls `notFound()` for non-admins — a 404, not "access denied".
-  It's a client check standing in for middleware + RLS, not security.
+- **Checked on the server**: `app/admin/layout.tsx` (a Server Component)
+  looks the caller up in `admins` and calls `notFound()` otherwise, so a
+  visitor gets the ordinary 404 and no console markup. `AdminGate` (client)
+  stays as a second, cosmetic check.
 - The console has its own shell (sidebar, no public Navbar/Footer) and a
   wider container (`max-w-[1160px]`) for tables. Reuse the primitives in
   `components/admin/AdminUi.tsx` and the modals in `AdminModal.tsx`.
-- Data model follows **Option B**: new `sanctions` and `admin_actions`
-  tables on top of the 13-entity ERD. Account status is **derived** from
-  sanctions in `src/lib/admin.ts` — don't store it separately in mock data.
-- Every mutation in `AdminDataContext` requires a reason and appends an
-  audit entry. Nothing is deleted: lobbies close, sanctions get lifted.
+- **Real data** (`20261119000200_admin_moderation.sql`): `AdminDataContext`
+  reads everything through `lib/admin-data.ts` (`reports`, `sanction` with
+  `sanction_reports`, `lobby` with members and chat, `admin_actions`, plus
+  `admin_accounts()` for emails and sign-in dates and `admin_low_ratings()`
+  for the reasons behind 1–2 star ratings, raters never named). Every action
+  is a database function (`admin_claim_report`, `admin_dismiss_report`,
+  `admin_issue_sanction`, `admin_lift_sanction`, `admin_close_lobby`,
+  `admin_remove_member`) that checks the caller is an admin, requires a reason
+  of 10+ characters and writes the audit entry in the same transaction; the
+  direct write grants on the moderation tables are revoked. After each action
+  the context re-reads everything. Nothing is deleted: lobbies close,
+  sanctions get lifted. Suspensions are 1, 3, 7 or 30 days; there is no ban.
+- Account status is **derived** from sanctions in `src/lib/admin.ts`. Staff
+  names on cases and the log are `admins.display_name` (`setStaffNames`).
+- Evidence files open through a five-minute signed link (`EvidenceFile`).
 - Staff accounts see no player controls in the public Navbar (bell,
   messages), and `UserMenu` links them to the console instead.
-- Suspended/banned players who log in get **no session** and land on
-  `/account-restricted` (rule + dates only, never the internal note or
-  reporter). Demo: `carrypotter@mail.com`, `lagswitch@mail.com`.
+- Suspended players get **no session**: after sign-in `signOutIfSuspended()`
+  (`lib/suspension.ts`, reading `my_active_suspension()`) signs them out and
+  shows `/account-restricted` (rule + dates only, never the internal note or
+  reporter). A session already open when the suspension starts is sent there
+  by `proxy.ts` on the next page load (`profiles.is_suspended`). Known gap: an
+  open tab can still call the API until its token expires (up to an hour).
+- `lib/admin-store.ts` and the seed in `data/admin-moderation.ts` are left only
+  for the mock lobby's invite picker, and go with step 8.
 
 ## Empty states
 

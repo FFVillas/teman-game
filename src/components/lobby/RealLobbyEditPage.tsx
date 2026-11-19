@@ -4,7 +4,7 @@ import Footer from "@/components/Footer";
 import CreateTeamForm from "@/components/lfg/CreateTeamForm";
 import { withNext } from "@/lib/auth-redirect";
 import { createClient, getUserId } from "@/lib/supabase/server";
-import { fetchGameCatalog, fetchMyRankName } from "@/lib/games";
+import { fetchGameCatalog, fetchMyPlaystyle, fetchMyRankName } from "@/lib/games";
 import { fetchLobbyDetail, isLobbyId } from "@/lib/lobbies";
 
 /**
@@ -31,9 +31,10 @@ export default async function RealLobbyEditPage({
   const game = catalog.find((entry) => entry.slug === slug);
   if (!game) notFound();
 
-  const [data, leaderRank] = await Promise.all([
+  const [data, leaderRank, leaderPlaystyle] = await Promise.all([
     fetchLobbyDetail(supabase, game, id, userId),
     fetchMyRankName(supabase, catalog, slug, userId),
+    fetchMyPlaystyle(supabase, userId),
   ]);
   if (!data) notFound();
   const { team, voiceUrl } = data;
@@ -51,6 +52,7 @@ export default async function RealLobbyEditPage({
             gameName={game.name}
             game={game}
             leaderRank={leaderRank}
+            leaderPlaystyle={leaderPlaystyle}
             edit={{
               lobbyId: team.id,
               status: team.started ? "in_progress" : team.status.isLive ? "open" : "scheduled",

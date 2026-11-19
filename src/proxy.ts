@@ -49,11 +49,20 @@ export async function proxy(request: NextRequest) {
     const [{ data: profile }, { data: admin }] = await Promise.all([
       supabase
         .from("profiles")
-        .select("playstyle, user_tag (tag_id)")
+        .select("playstyle, is_suspended, user_tag (tag_id)")
         .eq("id", userId)
         .maybeSingle(),
       supabase.from("admins").select("user_id").eq("user_id", userId).maybeSingle(),
     ]);
+
+    // A suspension that began while this session was open: the restricted
+    // page ends the session and says why. Nothing else is reachable meanwhile.
+    if (profile?.is_suspended) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/account-restricted";
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
 
     // Staff accounts don't play, so they have no playstyle and no tags.
     // Redirect only on a definite answer: if the profile row couldn't be read

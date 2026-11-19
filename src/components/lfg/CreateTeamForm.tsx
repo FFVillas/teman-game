@@ -175,6 +175,7 @@ export default function CreateTeamForm({
   gameName,
   game,
   leaderRank,
+  leaderPlaystyle,
   edit,
 }: {
   /** `games.slug`; picks the game's modes, regions and where Save returns to. */
@@ -184,6 +185,8 @@ export default function CreateTeamForm({
   game?: GameInfo;
   /** The signed-in leader's own rank in this game, e.g. "Gold 2"; "" if unknown. */
   leaderRank?: string;
+  /** The leader's profile playstyle (1–5), the lobby's starting value. */
+  leaderPlaystyle?: number | null;
   /** Set to edit an existing lobby instead of creating one. */
   edit?: EditLobbyInit;
 }) {
@@ -225,9 +228,12 @@ export default function CreateTeamForm({
   );
   const [description, setDescription] = useState(edit?.description ?? "");
   const [vibeTags, setVibeTags] = useState<string[]>(edit?.tags ?? ["Competitive"]);
-  // Nothing is pre-selected: an unanswered playstyle must stay null rather
-  // than quietly becoming "Seimbang", the same mistake onboarding used to make.
-  const [playstyle, setPlaystyle] = useState<number | null>(edit?.playstyle ?? null);
+  // Starts from the leader's own playstyle (proposal 3.3.1.2), which they can
+  // change: a competitive player may still run a relaxed lobby. Never a made-up
+  // default: with no profile playstyle it stays unset.
+  const [playstyle, setPlaystyle] = useState<number | null>(
+    edit ? edit.playstyle ?? leaderPlaystyle ?? null : leaderPlaystyle ?? null,
+  );
   const [wantedTagIds, setWantedTagIds] = useState<number[]>(edit?.wantedTagIds ?? []);
   const [tagCatalog, setTagCatalog] = useState<{ id: number; name: string }[]>([]);
 

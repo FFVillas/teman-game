@@ -25,11 +25,14 @@ export const metadata: Metadata = {
   description:
     "Find teammates for competitive games by rank, role and playstyle, with a reputation you can check before you play.",
   applicationName: "TemanGame",
-  // Installed on an iPhone home screen: full-screen, own name under the icon.
+  // Installed on an iPhone home screen: own window, own name under the icon.
+  // "black" keeps iOS's status bar (clock, notch) as its own black strip above
+  // the page. "black-translucent" drew the page underneath it, so the navbar
+  // sat behind the clock and the notch.
   appleWebApp: {
     capable: true,
     title: "TemanGame",
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "black",
   },
   icons: {
     apple: "/pwa/apple-touch-icon.png",
@@ -37,9 +40,11 @@ export const metadata: Metadata = {
 };
 
 // The browser bar and the installed app's title bar take the page colour.
+// No `viewportFit: "cover"`: that lets the page run under the notch and the
+// home indicator, which only works if every edge pads itself with
+// env(safe-area-inset-*). Leaving it out, the phone keeps those areas clear.
 export const viewport: Viewport = {
   themeColor: "#0e1015",
-  viewportFit: "cover",
 };
 
 export default function RootLayout({
