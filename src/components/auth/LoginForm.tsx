@@ -78,7 +78,7 @@ export default function LoginForm() {
 
   return (
     <div className="flex flex-col gap-6">
-      <OAuthButtons verb="log in" />
+      <OAuthButtons verb="log in" next={next} />
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
         <AuthField

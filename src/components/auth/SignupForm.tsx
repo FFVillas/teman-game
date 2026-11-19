@@ -87,7 +87,11 @@ export default function SignupForm() {
 
   return (
     <div className="flex flex-col gap-6">
-      <OAuthButtons verb="sign up" />
+      {/* No `withNext("/onboarding", …)` here the way the email form does it:
+          an OAuth account has no playstyle yet, so `src/proxy.ts` sends it to
+          onboarding on the first page load and carries this destination
+          along. */}
+      <OAuthButtons verb="sign up" next={next} />
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
         <AuthField
