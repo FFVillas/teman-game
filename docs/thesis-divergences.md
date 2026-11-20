@@ -63,7 +63,7 @@ migrations run.
 
 | # | Area | Proposal | Build | Kind | Status | Where |
 |---|------|----------|-------|------|--------|-------|
-| B1 | Formula | S_total = 0.40P + 0.30R + 0.30T; Persamaan 3.15 when \|B\| = 0 | As written; tested with the proposal's worked example (T = 0.83) and boundaries | Same | Live | `lib/recommendation.ts`, `lib/lobby-ranking.ts`, `*.test.ts` |
+| B1 | Formula | S_total = 0.40P + 0.28R + 0.32T; Persamaan 3.15 divides by 0.68 when \|B\| = 0 | As written. The code read 0.40/0.30/0.30 until 20 Nov 2026 — this row said so too. Both of the proposal's worked examples are now test cases: T = 0.83 for the tag score, and S_total = 0.75 / 0.83, the second of which is what the wrong weights missed (it gave 0.825) | Same | Live | `lib/recommendation.ts`, `lib/lobby-ranking.ts`, `*.test.ts` |
 | B2 | Hard filters | Game and the lobby's rank range | Same, plus each game's **party rule** (how far apart ranks may be in a group, given who is already in), checked again when the leader accepts | Addition | Live | `lib/ranks.ts`, `lobby_join_bounds()` |
 | B3 | Optional filters | Role (lobbies needing other roles still show) | Same, plus region, mode and text search, and sort (Recommended, Latest, Most players, Open slots) | Addition | Live | `lib/lobby-filters.ts` |
 | B4 | Lobby playstyle (Pb) | Pre-filled from the leader's profile playstyle, changeable | As written (since 19 Nov). Older lobbies saved without one fall back to the leader's profile playstyle | Same | Live | `CreateTeamForm.tsx`, `fetchMyPlaystyle()` |

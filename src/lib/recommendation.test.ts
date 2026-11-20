@@ -82,12 +82,22 @@ describe("T, personality (Persamaan 3.13–3.14)", () => {
 });
 
 describe("S_total (Persamaan 3.1 and 3.15)", () => {
-  it("weights P, R and T 0.40 / 0.30 / 0.30", () => {
-    expect(totalScore(1, 0.5, 0.5)).toBeCloseTo(0.4 + 0.15 + 0.15);
+  it("weights P, R and T 0.40 / 0.28 / 0.32", () => {
+    expect(SCORE_WEIGHTS).toEqual({ playstyle: 0.4, reputation: 0.28, tags: 0.32 });
+    expect(totalScore(1, 0.5, 0.5)).toBeCloseTo(0.4 + 0.14 + 0.16);
+  });
+
+  // The two examples the proposal prints under Persamaan 3.15, so BAB 4 can
+  // cite them. The first passes under any weights — a weighted mean of equal
+  // values ignores them — which is exactly why the old 0.40/0.30/0.30 split
+  // went unnoticed. The second is the one that pins them down.
+  it("matches the proposal's worked examples", () => {
+    expect(totalScore(0.75, 0.75, null)).toBeCloseTo(0.75, 4);
+    expect(totalScore(0.75, 0.75, 1)).toBeCloseTo(0.83, 4);
   });
 
   it("drops T and rescales when the lobby wants no tags", () => {
-    expect(totalScore(1, 0.5, null)).toBeCloseTo((0.4 + 0.15) / 0.7);
+    expect(totalScore(1, 0.5, null)).toBeCloseTo((0.4 + 0.14) / 0.68);
   });
 
   it("never rewards a lobby for setting no criteria", () => {
@@ -102,6 +112,6 @@ describe("S_total (Persamaan 3.1 and 3.15)", () => {
       { playstyle: 3, wantedTags: [], rankOrdinal: 0 },
     );
     expect(result.T).toBeNull();
-    expect(result.total).toBeCloseTo((0.4 * 1 + 0.3 * 0.5) / 0.7);
+    expect(result.total).toBeCloseTo((0.4 * 1 + 0.28 * 0.5) / 0.68);
   });
 });

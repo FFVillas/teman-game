@@ -9,6 +9,10 @@ import {
   type LobbyFilters,
 } from "./lobby-filters";
 import { filterLobbies, scoreLobby, sortLobbies, type Viewer } from "./lobby-ranking";
+// Read from the one place the weights live rather than retyping them: the
+// proposal commits to a sensitivity analysis over ±0.10 on each, and these
+// assertions are about how the parts combine, not about the numbers.
+import { SCORE_WEIGHTS as W } from "./recommendation";
 
 const noFilters: LobbyFilters = parseLobbyFilters({});
 
@@ -111,16 +115,22 @@ describe("scoreLobby", () => {
     const good = scoreLobby(testTeam({ memberReputations: [5, 5] }), viewer(), tagNames)!;
     const mixed = scoreLobby(testTeam({ memberReputations: [5, 1] }), viewer(), tagNames)!;
     expect(good).toBeGreaterThan(mixed);
-    // P = 1, R = 0.5, no wanted tags: (0.4 + 0.15) / 0.7.
-    expect(mixed).toBeCloseTo((0.4 + 0.15) / 0.7);
+    // P = 1, R = 0.5, no wanted tags, so T drops out and the other two are
+    // rescaled (Persamaan 3.15).
+    expect(mixed).toBeCloseTo(
+      (W.playstyle + W.reputation * 0.5) / (W.playstyle + W.reputation),
+    );
   });
 
   it("scores wanted tags by the viewer's tag strength", () => {
     const team = testTeam({ wantedTagIds: [1, 3] });
     const strong = viewer({ tagStrength: new Map([["Shot Caller", 1], ["Chill", 1]]) });
     const half = viewer({ tagStrength: new Map([["Chill", 1]]) });
-    expect(scoreLobby(team, strong, tagNames)).toBeCloseTo(0.4 + 0.3 * 0.5 + 0.3);
-    expect(scoreLobby(team, half, tagNames)).toBeCloseTo(0.4 + 0.3 * 0.5 + 0.15);
+    // P = 1, R = 0.5; the viewer carries both wanted tags at full strength, or
+    // only one of the two.
+    const base = W.playstyle + W.reputation * 0.5;
+    expect(scoreLobby(team, strong, tagNames)).toBeCloseTo(base + W.tags);
+    expect(scoreLobby(team, half, tagNames)).toBeCloseTo(base + W.tags * 0.5);
   });
 
   it("is null for a viewer with no playstyle", () => {

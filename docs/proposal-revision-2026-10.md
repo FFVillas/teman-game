@@ -32,18 +32,39 @@ Penomoran mengikuti penomoran baru di dokumen.
 ### Skor utama
 
 ```
-S_total = 0.40·P + 0.30·R + 0.30·T                      (3.1)
+S_total = 0.40·P + 0.28·R + 0.32·T                      (3.1)
 ```
+
+Bobotnya **dihitung dari kuesioner**, bukan dipilih: pada Gambar L2.9 gaya
+bermain disebut 81 responden, kecocokan personalitas 65, dan sikap positif
+57; masing-masing dibagi total 203 menghasilkan 0,399, 0,320, dan 0,281.
+
+⚠️ **Dokumen ini sempat menulis 0,40 / 0,30 / 0,30, dan kode mengikutinya
+sampai 20 November 2026.** Kedua contoh perhitungan di proposal hampir tidak
+membedakan keduanya — contoh pertama (P = R = 0,75 tanpa tag) menghasilkan
+0,75 pada bobot apa pun, karena rata-rata tertimbang dari nilai yang sama
+tidak bergantung pada bobot. Hanya contoh kedua yang memisahkan: P = R = 0,75
+dengan T = 1 bernilai **0,83** pada bobot yang benar dan 0,825 pada yang
+lama, dan proposal mencetak 0,83. Keduanya kini jadi kasus uji di
+`src/lib/recommendation.test.ts`.
 
 **Tidak ada pengali `M_rank`.** Kalau lobi tidak menetapkan tag sama sekali
 (`|B| = 0`), komponen T dikeluarkan dan bobotnya dinormalisasi ulang:
 
 ```
-S_total = (0.40·P + 0.30·R) / 0.70                      (3.15)
+S_total = (0.40·P + 0.28·R) / 0.68                      (3.15)
 ```
 
-Jangan pakai `T = 1` sebagai jalan pintas — itu memberi lobi tanpa kriteria
-skor 0.30 gratis sehingga mengalahkan lobi yang tag-nya benar-benar cocok.
+Pembagian 0,68 menjaga perbandingan P : R tetap 10 : 7. Jangan pakai
+`T = 1` sebagai jalan pintas — itu memberi lobi tanpa kriteria skor 0,32
+gratis sehingga mengalahkan lobi yang tag-nya benar-benar cocok.
+
+Karena pertanyaan kuesionernya boleh dijawab lebih dari satu, bobot ini
+mengukur **berapa banyak orang menyebut suatu faktor penting**, bukan
+seberapa penting faktornya. Proposal karenanya menjanjikan **analisis
+sensitivitas ±0,10** pada tiap bobot — jadi bobotnya akan diubah-ubah saat
+evaluasi. Biarkan tetap di satu tempat (`SCORE_WEIGHTS`), dan jangan
+menuliskan angkanya lagi di tempat lain; test pun membacanya dari sana.
 
 ### P — gaya bermain
 
@@ -189,8 +210,10 @@ ketiga. Catat di `docs/thesis-divergences.md`.
 
 Dokumen menjanjikan `σ²` dan `τ²` "dihitung ulang menggunakan data hasil UAT".
 **Itu tidak bisa dipenuhi.** Empirical Bayes butuh banyak pengguna dengan
-banyak rating masing-masing; dengan ~30 responden UAT estimasinya tidak
-bermakna. Kunci `C = 5`, tulis sebagai keterbatasan di BAB 4.
+banyak rating masing-masing; dengan **12 partisipan UAT** (2 pemain aktif per
+gim, purposive — Hwang & Salvendy 2010 untuk 10±2, Tullis & Stetson 2004
+untuk SUS yang andal) estimasinya tidak bermakna. Kunci `C = 5`, tulis
+sebagai keterbatasan di BAB 4.
 
 **Konsekuensi yang harus diketahui sejak awal:** pada skala UAT, `n_t` hampir
 selalu 0, sehingga `s_t = 1` untuk semua tag pilihan sendiri — artinya **rumus
