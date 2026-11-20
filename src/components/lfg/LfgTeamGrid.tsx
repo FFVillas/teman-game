@@ -6,6 +6,7 @@ import type { LfgTeam } from "@/data/lfg-teams";
 import LfgTeamCard from "./LfgTeamCard";
 import RequestToJoinModal from "./RequestToJoinModal";
 import LfgPagination from "./LfgPagination";
+import Mascot from "@/components/Mascot";
 import type { GameInfo } from "@/lib/games";
 
 const PAGE_SIZE = 6;
@@ -68,6 +69,15 @@ export default function LfgTeamGrid({
   if (teams.length === 0) {
     return (
       <div className="mt-2 flex flex-col items-center gap-1.5 rounded-2xl border border-dashed border-white/10 px-6 py-10 text-center">
+        {/* Two different situations, so two different poses: squinting at the
+            filters, or asleep because nobody is around. Five of the six games
+            have no lobbies at all yet, so the second one is what most
+            visitors actually meet. */}
+        <Mascot
+          pose={filtered ? "filter" : "soon"}
+          size={88}
+          className="mb-1 opacity-80"
+        />
         <h3 className="text-sm font-semibold text-text-muted">
           {filtered ? "No lobbies match" : `No ${gameName} lobbies yet`}
         </h3>

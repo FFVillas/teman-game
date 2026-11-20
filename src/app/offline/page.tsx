@@ -16,10 +16,12 @@ export const metadata: Metadata = {
 export default function OfflinePage() {
   return (
     <main className="flex min-h-dvh flex-1 flex-col items-center justify-center gap-5 px-6 text-center">
-      <div className="flex size-14 items-center justify-center rounded-2xl bg-brand">
-        {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
-        <img src="/icons/logo-mark.svg" alt="" width={26} height={21} />
-      </div>
+      {/* Bounce looking worried rather than the app icon: this screen is the
+          one place the app admits something is wrong, and the mascot says it
+          before the heading does. A plain <img> and no Mascot component —
+          nothing here may depend on JavaScript having loaded. */}
+      {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
+      <img src="/mascot/worried.svg" alt="" width={104} height={104} />
       <div className="flex max-w-[340px] flex-col gap-2">
         <h1 className="text-lg font-extrabold text-white">You&apos;re offline</h1>
         <p className="text-sm text-text-muted">

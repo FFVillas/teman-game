@@ -97,6 +97,7 @@ src/data/social-*.ts     Social page mock data (friends, pending, discover, rece
 src/data/player-profiles.ts  profile mock data; game-regions.ts has the per-game region choices
 public/games/            game cover images (landing page)
 public/lfg/covers/<game>/  LFG lobby cover images (N.webp)
+public/mascot/           Bounce, the mascot — 28 poses (see "Bounce, the mascot")
 public/ranks/<game>/     rank badges: Valorant per division (gold-3.webp), LoL per tier
 public/roles/<game>/     role icons (see src/data/role-icons.ts)
 inbox/                   git-ignored drop folder for raw downloads; compress + rename into public/
@@ -216,6 +217,49 @@ on cover/key-art images — the top of game art carries the characters and logo.
 Round avatars are the exception: they stay centred (`object-cover` alone),
 because they're already face-centred crops and anchoring them to the top
 clips chins.
+
+## Bounce, the mascot
+
+A pair of blue blobs — two friends, which is what *teman* means. 28 SVGs in
+`public/mascot/`, all 200×200 and all in `--main-color`, so they sit on the
+dark page without a container. Drawn in-house; the source package is
+`TemanGame-Bounce.html` plus `TemanGame-Bounce-svg/`.
+
+Three rules, each learned the hard way:
+
+- **Never inline them into JSX.** Every file declares the same mask ids
+  (`d10`, `d11`) because each was authored standalone, so two inlined in one
+  page collide and the second one loses its eyes and the gap between the
+  blobs. Go through `components/Mascot.tsx`, which renders an `<img>` — each
+  then gets its own document. Poses are typed in `src/data/mascot.ts`.
+- **The pose has to match the screen.** Each was drawn for a specific one:
+  `empty` is Bounce alone with a dashed outline where the other should be
+  (the friends list), `lost` has a question mark (404), `soon` is asleep
+  (a game with no lobbies yet), `error` a red "!", plus `search`, `filter`,
+  `chat`, `rate`, `apply`, `accepted`, `trust`, `support`, `login`. Used
+  everywhere it stops meaning anything, so it is on the **big** empty
+  surfaces only — a whole panel or a whole page. Small slots keep the dimmed
+  icon disc (`EmptyState`'s `icon`), and plenty of them are better with no
+  picture at all.
+- **Three files are not interchangeable.** `public/mascot/app-icon.svg` is
+  the lockup (white duo on a rounded brand square) used by `Logo` and
+  anywhere the mark appears. `public/icons/logo-mark.svg` is the duo in
+  **white on transparent**, and exists only because
+  `scripts/generate-pwa-icons.mjs` composites it onto its own brand square —
+  make it blue and the PWA icons come out blue-on-blue and invisible.
+  `public/mascot/mark.svg` is the single blob, the quiet version.
+
+After changing the logo, rerun `node scripts/generate-pwa-icons.mjs`, and
+regenerate `src/app/favicon.ico` from `app-icon.svg` if the mark moved.
+
+`public/sw.js`'s `PRECACHE` lists the artwork the **offline** screen draws
+(`/mascot/worried.svg`). That page is the one thing that must render with no
+network, so changing its picture means changing that list — and bumping
+`VERSION` — in the same commit.
+
+`loading-1/2/3.svg` are three frames of a bounce, for a loading animation
+that nothing uses yet; `PageSkeleton` still shimmers the page's own shape,
+which tells a player more than a mascot would.
 
 ## Shared type scale
 

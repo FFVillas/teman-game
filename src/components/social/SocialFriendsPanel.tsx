@@ -88,8 +88,13 @@ export default function SocialFriendsPanel() {
 
       <div className="flex min-h-0 flex-1 flex-col gap-8 overflow-y-auto p-6">
         {loading ? null : visible.length === 0 ? (
+          /* `empty` is Bounce on their own with a dashed outline where the
+             other one should be — the friends list is exactly what that
+             drawing is of. A narrowed search is a different thing, so it
+             keeps the plain icon. */
           <EmptyState
             fill
+            mascot={friends.length === 0 ? "empty" : undefined}
             icon="/icons/social-friends.svg"
             title={friends.length === 0 ? "No friends yet" : "No matches"}
             description={

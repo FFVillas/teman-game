@@ -5,6 +5,12 @@
 // A new logo: replace public/icons/logo-mark.svg (white artwork on a
 // transparent background, any size, with a viewBox), change BRAND below if
 // the colour changed, and run this again. Look at the PNGs before committing.
+//
+// That file is currently Bounce — the duo from public/mascot/default.svg with
+// its colour swapped for white. It has to stay WHITE: this script paints the
+// brand square itself, so a blue mark would come out blue-on-blue and the
+// installed app would have a plain blue icon. The ready-made coloured lockups
+// live in public/mascot/app-icon*.svg and are a different thing.
 
 import { readFile, mkdir } from "node:fs/promises";
 import sharp from "sharp";

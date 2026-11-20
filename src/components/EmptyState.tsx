@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
+import Mascot from "@/components/Mascot";
+import type { MascotPose } from "@/data/mascot";
 
 /**
  * How emptiness is shown across the app.
@@ -48,6 +50,7 @@ export function NotSetOrAdd({
 
 export function EmptyState({
   icon,
+  mascot,
   title,
   description,
   action,
@@ -56,6 +59,15 @@ export function EmptyState({
 }: {
   /** Path to an SVG in /icons. Optional — small slots read fine without one. */
   icon?: string;
+  /**
+   * Bounce instead of the little icon disc, for an empty state that fills a
+   * whole panel. Wins over `icon` when both are given.
+   *
+   * Reserve it for the big ones. A mascot in every small slot — each card's
+   * missing field, each sidebar list — turns into wallpaper and stops being
+   * read, and these slots already work without any picture at all.
+   */
+  mascot?: MascotPose;
   title: string;
   description?: ReactNode;
   action?: { label: string; href: string };
@@ -77,11 +89,21 @@ export function EmptyState({
           : "rounded-xl border border-dashed border-border-default"
       }`}
     >
-      {icon && (
-        <span className="flex size-9 items-center justify-center rounded-full bg-white/[0.04]">
-          {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
-          <img src={icon} alt="" className="size-4 opacity-40" />
-        </span>
+      {mascot ? (
+        // Dimmed, like every other missing value here: full strength would
+        // make the empty state the brightest thing on the page.
+        <Mascot
+          pose={mascot}
+          size={size === "sm" ? 64 : 88}
+          className="mb-1 opacity-80"
+        />
+      ) : (
+        icon && (
+          <span className="flex size-9 items-center justify-center rounded-full bg-white/[0.04]">
+            {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
+            <img src={icon} alt="" className="size-4 opacity-40" />
+          </span>
+        )
       )}
       <span className="text-xs font-bold text-text-subtle">{title}</span>
       {description && (
