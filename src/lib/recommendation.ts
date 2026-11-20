@@ -4,8 +4,8 @@ import type { PersonalityTag } from "@/data/player-profiles";
  * The recommendation engine — Persamaan 3.1–3.15 of the proposal as revised
  * on 14 October 2026 (see docs/proposal-revision-2026-10.md).
  *
- *   S_total = 0.40·P + 0.30·R + 0.30·T                                 (3.1)
- *   S_total = (0.40·P + 0.30·R) / 0.70   when |B| = 0                  (3.15)
+ *   S_total = 0.40·P + 0.28·R + 0.32·T                                 (3.1)
+ *   S_total = (0.40·P + 0.28·R) / 0.68   when |B| = 0                  (3.15)
  *
  *   P = 1 − |P_a − P_b| / 4               playstyle, 1–5 Likert        (3.2)
  *   R = (R* − 1) / 4                      reputation, min-max          (3.3)
@@ -29,7 +29,25 @@ import type { PersonalityTag } from "@/data/player-profiles";
  * functions so this moves server-side unchanged.
  */
 
-export const SCORE_WEIGHTS = { playstyle: 0.4, reputation: 0.3, tags: 0.3 };
+/**
+ * Persamaan 3.1's weights, counted straight off the questionnaire (Gambar
+ * L2.9, n = 99): playstyle was named by 81 respondents, personality fit by
+ * 65, positive attitude by 57. Each over the total of 203 gives 0.399, 0.320
+ * and 0.281, rounded to the figures below.
+ *
+ * **They are not 0.40 / 0.30 / 0.30**, which is what this file used to say.
+ * The two worked examples in the proposal hide the difference almost
+ * completely — the first (P = R = 0.75, no tags) comes out at 0.75 under
+ * either set, because a weighted mean of equal values doesn't depend on the
+ * weights at all. Only the second separates them: P = R = 0.75 with T = 1 is
+ * 0.83 here and 0.825 under the old split, and the proposal prints 0.83.
+ *
+ * Because the question allowed several answers, these count *how many people
+ * called a factor important*, not how important it is. The proposal commits
+ * to a sensitivity analysis over ±0.10 on each weight for that reason, so
+ * expect to vary them — keep them in one place.
+ */
+export const SCORE_WEIGHTS = { playstyle: 0.4, reputation: 0.28, tags: 0.32 };
 
 const LIKERT_SPAN = 4; // 5 − 1
 /** Lowest and highest star rating, for the min-max normalisation in (3.3). */
@@ -153,9 +171,9 @@ export interface MatchBreakdown {
  * Persamaan 3.1, or 3.15 when the lobby set no tag criteria (`T` is null).
  *
  * With no criteria, T is dropped and the remaining two weights are rescaled so
- * they still sum to 1 and keep their 4 : 3 ratio. Scoring the missing T as 1
- * instead would let a lobby that set no criteria outrank one whose criteria
- * the applicant actually meets.
+ * they still sum to 1 and keep their 10 : 7 ratio — the division by 0.68 the
+ * proposal spells out. Scoring the missing T as 1 instead would let a lobby
+ * that set no criteria outrank one whose criteria the applicant actually meets.
  */
 export function totalScore(P: number, R: number, T: number | null): number {
   const scored = SCORE_WEIGHTS.playstyle * P + SCORE_WEIGHTS.reputation * R;

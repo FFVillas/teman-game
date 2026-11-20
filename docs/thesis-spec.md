@@ -21,18 +21,29 @@ integrated reputation system.
 
 ## What the research says the app needs
 
-From a 58-respondent questionnaire:
+From the questionnaire — **99 respondents**, past the 96 minimum the
+proposal derives from Lemeshow (1990) for an unknown population at 95%
+confidence and a 10% margin of error. (An earlier draft of this file quoted
+58 respondents and the percentages that went with them; those were the
+pre-revision figures and every one of them has moved.)
 
-- Playstyle match (79.3%) and low-toxicity attitude (60.3%) rank above
-  raw skill (46.6%) → playstyle and reputation are primary filters, not
-  nice-to-haves.
-- Negative behavior experienced: AFK 89.7%, flaming 70.7%, trolling
-  62.1%, verbal abuse 58.6%.
-- 77.6% play on more than one device → PWA over native.
-- 53.4% play <5 hrs/week → target user is casual/mid intensity, wants
-  fast flexible grouping, not a permanent roster.
-- 63.8% prefer voice comms on Discord → lobbies need a Discord link
-  field.
+- Playstyle match (81.8%), clear communication (78.8%), personality fit
+  (65.7%) and a positive, low-toxicity attitude (57.6%) all rank above raw
+  skill (40.4%) → playstyle and reputation are primary filters, not
+  nice-to-haves. **These four counts are also where Persamaan 3.1's weights
+  come from** — see the engine section below.
+- Negative behavior experienced: AFK 87.9%, flaming 72.7%, trolling
+  68.7%, verbal abuse 57.6% → these four are exactly the reasons a 1–2 star
+  rating must pick from.
+- 78.8% play on more than one device (89.9% phone, 53.5% laptop) → PWA
+  over native.
+- 47.5% play <5 hrs/week, another 36.4% play 5–15 → target user is
+  casual/mid intensity, wants fast flexible grouping, not a permanent roster.
+- 73.7% prefer voice comms on an external platform such as Discord →
+  lobbies need a Discord link field. Direct Discord integration is out of
+  scope; the link is the whole feature.
+- 83.8% play competitive titles; within the six in scope, Mobile Legends
+  (79.8%), PUBG Mobile (43.4%) and Valorant (41.4%) lead.
 
 ## Scope
 
@@ -52,15 +63,35 @@ chosen over a neural model so the ranking stays explainable — that
 explainability is itself part of the thesis argument. Lobbies are hard
 filtered by game first, then ranked by:
 
+> ⚠️ **The formula below is the one the supervisor struck out on 14 October
+> 2026.** It is kept because the rest of this file still refers to it, but
+> `src/lib/recommendation.ts` and
+> [`proposal-revision-2026-10.md`](proposal-revision-2026-10.md) are what the
+> build follows. Two things changed: **`M_rank` is gone entirely** (rank is a
+> filter now, nothing more), and the weights are **0.40 / 0.28 / 0.32**, not
+> 0.40 / 0.30 / 0.30.
+
 ```
+Current (Persamaan 3.1 and 3.15, revised 14 Oct 2026)
+S_total = 0.40·P + 0.28·R + 0.32·T
+S_total = (0.40·P + 0.28·R) / 0.68          when |B| = 0
+
+Struck out (pre-revision)
 S_total = (0.40·P + 0.30·R + 0.30·T) × M_rank
 M_rank  = max(0.30, 1 − (ΔR / 10 × 0.70))
 ```
 
-The weights (0.40/0.30/0.30) are typed as plain text in the proposal's
-Persamaan 3.1, not locked in an image — confirmed 2026-09-19 by extracting
-`word/document.xml` from the docx directly. An earlier version of this
-doc hedged on this; that hedge was wrong and is now removed.
+The weights are counted off the questionnaire, not chosen: of the factors
+in Gambar L2.9, playstyle was named by 81 respondents, personality fit by
+65 and positive attitude by 57, and each over the total of 203 gives 0.399,
+0.320 and 0.281. Because the question allowed several answers they measure
+*how many people called a factor important*, not how important it is —
+which is why the proposal commits to a sensitivity analysis over ±0.10 on
+each weight.
+
+They are typed as plain text in the proposal, not locked in an image —
+confirmed by extracting `word/document.xml` from the docx directly, first on
+2026-09-19 and again on 2026-11-20 against the revised document.
 
 `S_total` lands in 0.00–1.00. Components:
 
