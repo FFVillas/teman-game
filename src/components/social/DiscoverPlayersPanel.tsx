@@ -68,7 +68,7 @@ export default function DiscoverPlayersPanel() {
         {!loading && players.length === 0 && (
           <div className="sm:col-span-1 lg:col-span-2">
             <EmptyState
-              icon="/icons/social-compass.svg"
+              mascot={query ? "search" : "soon"}
               title={query ? "No players found" : "Nobody new to discover yet"}
               description={
                 query

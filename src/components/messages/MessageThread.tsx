@@ -63,9 +63,11 @@ export default function MessageThread({
   if (!conversation) {
     return (
       <div className="flex min-h-0 min-w-0 flex-1 flex-col p-6">
+        {/* The thread pane only, not the list beside it: two mascots on one
+            screen would be one too many, and this is the bigger surface. */}
         <EmptyState
           fill
-          icon="/icons/nav-chat.svg"
+          mascot="chat"
           title="Select a conversation"
           description="Pick a chat on the left to read it and reply."
         />

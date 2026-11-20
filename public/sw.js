@@ -15,7 +15,7 @@
 //
 // Bump VERSION when this file changes so old caches are cleared.
 
-const VERSION = "v3";
+const VERSION = "v4";
 const STATIC_CACHE = `temangame-static-${VERSION}`;
 const PAGE_CACHE = `temangame-pages-${VERSION}`;
 const OFFLINE_URL = "/offline";
@@ -23,7 +23,11 @@ const OFFLINE_URL = "/offline";
 const PRECACHE = [
   OFFLINE_URL,
   "/pwa/icon-192.png",
-  "/icons/logo-mark.svg",
+  // What the offline screen itself draws. It is the one page that has to
+  // render with no network at all, so whatever it shows has to be in here —
+  // change that page's artwork and change this list in the same commit, or
+  // the only screen a disconnected player sees has a broken image on it.
+  "/mascot/worried.svg",
 ];
 
 // The offline screen must draw with no network at all, so its stylesheet and

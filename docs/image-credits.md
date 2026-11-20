@@ -24,6 +24,7 @@ needs the "not affiliated with" disclaimer.
 | Mobile Legends / PUBG Mobile / Free Fire lobby covers (4 each) | `lfg/covers/<game>/` | Downloaded by the project owner from wallpaper sites; source pages not recorded | 2026-11-18 |
 | Mobile Legends lane icons (5) | `roles/mobile-legends/` | Mobile Legends: Bang Bang Wiki on Fandom (`Gold_Lane.png`, `EXP_Lane.png`, `Mid_Lane.png`, `Jungling.png`, `Roaming.png`) | 2026-11-18 |
 | Counter-Strike 2 rank badges (7 tiers) | `ranks/counter-strike-2/` | Counter-Strike Wiki on Fandom, Matchmaking page (`Skillgroup<n>_new.png`); the highest skill group of each tier was taken, since the badges are keyed per tier here | 2026-11-18 |
+| **Bounce, the mascot** (28 poses), app icons, PWA icons, favicon | `mascot/`, `icons/logo-mark.svg`, `pwa/`, `src/app/favicon.ico` | **Made by the team** — original work, no third-party rights involved. Delivered as `Teman Game Logo package.zip` with a showcase at `TemanGame-Bounce.html`. The PWA icons and the favicon are generated from it, not drawn separately | 2026-11-20 |
 
 Files were recompressed to WebP and resized (ranks to 128 px, covers to 900 px
 wide, panels to 1600 px wide). Raw downloads live in the git-ignored `inbox/`.
