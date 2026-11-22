@@ -979,6 +979,14 @@ in `src/test/`. Test cases follow the proposal's boundary values (rating 0, 1,
 `supabase/dev-seed/seed.sql` holds the test lobbies for Precision@5: five open
 ones per game, varied on playstyle, wanted tags, rank range and reputation.
 
+**The evaluation the proposal promises is planned in
+[`docs/test-plan.md`](docs/test-plan.md)** — black-box (boundary values,
+decision tables, state transitions) and the non-functional run first and
+internally, then one session per pair of UAT participants produces UAT, SUS,
+the UI/UX items and Precision@5 together. Every boundary value in it is taken
+from a real constraint, with the migration named, so don't change a limit in
+the database without changing that table too.
+
 ## Design source
 
 Built from Figma file `CQg1F1t0GJh5BmiDacwNvC`:

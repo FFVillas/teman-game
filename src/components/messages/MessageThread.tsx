@@ -43,13 +43,22 @@ export default function MessageThread({
   onBack,
 }: MessageThreadProps) {
   const [draft, setDraft] = useState("");
-  const endRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
   // Messages need an account; until the session has loaded, a neutral "You".
   const currentUser = user ?? { name: "You", avatar: "" };
 
+  // Scroll the message list itself, the same way LobbyChat does.
+  //
+  // This used to call `scrollIntoView` on a sentinel at the end of the list,
+  // and `scrollIntoView` scrolls *every* scrollable ancestor — the window
+  // included. `/messages` sizes its main to `calc(100dvh-60px)` with the
+  // footer below it, so the document does scroll: once the thread had enough
+  // messages to overflow (about three), every new one dragged the window down
+  // and took the composer off the bottom of the screen with it.
   useEffect(() => {
-    endRef.current?.scrollIntoView({ block: "end" });
+    const list = listRef.current;
+    if (list) list.scrollTop = list.scrollHeight;
   }, [conversation?.id, conversation?.messages.length]);
 
   function handleSubmit(event: FormEvent) {
@@ -96,7 +105,10 @@ export default function MessageThread({
         </Link>
       </div>
 
-      <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-4 sm:p-6">
+      <div
+        ref={listRef}
+        className="flex flex-1 flex-col gap-3 overflow-y-auto p-4 sm:p-6"
+      >
         {conversation.messages.length === 0 && (
           <EmptyState
             fill
@@ -149,8 +161,7 @@ export default function MessageThread({
               </div>
             </div>
           );
-        })}
-        <div ref={endRef} />
+        })}
       </div>
 
       <form
