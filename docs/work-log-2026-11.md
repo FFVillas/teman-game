@@ -237,3 +237,50 @@ Applied by hand in the Supabase SQL editor; never edit one that has run.
 Finish 5B: Firebase project, the four settings on Vercel, the Vault secrets,
 then test on Android and a real iPhone (iOS 16.4+, home-screen app). After
 that, the open decisions above, then step 6 (admin console on Supabase).
+
+## Testing (22 Nov) — serah terima
+
+Acuan: *Draft Revisi Proposal 20 November* (Google Docs), 3.1.6. Bobot di paper
+dan kode sama: 0,40 / 0,28 / 0,32. Daftar isi dan status ada di
+`testing/README.md`.
+
+**Sudah:**
+- `testing/blackbox/TemanGame_BlackBox_RTM.xlsx`: F-01…F-25, 146 kasus uji
+  (EP/BVA/DT/ST, jalur UI atau API), RTM dan ringkasan yang dihitung otomatis,
+  decision table, state transition, perhitungan S_total. Semua masih "Belum
+  dijalankan".
+- `testing/env/test_project_schema.sql`: 44 migration dalam satu file untuk
+  project Supabase uji (cara pakai di `testing/env/README.md`). Belum pernah
+  dijalankan; kalau error, perbaiki bagian yang disebut di pesan error.
+
+**Keputusan yang sudah diambil:**
+- Black-box jalur API dan k6 di **project Supabase kedua**; sesi partisipan di
+  aplikasi utama yang versinya dibekukan.
+- k6 = **breakpoint test** (beban naik bertahap; kapasitas = VU tertinggi dengan
+  p95 < 1 s dan galat < 1%). Login diukur terpisah dengan beban kecil (rate
+  limit Supabase per IP), dicatat sebagai batasan. Satu akun per VU; seed lobi
+  selesai ≥ 15 menit untuk rating; batas chat 30/menit.
+- Sensitivitas: **±0,10 per bobot** sebagai skenario utama (paper), plus ±0,05,
+  tukar T↔R, bobot rata, dan jarak playstyle tidak sama (asumsi Persamaan 3.2).
+- Matching Accuracy: **±10 lobi uji per gim** yang dimainkan pasangan
+  partisipan; top-5 dicatat setelah tugas 1 dan sebelum tugas 3.
+- SUS, UI/UX, kuesioner dan lembar observasi dibuat tim (bukan di repo).
+
+**Berikutnya (urut):**
+1. Pencatat web-vitals (LCP/INP/CLS per pemuatan halaman → tabel baru, p75);
+   harus aktif sebelum sesi partisipan.
+2. Tombol "kirim notifikasi uji" di Settings + log hasil, untuk uji push ≥ 95%
+   (pakai notifikasi biasa, bukan chat, karena chat punya cooldown).
+3. Seed ±10 lobi uji per gim + script reset antarpasangan (jangan hapus akun
+   partisipan; mereka dibutuhkan untuk sesi retention 3–7 hari kemudian).
+4. Script jalur API untuk 30 kasus black-box + SQL pengatur waktu (15 menit,
+   6 jam, 48 jam).
+5. Script k6 breakpoint untuk project uji.
+6. Script analisis sensitivitas (offline, tanpa mengubah aplikasi).
+7. Checklist PWA.
+8. Bekukan versi (tag Git, tanpa migration baru, env Vercel tetap).
+
+**Saran untuk paper:** slot lobi "1 dan 2 (di bawah dan tepat pada batas
+minimum) serta maksimum dan maksimum + 1"; status lamaran di aplikasi
+`declined`/`left` (paper: `rejected`); "sekitar 10 lobi uji untuk setiap gim".
+
