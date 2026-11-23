@@ -21,8 +21,9 @@ export interface AboutYou {
  * Account-level profile details, asked during signup rather than left for
  * the edit form: an empty profile is the thing teammates can't judge, and a
  * player who fills none of this is invisible to the filters other people
- * search with. Everything stays optional — the step can be skipped, and
- * anything left blank renders as "Not set" rather than a guess.
+ * search with. The date of birth is required (18+, UU PDP) and this step
+ * can't be skipped; everything else stays optional, and anything left blank
+ * renders as "Not set" rather than a guess.
  *
  * The inputs themselves are the same components the edit form uses, so the
  * vocabulary and validation can't drift (see profile/DossierFields.tsx).
@@ -42,12 +43,12 @@ export default function AboutYouStep({
         <h2 className="text-lg font-bold text-white">About you</h2>
         <p className="text-sm text-text-muted">
           Teammates use this to judge whether you fit before they invite you.
-          All of it is optional, and you can change it any time.
+          Only your date of birth is required; the rest is optional.
         </p>
       </div>
 
       <div className="flex flex-col gap-5">
-        <Field label="Date of birth">
+        <Field label="Date of birth" required>
           <DateOfBirthField
             parts={value.dobParts}
             onChange={(dobParts) => onChange({ dobParts })}
@@ -57,7 +58,8 @@ export default function AboutYouStep({
             <p className="text-[11px] text-danger">{errors.dateOfBirth}</p>
           ) : (
             <p className="text-[11px] text-text-muted">
-              Only your age is shown to other players, never the date.
+              You must be 18 or older. Only your age is shown to other
+              players, never the date.
             </p>
           )}
         </Field>

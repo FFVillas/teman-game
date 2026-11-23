@@ -27,7 +27,7 @@ import {
   newAvatarPath,
   processAvatar,
 } from "@/lib/avatar";
-import { saveDateOfBirth, type ProfileRow } from "@/lib/profiles";
+import { saveDateOfBirth, saveShowAge, type ProfileRow } from "@/lib/profiles";
 import {
   removeGameSetup,
   saveGameSetup,
@@ -75,6 +75,7 @@ export default function EditProfileForm({
   row,
   userId,
   dateOfBirth: initialDateOfBirth,
+  showAge: initialShowAge = true,
   catalog,
   gameSetups,
 }: {
@@ -84,6 +85,8 @@ export default function EditProfileForm({
   userId: string;
   /** "YYYY-MM-DD" or "" — private, only ever loaded for the owner. */
   dateOfBirth: string;
+  /** Whether other players see the age (profile_private.show_age). */
+  showAge?: boolean;
   /** Every game that can be added, with its ranks and roles. */
   catalog: GameInfo[];
   /** The games this player already has set up. */
@@ -97,6 +100,7 @@ export default function EditProfileForm({
   const [dobParts, setDobParts] = useState<DateParts>(() =>
     splitDate(initialDateOfBirth)
   );
+  const [showAge, setShowAge] = useState(initialShowAge);
   const [gender, setGender] = useState(profile.dossier.gender);
   const [languages, setLanguages] = useState<string[]>(row.languages);
   const [schedule, setSchedule] = useState({
@@ -218,6 +222,11 @@ export default function EditProfileForm({
     const usernameError = validateUsername(username);
     if (usernameError) nextErrors.username = usernameError;
     const dateOfBirth = joinDate(dobParts);
+    // Required since onboarding asks for it (18+); clearing it here would only
+    // send the player back to /onboarding on the next page.
+    if (!nextErrors.dateOfBirth && !dateOfBirth) {
+      nextErrors.dateOfBirth = "Your date of birth is required.";
+    }
 
     // Tags feed Persamaan 3.14, so a half-filled set would quietly skew T.
     // Empty stays allowed: an account that never picked any is a real state,
@@ -269,6 +278,15 @@ export default function EditProfileForm({
       if (dobError) {
         setSaving(false);
         setErrors({ dateOfBirth: dobError });
+        return;
+      }
+    }
+
+    if (showAge !== initialShowAge) {
+      const showAgeError = await saveShowAge(supabase, userId, showAge);
+      if (showAgeError) {
+        setSaving(false);
+        setErrors({ dateOfBirth: showAgeError });
         return;
       }
     }
@@ -502,9 +520,18 @@ export default function EditProfileForm({
                 <p className="text-[11px] text-danger">{errors.dateOfBirth}</p>
               ) : (
                 <p className="text-[11px] text-text-muted">
-                  Only your age is shown to other players.
+                  The date is never shown, only the age it works out to.
                 </p>
               )}
+              <label className="mt-1 flex cursor-pointer items-center gap-2 text-xs text-text-subtle">
+                <input
+                  type="checkbox"
+                  checked={showAge}
+                  onChange={(event) => setShowAge(event.target.checked)}
+                  className="size-4 accent-brand"
+                />
+                Show my age on my profile
+              </label>
             </Field>
 
             <Field label="Gender">

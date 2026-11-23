@@ -103,6 +103,40 @@ export async function fetchOwnDateOfBirth(
 }
 
 /**
+ * Whether the signed-in user shows their age to others (`profile_private
+ * .show_age`, 20261123000100_hide_age.sql). True when unknown, which is also
+ * the default, so a database without that migration reads as before.
+ */
+export async function fetchOwnShowAge(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("profile_private")
+    .select("show_age")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error || !data) return true;
+  return data.show_age !== false;
+}
+
+/**
+ * Turns showing the age on or off. The row always exists by now: the date of
+ * birth is required in onboarding and saved before this runs.
+ */
+export async function saveShowAge(
+  supabase: SupabaseClient,
+  userId: string,
+  showAge: boolean,
+): Promise<string | null> {
+  const { error } = await supabase
+    .from("profile_private")
+    .update({ show_age: showAge })
+    .eq("user_id", userId);
+  return error ? "Couldn't save whether your age is shown. Try again." : null;
+}
+
+/**
  * Writes the signed-in user's date of birth ("YYYY-MM-DD", or null to clear
  * it). Returns an error message to show, or null on success.
  *

@@ -594,13 +594,17 @@ tournament).
 
 ## Onboarding
 
-Steps: games → rank & role (skipped when no game is picked) → **about you**
-→ playstyle → accounts. `AboutYouStep` collects date of birth, gender,
+Steps: **about you → playstyle** (the compulsory ones, first) → games → rank
+& role (skipped when no game is picked) → accounts. `AboutYouStep` collects date of birth, gender,
 languages and play hours; it shares its inputs and validation with the edit
 form through `components/profile/DossierFields.tsx`, so the two can't drift.
 
-**The playstyle step is compulsory; every other step is optional and
-skippable.** That step holds the two things the recommendation formula reads
+**Three things are compulsory: date of birth ("About you", 18+ under UU PDP)
+and the playstyle step; every other step is optional.** "Skip and finish"
+appears only on the optional steps after them: it saves what is required and
+finishes, recording nothing for the step on screen (skipping games drops the
+picked games, skipping rank keeps the games without details). The edit form
+refuses to clear the date of birth. That step holds the two things the recommendation formula reads
 from the player — the 1–5 playstyle (`Pa`, Persamaan 3.2) and 3–5 personality
 tags (Persamaan 3.14) — so "Skip for now" is hidden there and Continue stays
 disabled until both are set. Nothing is pre-selected: playstyle starts `null`,
@@ -608,7 +612,7 @@ because the old `useState(3)` wrote "Seimbang" for players who never chose it,
 straight into the heaviest-weighted term of the score.
 
 `src/proxy.ts` is the other half: a signed-in player whose profile is missing
-either one is sent back to `/onboarding`, so closing the tab halfway doesn't
+playstyle, tags or a date of birth (`profile_private`) is sent back to `/onboarding`, so closing the tab halfway doesn't
 get an account with no `Pa` into the scoring. Staff accounts and the auth,
 settings, admin and legal routes are exempt, and the check only runs on page
 navigations.
@@ -630,7 +634,9 @@ tags, reputation, gender, languages (list), a structured play schedule
 `src/lib/availability.ts`; option lists in `src/data/profile-options.ts`),
 plus a **private** date of
 birth (`profile_private`, owner-only; others see only the derived age via
-`profile_age()`). **Personality tags are rows in `tag` + `user_tag`**
+`profile_age()`, and not even that when the player unticks "Show my age on my
+profile" in Edit profile: `profile_private.show_age`,
+`20261123000100_hide_age.sql`; the owner still sees it). **Personality tags are rows in `tag` + `user_tag`**
 (`20261116000000_personality_tags.sql`), read and written through
 `src/lib/tags.ts`; `profiles.personality_tags` is dead and no longer read
 anywhere, pending a migration that drops it. A deferred constraint trigger

@@ -38,6 +38,7 @@ import LobbyMembers from "./LobbyMembers";
 import RealInvitePlayersModal from "./RealInvitePlayersModal";
 import RatingModal from "./RatingModal";
 import EndLobbyDialog from "./EndLobbyDialog";
+import ConfirmDialog from "./ConfirmDialog";
 
 /** "Oct 6, 9:12 PM" in UTC+7, the same clock the create form uses. */
 function when(iso: string): string {
@@ -443,7 +444,24 @@ export default function RealLobbyDetail({
         />
       )}
 
-      {confirming && confirming !== "close" && (
+      {/* A member walking out of a lobby that's already playing can't come
+          back (it takes no new players), so that one asks in a pop-up. Before
+          the start, leaving is cheap and the inline bar below is enough. */}
+      {confirming === "leave" && started && state === "member" && (
+        <ConfirmDialog
+          title="Leave this lobby?"
+          body="The lobby has already started, so you can't rejoin unless the leader reopens recruiting. You can still rate your teammates once it ends."
+          confirmLabel="Leave lobby"
+          cancelLabel="Stay"
+          busy={busy}
+          onConfirm={confirmed}
+          onClose={() => setConfirming(null)}
+        />
+      )}
+
+      {confirming &&
+        confirming !== "close" &&
+        !(confirming === "leave" && started && state === "member") && (
         <div className={`${banner} border-danger/40 bg-danger/10`}>
           <p className="text-xs font-bold text-white">
             {confirming === "remove"
