@@ -6,6 +6,7 @@ import EditProfileForm from "@/components/profile/EditProfileForm";
 import { createClient } from "@/lib/supabase/server";
 import {
   fetchOwnDateOfBirth,
+  fetchOwnShowAge,
   fetchProfileById,
   profileFromRow,
 } from "@/lib/profiles";
@@ -30,8 +31,9 @@ export default async function EditProfilePage() {
   if (!row) notFound();
 
   const profile = profileFromRow(row, { isOwner: true });
-  const [dateOfBirth, catalog] = await Promise.all([
+  const [dateOfBirth, showAge, catalog] = await Promise.all([
     fetchOwnDateOfBirth(supabase, user.id),
+    fetchOwnShowAge(supabase, user.id),
     fetchGameCatalog(supabase),
   ]);
   const gameSetups = await fetchPlayerGameSetups(supabase, user.id, catalog);
@@ -46,6 +48,7 @@ export default async function EditProfilePage() {
             row={row}
             userId={user.id}
             dateOfBirth={dateOfBirth}
+            showAge={showAge}
             catalog={catalog}
             gameSetups={gameSetups}
           />

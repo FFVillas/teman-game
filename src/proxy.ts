@@ -47,14 +47,20 @@ export async function proxy(request: NextRequest) {
   if (userId && needsSetupGate(request)) {
     // Two tiny indexed lookups, and only on real page navigations — never on
     // the data fetches this matcher also sees.
-    const [{ data: profile }, { data: admin }] = await Promise.all([
-      supabase
-        .from("profiles")
-        .select("playstyle, is_suspended, user_tag (tag_id)")
-        .eq("id", userId)
-        .maybeSingle(),
-      supabase.from("admins").select("user_id").eq("user_id", userId).maybeSingle(),
-    ]);
+    const [{ data: profile }, { data: admin }, { data: privateRow, error: privateError }] =
+      await Promise.all([
+        supabase
+          .from("profiles")
+          .select("playstyle, is_suspended, user_tag (tag_id)")
+          .eq("id", userId)
+          .maybeSingle(),
+        supabase.from("admins").select("user_id").eq("user_id", userId).maybeSingle(),
+        supabase
+          .from("profile_private")
+          .select("date_of_birth")
+          .eq("user_id", userId)
+          .maybeSingle(),
+      ]);
 
     // A suspension that began while this session was open: the restricted
     // page ends the session and says why. Nothing else is reachable meanwhile.
@@ -72,7 +78,10 @@ export async function proxy(request: NextRequest) {
       !admin &&
       profile != null &&
       (profile.playstyle == null ||
-        (profile.user_tag?.length ?? 0) < MIN_PERSONALITY_TAGS);
+        (profile.user_tag?.length ?? 0) < MIN_PERSONALITY_TAGS ||
+        // No date of birth: the 18+ rule can't have been checked. Only on a
+        // definite "no row / empty", never on a failed read.
+        (!privateError && !privateRow?.date_of_birth));
 
     if (incomplete) {
       const url = request.nextUrl.clone();
@@ -93,11 +102,12 @@ export async function proxy(request: NextRequest) {
 }
 
 /**
- * Playstyle and personality tags are the two things a player supplies that the
- * recommendation formula reads — Pa in Persamaan 3.2 and the tag set in
- * Persamaan 3.14. Onboarding makes both compulsory, but a player could still
- * close the tab halfway and start browsing without them, which would put an
- * account with no Pa into the scoring. This sends them back.
+ * Three things onboarding makes compulsory: playstyle and personality tags,
+ * which the recommendation formula reads (Pa in Persamaan 3.2, the tag set in
+ * Persamaan 3.14), and the date of birth, without which the 18+ rule
+ * (20261115000000_minimum_age_18.sql, UU PDP) was never checked. A player
+ * could still close the tab halfway and start browsing — or arrive through
+ * Google/Discord, which skip the form — so this sends them back.
  *
  * Everything else onboarding asks for stays optional.
  */

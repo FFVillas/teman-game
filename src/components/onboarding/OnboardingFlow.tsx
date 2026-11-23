@@ -17,7 +17,7 @@ import { gameProfileProblem } from "@/lib/game-profile";
 import { saveDateOfBirth } from "@/lib/profiles";
 import { saveUserTags } from "@/lib/tags";
 import type { PersonalityTag } from "@/data/player-profiles";
-import { emptyDateParts, joinDate } from "@/lib/age";
+import { emptyDateParts, joinDate, MINIMUM_AGE } from "@/lib/age";
 import { validateDossier } from "@/components/profile/DossierFields";
 import GamesStep from "./GamesStep";
 import AboutYouStep, { type AboutYou } from "./AboutYouStep";
@@ -68,13 +68,15 @@ export default function OnboardingFlow({ catalog }: { catalog: GameInfo[] }) {
   const [connected, setConnected] = useState<Set<ConnectedProvider>>(new Set());
   const [stepIndex, setStepIndex] = useState(0);
 
-  // "rank" only makes sense once at least one game is picked — skipped
-  // entirely (not shown as an empty step) when selectedGames is empty.
+  // The three compulsory answers come first — date of birth ("about", 18+),
+  // then playstyle and tags — so everything after them can be skipped
+  // without leaving the account half set up. "rank" only makes sense once at
+  // least one game is picked, so it isn't shown as an empty step otherwise.
   const steps: StepId[] = useMemo(
     () =>
       selectedGames.length > 0
-        ? ["games", "rank", "about", "playstyle", "connect"]
-        : ["games", "about", "playstyle", "connect"],
+        ? ["about", "playstyle", "games", "rank", "connect"]
+        : ["about", "playstyle", "games", "connect"],
     [selectedGames.length],
   );
   const step = steps[stepIndex];
@@ -121,12 +123,23 @@ export default function OnboardingFlow({ catalog }: { catalog: GameInfo[] }) {
     });
   }
 
-  /** Leaving without saving anything, so a skipped setup records no answers. */
+  /**
+   * "Skip for now" only appears after the compulsory steps, so skipping means
+   * "save what's required and finish". The step on screen records nothing:
+   * skipping games drops the picked games, skipping rank keeps the games but
+   * not their details, skipping accounts drops nothing that is saved anyway.
+   */
   function skip() {
-    router.push(destination);
+    if (step === "games") finish({ games: [], details: {} });
+    else if (step === "rank") finish({ details: {} });
+    else finish();
   }
 
-  async function finish() {
+  async function finish(
+    override: { games?: string[]; details?: Record<string, GameProfile> } = {},
+  ) {
+    const games = override.games ?? selectedGames;
+    const allDetails = override.details ?? gameDetails;
     setSaving(true);
     setSaveError(null);
 
@@ -190,22 +203,22 @@ export default function OnboardingFlow({ catalog }: { catalog: GameInfo[] }) {
     // that step is not saved yet.
     // Check every game's account fields first, so a typo in the last game
     // doesn't leave the earlier ones half saved.
-    for (const slug of selectedGames) {
-      const problem = gameProfileProblem(slug, gameDetails[slug] ?? emptyGameProfile);
+    for (const slug of games) {
+      const problem = gameProfileProblem(slug, allDetails[slug] ?? emptyGameProfile);
       if (problem) {
         setSaving(false);
         setSaveError(
           `${catalog.find((g) => g.slug === slug)?.name ?? slug}: ${problem}`,
         );
-        setStepIndex(steps.indexOf("rank"));
+        setStepIndex(Math.max(0, steps.indexOf("rank")));
         return;
       }
     }
 
-    for (const slug of selectedGames) {
+    for (const slug of games) {
       const game = catalog.find((g) => g.slug === slug);
       if (!game) continue;
-      const details = gameDetails[slug] ?? emptyGameProfile;
+      const details = allDetails[slug] ?? emptyGameProfile;
 
       const failure = await saveGameSetup(supabase, userId, {
         gameId: game.id,
@@ -246,6 +259,11 @@ export default function OnboardingFlow({ catalog }: { catalog: GameInfo[] }) {
         dobParts: about.dobParts,
         schedule: about.schedule,
       });
+      // Required here (not on the edit form, where it's already set): the
+      // 18+ rule can only be checked against a date (UU PDP; proposal 1.3).
+      if (!found.dateOfBirth && !joinDate(about.dobParts)) {
+        found.dateOfBirth = `Enter your date of birth. TemanGame is for players ${MINIMUM_AGE} and over.`;
+      }
       if (found.dateOfBirth || found.schedule) {
         setAboutErrors(found);
         // Skipping ahead from a later step shouldn't silently drop the fix.
@@ -267,8 +285,9 @@ export default function OnboardingFlow({ catalog }: { catalog: GameInfo[] }) {
 
   /**
    * The playstyle step feeds the recommendation formula — Pa in Persamaan 3.2
-   * and the tags in Persamaan 3.14 — so it is the one step that cannot be
-   * skipped or left half-filled. Everything else on this flow stays optional.
+   * and the tags in Persamaan 3.14 — so it cannot be skipped or left
+   * half-filled. "About you" can't be skipped either (date of birth), but its
+   * check runs on Continue, where it can say what's wrong.
    */
   const playstyleStepProblem =
     playstyle === null
@@ -284,16 +303,16 @@ export default function OnboardingFlow({ catalog }: { catalog: GameInfo[] }) {
         <Logo />
       </div>
 
-      {/* Hidden on the playstyle step: skipping there would leave the
-          formula without Pa and without tags. */}
-      {step !== "playstyle" && (
+      {/* Only on the optional steps after them. "About you" holds the date
+          of birth (18+), "Playstyle" holds Pa and the tags the formula needs. */}
+      {step !== "playstyle" && step !== "about" && (
         <button
           type="button"
           onClick={skip}
           disabled={saving}
           className="absolute right-4 top-4 text-xs font-semibold text-text-muted transition-colors hover:text-white sm:right-6 sm:top-6"
         >
-          Skip for now
+          Skip and finish
         </button>
       )}
 

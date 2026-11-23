@@ -29,13 +29,19 @@ export const genderOptions = ["Male", "Female", "Prefer not to say"];
 export function Field({
   label,
   children,
+  required = false,
 }: {
   label: string;
   children: ReactNode;
+  /** Adds a "Required" marker after the label. */
+  required?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <span className={labelClass}>{label}</span>
+      <span className={labelClass}>
+        {label}
+        {required && <span className="ml-1.5 text-danger">*</span>}
+      </span>
       {children}
     </div>
   );
