@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Logo from "@/components/Logo";
 import { sanitizeNextPath } from "@/lib/auth-redirect";
 import { useNotifications } from "@/contexts/NotificationContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import {
   DEFAULT_TIMEZONE,
@@ -49,6 +50,7 @@ export default function OnboardingFlow({ catalog }: { catalog: GameInfo[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useNotifications();
+  const { logout } = useAuth();
   const destination = sanitizeNextPath(searchParams.get("next"));
 
   // Game slugs, in the order they were picked. Details are keyed by slug too.
@@ -300,7 +302,9 @@ export default function OnboardingFlow({ catalog }: { catalog: GameInfo[] }) {
   return (
     <div className="relative flex min-h-screen flex-col items-center px-4 py-8 sm:px-6 sm:py-12">
       <div className="absolute left-4 top-4 sm:left-6 sm:top-6">
-        <Logo />
+        {/* Not a link: leaving from here lost every answer, and a
+            client-side hop home slipped past proxy.ts's setup gate. */}
+        <Logo asLink={false} />
       </div>
 
       {/* Only on the optional steps after them. "About you" holds the date
@@ -313,6 +317,23 @@ export default function OnboardingFlow({ catalog }: { catalog: GameInfo[] }) {
           className="absolute right-4 top-4 text-xs font-semibold text-text-muted transition-colors hover:text-white sm:right-6 sm:top-6"
         >
           Skip and finish
+        </button>
+      )}
+
+      {/* On the compulsory steps there is no skip, so this is the way out
+          (wrong account, or finishing later). Answers so far aren't saved,
+          and the next sign-in comes back here. */}
+      {(step === "playstyle" || step === "about") && (
+        <button
+          type="button"
+          onClick={() => {
+            logout();
+            router.push("/");
+          }}
+          disabled={saving}
+          className="absolute right-4 top-4 text-xs font-semibold text-text-muted transition-colors hover:text-white sm:right-6 sm:top-6"
+        >
+          Log out
         </button>
       )}
 

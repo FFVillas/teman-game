@@ -4,13 +4,6 @@ import Link from "next/link";
 import type { LobbyMember } from "@/data/lfg-lobby";
 import PlayerAvatar from "@/components/lfg/PlayerAvatar";
 
-/** Someone invited who hasn't answered: the mock candidates and real invitees both fit. */
-export interface PendingInvite {
-  id: string;
-  name: string;
-  avatar: string;
-}
-
 interface LobbyMembersProps {
   members: LobbyMember[];
   slotsTotal: number;
@@ -18,9 +11,6 @@ interface LobbyMembersProps {
   /** Leaders can remove members; members just see the roster. */
   canManage: boolean;
   onRemove?: (memberId: string) => void;
-  /** Invites that are out but not answered. They sit in open slots. */
-  pendingInvites?: PendingInvite[];
-  onCancelInvite?: (candidateId: string) => void;
   /** Present only when the viewer may invite (leader, lobby not over). */
   onInvite?: () => void;
 }
@@ -31,13 +21,10 @@ export default function LobbyMembers({
   currentUserId,
   canManage,
   onRemove,
-  pendingInvites = [],
-  onCancelInvite,
   onInvite,
 }: LobbyMembersProps) {
-  const openSlots = Math.max(slotsTotal - members.length, 0);
-  const shownInvites = pendingInvites.slice(0, openSlots);
-  const emptySlots = openSlots - shownInvites.length;
+  // Invites don't hold slots, so every place nobody has taken is open.
+  const emptySlots = Math.max(slotsTotal - members.length, 0);
 
   return (
     <section className="flex flex-col gap-3 rounded-2xl border border-border-strong bg-bg-card-alt p-5">
@@ -171,36 +158,6 @@ export default function LobbyMembers({
           </li>
           );
         })}
-
-        {shownInvites.map((invite) => (
-          <li
-            key={invite.id}
-            className="flex items-center gap-3 rounded-xl border border-dashed border-brand/40 bg-brand/[0.04] p-3"
-          >
-            <PlayerAvatar
-              src={invite.avatar}
-              name={invite.name}
-              className="size-10 shrink-0 text-sm opacity-60"
-            />
-            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <span className="truncate text-sm font-bold text-white/80">
-                {invite.name}
-              </span>
-              <span className="text-[11px] text-brand">
-                Invited · waiting for reply
-              </span>
-            </div>
-            {onCancelInvite && (
-              <button
-                type="button"
-                onClick={() => onCancelInvite(invite.id)}
-                className="shrink-0 rounded-md border border-border-strong px-2.5 py-1 text-[11px] font-semibold text-text-muted transition-colors hover:border-danger hover:text-danger"
-              >
-                Cancel
-              </button>
-            )}
-          </li>
-        ))}
 
         {Array.from({ length: emptySlots }).map((_, index) =>
           onInvite ? (

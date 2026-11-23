@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNotifications } from "@/contexts/NotificationContext";
 import { createClient } from "@/lib/supabase/client";
 import { blockUser, removeFriendship, sendFriendRequest } from "@/lib/social";
-import { fetchMyInvitingLobby, inviteToLobby } from "@/lib/lobbies";
+import { fetchMyInvitingLobby, fetchMyPendingInvitees, inviteToLobby } from "@/lib/lobbies";
 import type { MessageParticipant } from "@/data/lfg-messages";
 
 interface PlayerRowActionsProps {
@@ -26,6 +26,18 @@ interface PlayerRowActionsProps {
   friendshipId?: string;
   /** Called after the friendship was removed. */
   onRemoved?: () => void;
+}
+
+/**
+ * Who already has an invite to my lobby, asked once per page however many
+ * rows there are, and forgotten after a new invite so the next page asks again.
+ */
+let pendingInvitees: { userId: string; ids: Promise<Set<string>> } | null = null;
+function myPendingInvitees(userId: string): Promise<Set<string>> {
+  if (pendingInvitees?.userId !== userId) {
+    pendingInvitees = { userId, ids: fetchMyPendingInvitees(createClient(), userId) };
+  }
+  return pendingInvitees.ids;
 }
 
 const iconButton =
@@ -54,6 +66,19 @@ export default function PlayerRowActions({
   const [blocking, setBlocking] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [removing, setRemoving] = useState(false);
+
+  // A friend I've already invited shows "Invited", locked, here as in the
+  // lobby's own picker, even after a reload.
+  useEffect(() => {
+    if (!isFriend || !real || !user) return;
+    let cancelled = false;
+    myPendingInvitees(user.id).then((ids) => {
+      if (!cancelled && ids.has(target.id)) setSent(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isFriend, real, user, target.id]);
 
   // Two clicks, so a stray one doesn't end a friendship.
   async function handleRemove(event: React.MouseEvent) {
@@ -115,6 +140,7 @@ export default function PlayerRowActions({
         return;
       }
       setSent(true);
+      pendingInvitees = null;
       // The row doesn't show where they were invited, so say it.
       toast({
         tone: "success",

@@ -17,7 +17,6 @@ import type {
 import { roleIconFor } from "@/data/role-icons";
 import type { GameInfo } from "@/lib/games";
 import {
-  cancelInvite,
   closeLobby,
   leaveLobby,
   removeMember,
@@ -39,6 +38,8 @@ import RealInvitePlayersModal from "./RealInvitePlayersModal";
 import RatingModal from "./RatingModal";
 import EndLobbyDialog from "./EndLobbyDialog";
 import ConfirmDialog from "./ConfirmDialog";
+import { INVITES_PER_OPEN_SLOT } from "@/lib/lobbies";
+import LobbyLookingFor from "@/components/lfg/LobbyLookingFor";
 
 /** "Oct 6, 9:12 PM" in UTC+7, the same clock the create form uses. */
 function when(iso: string): string {
@@ -57,8 +58,9 @@ function when(iso: string): string {
  * this: recruiting (live in the database) is the screen's "Forming", started
  * is its "Live", an ended lobby is "Completed", a cancelled one "Closed".
  * Invitations are real: the leader picks players in `RealInvitePlayersModal`,
- * each pending one holds an open slot on the roster, and the invited player
- * answers here or from the bell. Once a lobby has ended, everyone who played
+ * up to two per open slot (an invite does not hold a slot: the first to
+ * accept gets it, and the rest lapse once the lobby is full), and the invited
+ * player answers here or from the bell. Once a lobby has ended, everyone who played
  * rates the others here (`submit_review`), or later from their match
  * history. Microphone state is left out: nothing records it. The chat on the
  * right is real (see RealLobbyChat).
@@ -109,8 +111,11 @@ export default function RealLobbyDetail({
   const started = Boolean(team.started);
   const over = closed || started;
   const isFull = people.length >= team.slotsTotal;
-  // A pending invitation holds a slot, so the leader can't send more than fit.
-  const invitesLeft = Math.max(team.slotsTotal - people.length - invites.length, 0);
+  // Invites don't hold slots (20261123000200_invites_no_slot.sql): up to two
+  // pending per open slot, so one player who never answers doesn't stall the
+  // lobby. The database enforces the same number.
+  const openSlots = Math.max(team.slotsTotal - people.length, 0);
+  const invitesLeft = Math.max(INVITES_PER_OPEN_SLOT * openSlots - invites.length, 0);
   const lobbiesHref = `/lfg/${team.game}`;
   // LobbyHeader's own display vocabulary, not the database's. The two differ
   // on purpose: a lobby the database calls `open` (recruiting) reads as
@@ -210,8 +215,6 @@ export default function RealLobbyDetail({
     if (myInvite) run(() => respondToInvite(createClient(), myInvite.id, accept));
   };
 
-  const takeBackInvite = (inviteId: string) =>
-    run(() => cancelInvite(createClient(), inviteId));
 
   function start() {
     run(
@@ -329,6 +332,7 @@ export default function RealLobbyDetail({
           <RankRangeBadge range={team.rankRange} ranks={game.ranks} gameSlug={team.game} />
         }
         topAction={topAction}
+        lookingFor={<LobbyLookingFor team={team} />}
       />
 
       {closed && (
@@ -515,13 +519,7 @@ export default function RealLobbyDetail({
               setRemoveTarget({ id, name: member?.name ?? "this player" });
               setConfirming("remove");
             }}
-            pendingInvites={invites.map((invite) => ({
-              id: invite.inviteId,
-              name: invite.username,
-              avatar: invite.avatar,
-            }))}
-            onCancelInvite={isLeader && !over ? takeBackInvite : undefined}
-            onInvite={isLeader && !over ? () => setInviting(true) : undefined}
+            onInvite={isLeader && !over && invitesLeft > 0 ? () => setInviting(true) : undefined}
           />
 
           {isLeader ? (
@@ -582,12 +580,12 @@ export default function RealLobbyDetail({
           game={game}
           excludeIds={[
             ...people.map((person) => person.id),
-            ...invites.map((invite) => invite.id),
             ...applications
               .filter((entry) => entry.status === "pending")
               .map((entry) => entry.id),
           ]}
           invitesLeft={invitesLeft}
+          invitedIds={invites.map((invite) => invite.id)}
           onInvited={() => router.refresh()}
           onClose={() => setInviting(false)}
         />

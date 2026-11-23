@@ -8,6 +8,7 @@ import type { LfgTeam } from "@/data/lfg-teams";
 import { modeStyles } from "./LfgTeamCard";
 import RankRangeBadge from "./RankRangeBadge";
 import PlayerAvatar from "./PlayerAvatar";
+import LobbyLookingFor from "./LobbyLookingFor";
 import { roleIconFor } from "@/data/role-icons";
 import { useAuth } from "@/contexts/AuthContext";
 import { createClient } from "@/lib/supabase/client";
@@ -194,6 +195,9 @@ export default function RequestToJoinModal({
                     preferred role for this session.
                   </p>
                 )}
+                {/* How the lobby plays and the tags it wants, read before
+                    writing to the leader. */}
+                <LobbyLookingFor team={team} className="pt-1.5" />
               </div>
 
               {team.viewerState ? (
@@ -215,7 +219,7 @@ export default function RequestToJoinModal({
                   <h2 className="text-[11px] font-bold uppercase tracking-widest text-text-muted">
                     Select Your Role
                   </h2>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <div className="flex flex-wrap gap-1.5">
                     {roles.map((role) => {
                       const isSelected = role.name === selectedRole;
                       const roleIcon = roleIconFor(team.game, role.name);
@@ -225,7 +229,7 @@ export default function RequestToJoinModal({
                           type="button"
                           onClick={() => setSelectedRole(role.name)}
                           aria-pressed={isSelected}
-                          className={`flex flex-col items-center justify-center gap-1 rounded-xl border-2 p-2.5 transition-colors ${
+                          className={`flex items-center justify-center gap-1.5 rounded-lg border-2 px-3 py-1.5 transition-colors ${
                             isSelected
                               ? "border-brand bg-brand/10 text-white"
                               : "border-white/10 bg-bg-page text-text-muted opacity-60 hover:opacity-100"
@@ -233,9 +237,9 @@ export default function RequestToJoinModal({
                         >
                           {roleIcon && (
                             // eslint-disable-next-line @next/next/no-img-element -- static icon, no benefit from next/image optimization
-                            <img src={roleIcon} alt="" className="size-4" />
+                            <img src={roleIcon} alt="" className="size-3.5 shrink-0" />
                           )}
-                          <span className="text-[11px] font-bold">
+                          <span className="whitespace-nowrap text-[11px] font-bold">
                             {role.name}
                           </span>
                         </button>

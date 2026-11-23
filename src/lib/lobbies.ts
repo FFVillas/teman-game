@@ -46,7 +46,8 @@ const lobbyErrors: Record<string, string> = {
   player_not_found: "That player doesn't exist.",
   already_member: "They're already in this lobby.",
   invitee_applied: "They already asked to join. Accept their application instead.",
-  no_invite_slots: "Every open slot already has an invitation out.",
+  no_invite_slots:
+    "You've sent as many invitations as this lobby can use right now (two per open slot).",
   already_invited: "You've already invited this player.",
   invite_declined: "They declined your invitation to this lobby.",
   invite_rate_limited: "You've sent a lot of invitations. Try again later.",
@@ -244,7 +245,7 @@ interface LobbyRow {
   cover: string | null;
   playstyle: number | null;
   lobby_required_role: { role_id: number }[];
-  lobby_tag: { tag_id: number }[];
+  lobby_tag: { tag_id: number; tag: { name: string } | null }[];
   leader: PersonRow | null;
   applications: ApplicationRow[];
 }
@@ -258,7 +259,15 @@ const PERSON =
  * ones reach only the applicant and the leader), each with the person's
  * profile and rank.
  */
-const LOBBY_SELECT = `id, leader_id, mode_id, name, description, region, languages, mic_required, tags, capacity, status, starts_at, ends_at, started_at, min_rank_id, max_rank_id, cover, playstyle, lobby_required_role(role_id), lobby_tag(tag_id), leader:profiles!lobbies_leader_id_fkey(${PERSON}), applications(applicant_id, status, decided_at, applicant:profiles!applications_applicant_id_fkey(${PERSON}))`;
+/**
+ * Pending invitations a leader may have out per open slot. An invite doesn't
+ * hold a slot, so a leader can ask more players than they need; the first to
+ * accept gets it. Same number as `invite_to_lobby`
+ * (20261123000200_invites_no_slot.sql).
+ */
+export const INVITES_PER_OPEN_SLOT = 2;
+
+const LOBBY_SELECT = `id, leader_id, mode_id, name, description, region, languages, mic_required, tags, capacity, status, starts_at, ends_at, started_at, min_rank_id, max_rank_id, cover, playstyle, lobby_required_role(role_id), lobby_tag(tag_id, tag(name)), leader:profiles!lobbies_leader_id_fkey(${PERSON}), applications(applicant_id, status, decided_at, applicant:profiles!applications_applicant_id_fkey(${PERSON}))`;
 
 /**
  * Ends lobbies whose leader forgot them. Runs once per server request however
@@ -315,6 +324,7 @@ function toTeam(row: LobbyRow, game: GameInfo, viewerId?: string | null): LfgTea
     leaderPlaystyle: row.leader?.playstyle ?? null,
     memberReputations: people.map((person) => Number(person.reputation_bayes)),
     wantedTagIds: row.lobby_tag.map((entry) => entry.tag_id),
+    wantedTags: row.lobby_tag.flatMap((entry) => (entry.tag ? [entry.tag.name] : [])),
     startsAt: row.starts_at,
     endsAt: row.ends_at,
     startedAt: row.started_at,
@@ -451,6 +461,26 @@ export async function fetchMyInvitingLobby(
       .filter((row) => row.status === "scheduled")
       .sort((a, b) => (a.starts_at ?? "").localeCompare(b.starts_at ?? ""))[0];
   return pick ? { id: pick.id, name: pick.name } : null;
+}
+
+/**
+ * Who already has a pending invitation to the lobby the player would invite
+ * friends to (`fetchMyInvitingLobby`), so every invite button for them can
+ * show "Invited" instead of offering a second one. RLS lets the leader read
+ * the invites they sent. Empty when they lead no such lobby.
+ */
+export async function fetchMyPendingInvitees(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<Set<string>> {
+  const lobby = await fetchMyInvitingLobby(supabase, userId);
+  if (!lobby) return new Set();
+  const { data } = await supabase
+    .from("lobby_invites")
+    .select("invitee_id")
+    .eq("lobby_id", lobby.id)
+    .eq("status", "pending");
+  return new Set(((data ?? []) as { invitee_id: string }[]).map((row) => row.invitee_id));
 }
 
 export async function inviteToLobby(

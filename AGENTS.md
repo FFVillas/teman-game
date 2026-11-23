@@ -81,6 +81,9 @@ src/contexts/AuthContext.tsx  Supabase session — see "Auth" below
 src/lib/supabase/        browser + server Supabase clients; src/proxy.ts refreshes sessions
 supabase/migrations/     schema, applied manually in the Supabase SQL editor
 supabase/dev-seed/       demo players and lobbies to look at the app with (seed.sql, cleanup.sql);
+                         blackbox-lobbies.sql (+ -cleanup) adds the lobbies the black-box cases
+                         compare (tc_xxx / @tc.temangame.test), kept apart from seed.sql
+                         because Precision@5 participants see seed.sql's lobbies;
                          NOT migrations, run by hand, safe to re-run, all fake data is
                          demo_xxx / @demo.temangame.test and removed by cleanup.sql
 src/lib/                 small shared helpers (auth redirect)
@@ -136,7 +139,15 @@ accept. Swap `CURRENT_PLAYER_ID` for the session's user id when auth is real.
   Persamaan 3.1–3.5) under "Sort by: Recommended". The score and its breakdown
   are **deliberately not shown** to players — only the order. Hard filters run
   first: already in the lobby, applied or invited, or a rank the lobby wouldn't
-  accept. Pending invites fill open slots on the roster. Two versions: the real
+  accept. **Invites don't hold slots** (`20261123000200_invites_no_slot.sql`):
+  up to two pending per open slot (`INVITES_PER_OPEN_SLOT`); the first to
+  accept gets the slot and the rest lapse once the lobby is full. They are not
+  listed on the roster. A player with an invitation out is locked on
+  "Invited" wherever an invite button for them appears: in the picker (listed,
+  not hidden: `invitedIds`) and on the friends list (`fetchMyPendingInvitees`,
+  read once per page). The picker scores exactly like the join-request list: the lobby's
+  Pb and wanted tags, the candidate's R* (3 when unrated) and tag strengths;
+  it lists only the tags the candidate picked, as their profile does. Two versions: the real
   lobby's is `RealInvitePlayersModal` over real profiles (`lib/invite-candidates.ts`;
   no online/mic filters, nothing records them; the leader's playstyle stands in
   for the lobby's, tags are left open); the mock lobby's is `InvitePlayersModal`
@@ -604,7 +615,10 @@ and the playstyle step; every other step is optional.** "Skip and finish"
 appears only on the optional steps after them: it saves what is required and
 finishes, recording nothing for the step on screen (skipping games drops the
 picked games, skipping rank keeps the games without details). The edit form
-refuses to clear the date of birth. That step holds the two things the recommendation formula reads
+refuses to clear the date of birth. On onboarding the logo is not a link
+(`<Logo asLink={false} />`): a click home lost every answer and, as a
+client-side navigation, slipped past `proxy.ts` (which only checks full page
+loads). The compulsory steps show "Log out" in the corner instead. That step holds the two things the recommendation formula reads
 from the player — the 1–5 playstyle (`Pa`, Persamaan 3.2) and 3–5 personality
 tags (Persamaan 3.14) — so "Skip for now" is hidden there and Continue stays
 disabled until both are set. Nothing is pre-selected: playstyle starts `null`,
@@ -725,7 +739,11 @@ confidence marks and open questions before changing any of them.
   (`?q=&region=&mode=&rank=&role=&sort=`, `lib/lobby-filters.ts`). **Rank**:
   "Fits my rank" (default), "All ranks", or a tier, each meaning "lobbies that
   accept it". **Role is optional on purpose**: lobbies that name no role always
-  stay. Players see the order, never the scores. The same list is JSON at
+  stay. Players see the order, never the scores. What the lobby *asked for* is
+  shown, though: `LobbyLookingFor` puts "Plays <Pb label> · Looking for <tags>"
+  under the lobby header and in the Join popup ("Who they're looking for";
+  `LfgTeam.wantedTags`, Pb falling back to the leader's playstyle). Not on the
+  card: it has a fixed height on desktop and its "Looking for" row is roles. The same list is JSON at
   `/api/lobbies/recommended?game=<slug>` for k6 and Precision@5. The create form
   shows "Seeking Roles" only for games that have roles. Only the lobby *leader*
   sets a min–max range (form: "Rank Requirement", default "Any rank").
@@ -780,8 +798,8 @@ confidence marks and open questions before changing any of them.
   `update_lobby`, with group size, range, roles and schedule locked once started)
   and can remove a member (they may apply again). The chat on the lobby page is
   live. **Invites are real** (`lobby_invites`; `invite_to_lobby`,
-  `respond_to_invite`, `cancel_invite`): a pending invite holds an open slot,
-  accepting joins as an accepted application and re-checks capacity, rank and the
+  `respond_to_invite`, `cancel_invite`): a pending invite does not hold a slot
+  (two per open slot may be out), accepting joins as an accepted application and re-checks capacity, rank and the
   one-live-lobby rule, a declined invite can't be repeated, and invites lapse when
   the lobby starts or ends. The invited player answers on the lobby page or the
   bell. Starting a live lobby or being accepted into one withdraws the player's
