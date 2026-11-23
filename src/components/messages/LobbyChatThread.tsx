@@ -4,6 +4,7 @@ import Link from "next/link";
 import RealLobbyChat from "@/components/lobby/RealLobbyChat";
 import { BackToList } from "./MessageThread";
 import type { MyLobbyChat } from "@/lib/lobby-chat";
+import { coverPosition } from "@/data/lfg-covers";
 
 /**
  * A lobby's group chat, opened from the Messages page. It's the same chat as
@@ -29,7 +30,8 @@ export default function LobbyChatThread({
         <img
           src={chat.cover}
           alt=""
-          className="size-9 shrink-0 rounded-lg object-cover object-top"
+          className="size-9 shrink-0 rounded-lg object-cover"
+          style={{ objectPosition: coverPosition(chat.cover) }}
         />
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="truncate text-sm font-bold text-white">

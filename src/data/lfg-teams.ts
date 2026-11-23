@@ -66,6 +66,8 @@ export interface LfgTeam {
   tags?: string[];
   startsAt?: string | null;
   endsAt?: string | null;
+  /** When the leader pressed Start (the 15-minute rating rule counts from here). */
+  startedAt?: string | null;
   /** Pb in Persamaan 3.2. Real lobbies only; null until the leader sets it. */
   playstyle?: number | null;
   /** The leader's own playstyle: Pb's stand-in while the lobby has none. */

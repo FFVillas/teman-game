@@ -11,6 +11,7 @@ import type { MatchRecord, MatchTeammate } from "@/data/match-history";
 import type { ReportSubmission } from "@/data/lfg-lobby";
 import BackLink from "@/components/BackLink";
 import { useRating } from "@/lib/use-rating";
+import { coverPosition } from "@/data/lfg-covers";
 
 interface MatchDetailViewProps {
   match: MatchRecord;
@@ -82,7 +83,8 @@ export default function MatchDetailView({
             fill
             sizes="400px"
             priority
-            className="object-cover object-top"
+            className="object-cover"
+            style={{ objectPosition: coverPosition(match.cover) }}
           />
           <div className="absolute inset-0 bg-gradient-to-r from-bg-card-alt via-bg-card-alt/55 to-transparent" />
         </div>

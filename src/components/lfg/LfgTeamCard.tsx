@@ -6,6 +6,7 @@ import type { GameInfo } from "@/lib/games";
 import RankRangeBadge from "./RankRangeBadge";
 import PlayerAvatar from "./PlayerAvatar";
 import CancelRequestButton from "./CancelRequestButton";
+import { coverPosition } from "@/data/lfg-covers";
 
 export const modeStyles: Record<LfgTeam["mode"], { label: string; className: string }> = {
   ranked: {
@@ -60,10 +61,13 @@ export default function LfgTeamCard({
           src={team.cover}
           alt={team.name}
           fill
-          sizes="128px"
-          className="object-cover object-top"
+          sizes="(min-width: 640px) 128px, 100vw"
+          className="object-cover"
+          style={{ objectPosition: coverPosition(team.cover) }}
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent from-45% to-bg-card-alt to-85%" />
+        {/* The fade into the card only makes sense beside it (desktop); on a
+            phone the picture sits above the text, so it stays clean. */}
+        <div className="absolute inset-0 hidden bg-gradient-to-r from-transparent from-45% to-bg-card-alt to-85% sm:block" />
         <div className="absolute inset-0 flex flex-col justify-between gap-1 p-3">
           <span
             title={team.modeLabel ?? mode.label}

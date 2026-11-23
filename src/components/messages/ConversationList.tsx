@@ -4,6 +4,7 @@ import { EmptyState } from "@/components/EmptyState";
 import UserAvatar from "@/components/UserAvatar";
 import { useState } from "react";
 import { CURRENT_USER_ID, unreadCountFor, type Conversation } from "@/data/lfg-messages";
+import { coverPosition } from "@/data/lfg-covers";
 
 /** A lobby you're in, listed alongside DMs. Keyed as `lobby:<id>`. */
 export interface LobbyChatEntry {
@@ -117,7 +118,8 @@ export default function ConversationList({
               <img
                 src={cover}
                 alt=""
-                className="size-9 shrink-0 rounded-lg object-cover object-top"
+                className="size-9 shrink-0 rounded-lg object-cover"
+                style={{ objectPosition: coverPosition(cover) }}
               />
               <div className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate text-[13px] font-bold text-white">

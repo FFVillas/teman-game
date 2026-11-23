@@ -11,10 +11,11 @@ import PlayerAvatar from "./PlayerAvatar";
 import { roleIconFor } from "@/data/role-icons";
 import { useAuth } from "@/contexts/AuthContext";
 import { createClient } from "@/lib/supabase/client";
-import { applyToLobby } from "@/lib/lobbies";
+import { applyToLobby, fetchMyCurrentLobby } from "@/lib/lobbies";
 import { withNext } from "@/lib/auth-redirect";
 import type { GameInfo } from "@/lib/games";
 import { describeBounds, ordinalFits, teamJoinBounds, tiersOf } from "@/lib/ranks";
+import { coverPosition } from "@/data/lfg-covers";
 
 const viewerStateCopy: Record<
   NonNullable<LfgTeam["viewerState"]>,
@@ -114,9 +115,27 @@ export default function RequestToJoinModal({
   // Unranked or signed-out viewers always pass: the game decides at queue time.
   const rankFits = ordinalFits(viewerOrdinal, joinBounds);
 
+  // One live lobby at a time: someone already leading or playing in another
+  // live lobby can't ask to join this one (apply_to_lobby refuses it too, with
+  // already_in_live_lobby). Scheduled lobbies are for later, so they stay open.
+  const [busyIn, setBusyIn] = useState<{ id: string; name: string; game: string } | null>(
+    null,
+  );
+  useEffect(() => {
+    if (!user || team.viewerState || !team.status.isLive) return;
+    let cancelled = false;
+    fetchMyCurrentLobby(createClient(), user.id).then((lobby) => {
+      if (!cancelled && lobby && lobby.id !== team.id) setBusyIn(lobby);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, team.id, team.viewerState, team.status.isLive]);
+  const canApply = rankFits && !busyIn;
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    if (!rankFits || sending) return;
+    if (!canApply || sending) return;
 
     // Mock lobbies (the ones in src/data) have nothing to apply to.
     if (team.leaderId) {
@@ -262,6 +281,22 @@ export default function RequestToJoinModal({
                   </p>
                 )}
 
+                {busyIn && (
+                  <p
+                    role="alert"
+                    className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-xs leading-relaxed text-danger"
+                  >
+                    You&apos;re already in{" "}
+                    <Link
+                      href={`/lfg/${busyIn.game}/lobby/${busyIn.id}`}
+                      className="font-semibold underline"
+                    >
+                      {busyIn.name}
+                    </Link>
+                    . Leave or end it before asking to join another lobby.
+                  </p>
+                )}
+
                 {sendError && (
                   <p
                     role="alert"
@@ -281,7 +316,7 @@ export default function RequestToJoinModal({
 
                 <button
                   type="submit"
-                  disabled={!rankFits || sending}
+                  disabled={!canApply || sending}
                   className="flex h-11 items-center justify-center gap-2 rounded-xl bg-brand text-[13px] font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
@@ -304,7 +339,8 @@ export default function RequestToJoinModal({
                     alt={team.name}
                     fill
                     sizes="260px"
-                    className="object-cover object-top opacity-60"
+                    className="object-cover opacity-60"
+                    style={{ objectPosition: coverPosition(team.cover) }}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-bg-card-alt to-transparent" />
                   <span

@@ -214,6 +214,13 @@ Game key art is portrait; most frames it lands in are not (lobby banners are
 straight through the middle of the artwork, so use **`object-cover object-top`**
 on cover/key-art images — the top of game art carries the characters and logo.
 
+**Lobby covers have a focal point** instead: `coverPosition(src)` in
+`src/data/lfg-covers.ts` gives each cover's `object-position`, used everywhere
+a cover is drawn (card, banner, lobby header, chat, match history, admin), so
+the subject stays in frame in the tall desktop strip and the wide phone band
+alike. Add an entry when adding a cover. The card's fade into the text is
+desktop-only.
+
 Round avatars are the exception: they stay centred (`object-cover` alone),
 because they're already face-centred crops and anchoring them to the top
 clips chins.
@@ -281,7 +288,9 @@ Three screens change shape rather than just reflow, and each hid something
 before:
 
 - **Navbar.** The six game links are `hidden lg:flex` — they don't fit beside
-  the account controls. Below `lg` they live behind `MobileNavMenu`, a
+  the account controls. The live-lobby chip sits in the bar from `sm` up; on a
+  phone it is a floating pill at the bottom right instead (hidden on that
+  lobby's own pages and in Messages, where it would cover the composer). Below `lg` they live behind `MobileNavMenu`, a
   hamburger that opens a full-width panel under the bar. Without it a phone
   had no route into any game but the landing page's grid.
 - **Social** (`/social/*`) is a sidebar beside a panel from `sm` up. Below
@@ -771,7 +780,13 @@ confidence marks and open questions before changing any of them.
   the lobby starts or ends. The invited player answers on the lobby page or the
   bell. Starting a live lobby or being accepted into one withdraws the player's
   other pending requests to live lobbies (`20261118000300_withdraw_other_requests.sql`),
-  since those could only fail on Accept. The lobby page re-reads itself when the lobby, its applications, invites
+  since those could only fail on Accept. **A player already leading or playing
+  in a live lobby can't apply to another live one** (`apply_to_lobby`,
+  `20261123000000_one_lobby_apply.sql`, `already_in_live_lobby`; the join
+  dialog says so up front with a link to their lobby). Scheduled lobbies stay
+  open to them. **Ending or closing a lobby asks in a pop-up**
+  (`EndLobbyDialog`), which warns when it has run under 15 minutes that no one
+  will be able to rate (`LfgTeam.startedAt`, same rule as `submit_review`). The lobby page re-reads itself when the lobby, its applications, invites
   or system chat lines change (`LiveRefresh`, below). Once a lobby has ended,
   the people who played rate each other from its page. The navbar lobby button
   and the "Your lobby" banner read the player's real lobbies
