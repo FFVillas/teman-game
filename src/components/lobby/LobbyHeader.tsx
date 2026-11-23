@@ -62,6 +62,8 @@ interface LobbyHeaderProps {
   editHref?: string;
   /** Leader of a lobby with no voice link yet: where to add one. */
   addVoiceHref?: string;
+  /** Who the lobby is looking for (LobbyLookingFor), under the details row. */
+  lookingFor?: ReactNode;
 }
 
 /**
@@ -81,6 +83,7 @@ export default function LobbyHeader({
   topAction,
   editHref,
   addVoiceHref,
+  lookingFor,
 }: LobbyHeaderProps) {
   const mode = modeStyles[lobby.mode];
   const statusStyle = statusStyles[status];
@@ -187,6 +190,8 @@ export default function LobbyHeader({
             </span>
           )}
         </div>
+
+        {lookingFor && <div className="pt-3">{lookingFor}</div>}
 
         {(canStart || lobby.discordUrl || addVoiceHref) && (
           <div className="mt-auto flex flex-wrap items-center gap-2 pt-4">

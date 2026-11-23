@@ -26,11 +26,18 @@ export interface InviteCandidate {
   roleNames: string[];
   /** 1 (very casual) to 5 (very competitive); null if they never said. */
   playstyle: number | null;
-  /** Average stars; null until anyone has rated them. */
+  /** Average stars, as the profile shows it; null until anyone has rated them. */
   reputation: number | null;
   reviewCount: number;
+  /** R* (Persamaan 3.10), what the score uses; 3 for a player nobody rated. */
+  rstar: number;
+  /** The tags the player picked, exactly as their profile shows them. */
   tags: PersonalityTag[];
-  /** Persamaan 3.13 per tag, 0.00-1.00. */
+  /**
+   * Persamaan 3.13 per tag, 0.00-1.00: the picked tags *and* the ones raters
+   * gave them. Scored with, never listed, so the picker shows the same three
+   * tags the profile does.
+   */
   tagStrength: Map<PersonalityTag, number>;
 }
 
@@ -58,7 +65,9 @@ export async function fetchInviteCandidates(
     await Promise.all([
     supabase
       .from("profiles")
-      .select("id, username, avatar_path, playstyle, reputation_score, review_count, is_suspended")
+      .select(
+        "id, username, avatar_path, playstyle, reputation_score, reputation_bayes, review_count, is_suspended, user_tag (tag_id)",
+      )
       .in("id", ids)
       // Proposal: a suspended player is left out before anything is scored.
       .eq("is_suspended", false),
@@ -84,7 +93,9 @@ export async function fetchInviteCandidates(
         avatar_path: string | null;
         playstyle: number | null;
         reputation_score: number | string;
+        reputation_bayes: number | string | null;
         review_count: number;
+        user_tag: { tag_id: number }[] | null;
       }>
     ).map((profile) => [profile.id, profile]),
   );
@@ -109,12 +120,12 @@ export async function fetchInviteCandidates(
         playstyle: profile.playstyle,
         reputation: profile.review_count > 0 ? Number(profile.reputation_score) : null,
         reviewCount: profile.review_count,
-        // Both come from tag_strengths(), which already covers tags the
-        // player picked *and* tags raters gave them — the union Persamaan
-        // 3.13 normalises over.
-        tags: [...(strengthsOf.get(profile.id)?.keys() ?? [])]
-          .map((tagId) => nameOfTag.get(tagId))
+        rstar: Number(profile.reputation_bayes ?? 3),
+        tags: (profile.user_tag ?? [])
+          .map((entry) => nameOfTag.get(entry.tag_id))
           .filter((name): name is PersonalityTag => Boolean(name)),
+        // From tag_strengths(): the picked tags *and* the ones raters gave,
+        // the union Persamaan 3.13 normalises over.
         tagStrength: new Map(
           [...(strengthsOf.get(profile.id)?.entries() ?? [])].flatMap(
             ([tagId, value]) => {
@@ -134,12 +145,13 @@ export interface ScoredCandidate {
 }
 
 /**
- * Hard filter first, then S_total (Persamaan 3.1–3.5), exactly like the mock
- * picker. The criteria a real lobby has are thinner than the mock one's: it
- * carries no playstyle or wanted tags of its own, so the leader's playstyle
- * stands in and tags are left open (full marks on T). An unrated player scores
- * R = 0 rather than being guessed at, and an unranked one is compared as if
- * they were the leader's rank.
+ * Hard filter first, then S_total (Persamaan 3.1–3.5) from the leader's side,
+ * the same way the join-request list is ordered (lib/lobbies.ts): Pb is the
+ * lobby's playstyle (the leader's while it has none), T is the candidate's
+ * strength in the tags the lobby wants (3.15 when it wants none), and R is
+ * the candidate's own R* — 3 for a player nobody has rated, the prior of
+ * Persamaan 3.10, so a new player is neither rewarded nor punished. An
+ * unranked candidate is compared as if they were the leader's rank.
  */
 export function rankCandidates(
   candidates: InviteCandidate[],
@@ -153,7 +165,7 @@ export function rankCandidates(
       score: scoreMatch(
         {
           playstyle: candidate.playstyle ?? criteria.playstyle,
-          reputation: candidate.reputation ?? 0,
+          reputation: candidate.rstar,
           tags: candidate.tags,
           tagStrength: candidate.tagStrength,
           rankOrdinal: candidate.rank?.ordinal ?? criteria.rankOrdinal,

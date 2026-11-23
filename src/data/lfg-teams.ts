@@ -78,4 +78,6 @@ export interface LfgTeam {
   leaderSuspended?: boolean;
   /** Set B in Persamaan 3.14 — tag ids, at most three. Real lobbies only. */
   wantedTagIds?: number[];
+  /** The same tags by name, for showing who the lobby is looking for. */
+  wantedTags?: string[];
 }

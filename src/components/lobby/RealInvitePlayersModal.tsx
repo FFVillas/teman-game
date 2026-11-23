@@ -22,6 +22,7 @@ import {
   tiersOf,
 } from "@/lib/ranks";
 import { createClient } from "@/lib/supabase/client";
+import type { PersonalityTag } from "@/data/player-profiles";
 
 type SortKey = "match" | "reputation" | "rank";
 
@@ -34,9 +35,14 @@ const sortOptions: { value: SortKey; label: string }[] = [
 interface RealInvitePlayersModalProps {
   team: LfgTeam;
   game: GameInfo;
-  /** Everyone already involved: the roster, applicants, and people already invited. */
+  /** Everyone already involved and not invitable: the roster and applicants. */
   excludeIds: string[];
-  /** Open slots with no invitation out yet. */
+  /**
+   * Players with an invitation out already. Still listed, with the button
+   * locked on "Invited", so the leader sees who they asked.
+   */
+  invitedIds?: string[];
+  /** Invitations still allowed: two per open slot, minus those already out. */
   invitesLeft: number;
   /** Called after an invitation went out, so the page can show it. */
   onInvited: (username: string) => void;
@@ -53,6 +59,7 @@ export default function RealInvitePlayersModal({
   team,
   game,
   excludeIds,
+  invitedIds = [],
   invitesLeft,
   onInvited,
   onClose,
@@ -63,7 +70,8 @@ export default function RealInvitePlayersModal({
   const [roles, setRoles] = useState<string[]>(team.lookingFor.map((role) => role.name));
   const [minReputation, setMinReputation] = useState(0);
   const [sort, setSort] = useState<SortKey>("match");
-  const [invited, setInvited] = useState<string[]>([]);
+  const [invited, setInvited] = useState<string[]>(invitedIds);
+  const [alreadyInvited] = useState(invitedIds.length);
   const [sending, setSending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [initialInvitesLeft] = useState(invitesLeft);
@@ -116,9 +124,15 @@ export default function RealInvitePlayersModal({
       team.memberOrdinals ?? [],
       team.rankRange ? boundsFromTierRange(tiers, team.rankRange) : OPEN_BOUNDS,
     );
+    // Same criteria as the join-request list: the lobby's own playstyle and
+    // wanted tags; the leader's playstyle only while the lobby has none.
     return rankCandidates(
       candidates,
-      { playstyle: leaderPlaystyle, wantedTags: [], rankOrdinal: leaderOrdinal },
+      {
+        playstyle: team.playstyle ?? team.leaderPlaystyle ?? leaderPlaystyle,
+        wantedTags: (team.wantedTags ?? []) as PersonalityTag[],
+        rankOrdinal: leaderOrdinal,
+      },
       bounds,
     );
   }, [candidates, game, team, tiers, leaderPlaystyle, leaderOrdinal]);
@@ -142,7 +156,7 @@ export default function RealInvitePlayersModal({
 
   // Counted from the number when the picker opened: the page refreshes behind
   // it after each invitation, and the prop would then drop a second time.
-  const slotsLeft = initialInvitesLeft - invited.length;
+  const slotsLeft = initialInvitesLeft - (invited.length - alreadyInvited);
 
   async function invite(candidate: InviteCandidate) {
     if (sending) return;
@@ -190,8 +204,8 @@ export default function RealInvitePlayersModal({
               <p className="text-xs text-text-muted">
                 Players this lobby would accept, with the best fit for {team.name} first.{" "}
                 {slotsLeft > 0
-                  ? `${slotsLeft} invitation${slotsLeft === 1 ? "" : "s"} left for your open slots.`
-                  : "Every open slot has an invitation out."}
+                  ? `You can send ${slotsLeft} more invitation${slotsLeft === 1 ? "" : "s"}. The first to accept gets the slot.`
+                  : "You've sent as many invitations as this lobby can use right now."}
               </p>
             </div>
             <button
@@ -397,7 +411,7 @@ export default function RealInvitePlayersModal({
         <p className="shrink-0 border-t border-border-subtle px-5 py-3 text-[11px] text-text-muted sm:px-6">
           {candidates === null
             ? "Loading…"
-            : `${visible.length} of ${ranked.length} players shown. Each invitation holds one open slot until it's answered.`}
+            : `${visible.length} of ${ranked.length} players shown`}
         </p>
       </div>
     </div>
