@@ -37,6 +37,7 @@ import LobbyHeader from "./LobbyHeader";
 import LobbyMembers from "./LobbyMembers";
 import RealInvitePlayersModal from "./RealInvitePlayersModal";
 import RatingModal from "./RatingModal";
+import EndLobbyDialog from "./EndLobbyDialog";
 
 /** "Oct 6, 9:12 PM" in UTC+7, the same clock the create form uses. */
 function when(iso: string): string {
@@ -432,18 +433,24 @@ export default function RealLobbyDetail({
         </div>
       )}
 
-      {confirming && (
+      {confirming === "close" && (
+        <EndLobbyDialog
+          started={started}
+          startedAt={team.startedAt}
+          busy={busy}
+          onConfirm={confirmed}
+          onClose={() => setConfirming(null)}
+        />
+      )}
+
+      {confirming && confirming !== "close" && (
         <div className={`${banner} border-danger/40 bg-danger/10`}>
           <p className="text-xs font-bold text-white">
             {confirming === "remove"
               ? `Remove ${removeTarget?.name ?? "this player"} from the lobby?`
-              : confirming === "close"
-                ? started
-                  ? "End this lobby for everyone?"
-                  : "Close this lobby for everyone?"
-                : state === "member"
-                    ? "Leave this lobby?"
-                  : "Withdraw your application?"}
+              : state === "member"
+                ? "Leave this lobby?"
+                : "Withdraw your application?"}
           </p>
           <div className="flex items-center gap-2">
             <button

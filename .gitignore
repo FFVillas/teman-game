@@ -55,3 +55,6 @@ next-env.d.ts
 
 # raw image downloads waiting to be compressed and renamed (large, not shipped)
 /inbox/
+
+# test account list with passwords (never committed)
+/testing/*.local.*

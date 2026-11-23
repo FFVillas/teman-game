@@ -238,6 +238,7 @@ interface LobbyRow {
   status: LobbyStatus;
   starts_at: string | null;
   ends_at: string | null;
+  started_at: string | null;
   min_rank_id: number | null;
   max_rank_id: number | null;
   cover: string | null;
@@ -257,7 +258,7 @@ const PERSON =
  * ones reach only the applicant and the leader), each with the person's
  * profile and rank.
  */
-const LOBBY_SELECT = `id, leader_id, mode_id, name, description, region, languages, mic_required, tags, capacity, status, starts_at, ends_at, min_rank_id, max_rank_id, cover, playstyle, lobby_required_role(role_id), lobby_tag(tag_id), leader:profiles!lobbies_leader_id_fkey(${PERSON}), applications(applicant_id, status, decided_at, applicant:profiles!applications_applicant_id_fkey(${PERSON}))`;
+const LOBBY_SELECT = `id, leader_id, mode_id, name, description, region, languages, mic_required, tags, capacity, status, starts_at, ends_at, started_at, min_rank_id, max_rank_id, cover, playstyle, lobby_required_role(role_id), lobby_tag(tag_id), leader:profiles!lobbies_leader_id_fkey(${PERSON}), applications(applicant_id, status, decided_at, applicant:profiles!applications_applicant_id_fkey(${PERSON}))`;
 
 /**
  * Ends lobbies whose leader forgot them. Runs once per server request however
@@ -316,6 +317,7 @@ function toTeam(row: LobbyRow, game: GameInfo, viewerId?: string | null): LfgTea
     wantedTagIds: row.lobby_tag.map((entry) => entry.tag_id),
     startsAt: row.starts_at,
     endsAt: row.ends_at,
+    startedAt: row.started_at,
     closed: row.status === "cancelled" || row.status === "completed",
     completed: row.status === "completed",
     started: row.status === "in_progress",

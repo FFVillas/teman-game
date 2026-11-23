@@ -16,6 +16,7 @@ import {
   StatusTabs,
   adminRowClass,
 } from "./AdminUi";
+import { coverPosition } from "@/data/lfg-covers";
 
 type Tab = AdminLobbyStatus | "all";
 
@@ -87,7 +88,8 @@ export default function LobbyDirectory() {
                     <img
                       src={lobby.cover}
                       alt=""
-                      className="size-9 shrink-0 rounded-lg object-cover object-top"
+                      className="size-9 shrink-0 rounded-lg object-cover"
+                      style={{ objectPosition: coverPosition(lobby.cover) }}
                     />
                     <div className="flex min-w-0 flex-col">
                       <AdminRowLink href={`/admin/lobbies/${lobby.id}`}>

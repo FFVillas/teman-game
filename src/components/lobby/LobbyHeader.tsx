@@ -8,6 +8,7 @@ import type { LfgRank } from "@/data/lfg-ranks";
 import type { LfgMode } from "@/data/lfg-teams";
 import { modeStyles } from "@/components/lfg/LfgTeamCard";
 import LobbyActionsMenu from "./LobbyActionsMenu";
+import { coverPosition } from "@/data/lfg-covers";
 
 /** The header works for mock lobbies and for ones from the database. */
 type HeaderStatus = LobbyStatus | "scheduled" | "closed";
@@ -102,7 +103,8 @@ export default function LobbyHeader({
           fill
           sizes="400px"
           priority
-          className="object-cover object-top"
+          className="object-cover"
+          style={{ objectPosition: coverPosition(lobby.cover) }}
         />
         <div className="absolute inset-0 bg-gradient-to-r from-bg-card-alt via-bg-card-alt/55 to-transparent" />
       </div>

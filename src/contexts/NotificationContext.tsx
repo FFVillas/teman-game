@@ -12,7 +12,7 @@ import {
 import { useAuth } from "./AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import type { AppNotification, NotificationKind } from "@/data/notifications";
-import { useRealtimeInserts } from "@/lib/realtime";
+import { useRealtimeChanges, useRealtimeInserts } from "@/lib/realtime";
 import {
   fetchNotifications,
   incomingToast,
@@ -166,6 +166,21 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       if (!playerId) return;
       fetchNotifications(createClient()).then((rows) => setNotifications(rows));
       pushToast(incomingToast(row));
+    },
+  });
+
+  // A row changing later: a join request or invite answered somewhere else
+  // (on the lobby page, in another tab) gets its `resolution` from the
+  // database, and withdrawn requests are deleted. Re-read so the bell shows
+  // "Accepted"/"Declined" instead of buttons that can only fail. Inserts
+  // trigger this too; the extra read is cheap and keeps one code path.
+  useRealtimeChanges({
+    table: "notifications",
+    filter: playerId ? `user_id=eq.${playerId}` : undefined,
+    enabled: Boolean(playerId),
+    onChange: () => {
+      if (!playerId) return;
+      fetchNotifications(createClient()).then((rows) => setNotifications(rows));
     },
   });
 

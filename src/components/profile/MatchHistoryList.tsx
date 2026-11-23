@@ -3,6 +3,7 @@ import Image from "next/image";
 import { pendingReviews, type MatchRecord } from "@/data/match-history";
 import { modeStyles } from "@/components/lfg/LfgTeamCard";
 import PlayerAvatar from "@/components/lfg/PlayerAvatar";
+import { coverPosition } from "@/data/lfg-covers";
 
 interface MatchHistoryListProps {
   matches: MatchRecord[];
@@ -46,7 +47,8 @@ export default function MatchHistoryList({
                     alt=""
                     fill
                     sizes="48px"
-                    className="object-cover object-top"
+                    className="object-cover"
+                    style={{ objectPosition: coverPosition(match.cover) }}
                   />
                 </div>
               )}

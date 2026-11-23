@@ -3,6 +3,7 @@ import Image from "next/image";
 import type { MyLobby } from "@/lib/lobbies";
 import { modeStyles } from "./LfgTeamCard";
 import PlayerAvatar from "./PlayerAvatar";
+import { coverPosition } from "@/data/lfg-covers";
 
 function lobbyHref(lobby: MyLobby) {
   return `/lfg/${lobby.game}/lobby/${lobby.id}`;
@@ -100,7 +101,8 @@ function CurrentLobby({ lobby }: { lobby: MyLobby }) {
             alt=""
             fill
             sizes="150px"
-            className="object-cover object-top"
+            className="object-cover"
+            style={{ objectPosition: coverPosition(lobby.cover) }}
           />
           <div className="absolute inset-0 bg-gradient-to-r from-transparent from-40% to-bg-card-alt to-90%" />
           <span

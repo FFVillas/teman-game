@@ -65,6 +65,12 @@ export default function Navbar() {
     onInsert: () => setUnreadMessages((count) => count + 1),
   });
 
+  const hideFloatingLobby = Boolean(
+    myLobby &&
+      (pathname.startsWith(`/lfg/${myLobby.game}/lobby/${myLobby.id}`) ||
+        pathname.startsWith("/messages"))
+  );
+
   // Being accepted into a lobby, or yours ending, changes the chip.
   const reloadLobby = () => {
     if (!playerId) return;
@@ -144,11 +150,14 @@ export default function Navbar() {
             user can only be in one live lobby at a time, so this is either
             present or absent — never a list.
           */}
+          {/* From sm up it sits in the bar. On a phone the bar is already full
+              (menu, logo, bell, messages, account), so there it floats at the
+              bottom right instead — see below. */}
           {myLobby && (
           <Link
             href={`/lfg/${myLobby.game}/lobby/${myLobby.id}`}
             title={`Your lobby: ${myLobby.name}`}
-            className="flex h-8 items-center gap-2 rounded-lg border border-brand/40 bg-brand/10 px-2.5 transition-colors hover:border-brand/70 sm:px-3"
+            className="hidden h-8 items-center gap-2 rounded-lg border border-brand/40 bg-brand/10 px-3 transition-colors hover:border-brand/70 sm:flex"
           >
             <span className="relative flex size-2 shrink-0">
               <span className="absolute inline-flex size-full animate-ping rounded-full bg-success opacity-60" />
@@ -191,6 +200,25 @@ export default function Navbar() {
           {user ? <UserMenu user={user} /> : <NavAuthButtons />}
         </div>
       </div>
+
+      {/* Phone version of the lobby chip: a floating pill in the thumb's
+          reach. Not on the lobby's own pages (you're already there) or in
+          Messages, where it would sit on the message box. */}
+      {myLobby && !hideFloatingLobby && (
+        <Link
+          href={`/lfg/${myLobby.game}/lobby/${myLobby.id}`}
+          aria-label={`Your lobby: ${myLobby.name}`}
+          className="fixed bottom-4 right-4 z-40 flex h-11 max-w-[calc(100vw-2rem)] items-center gap-2 rounded-full border border-brand/50 bg-bg-nav/95 pl-3.5 pr-4 shadow-lg shadow-black/40 backdrop-blur sm:hidden"
+        >
+          <span className="relative flex size-2 shrink-0">
+            <span className="absolute inline-flex size-full animate-ping rounded-full bg-success opacity-60" />
+            <span className="relative inline-flex size-2 rounded-full bg-success" />
+          </span>
+          <span className="truncate text-xs font-bold text-white">
+            {myLobby.name}
+          </span>
+        </Link>
+      )}
     </header>
   );
 }
