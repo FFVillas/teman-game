@@ -70,6 +70,7 @@ export default async function MatchesPage({ params }: MatchesPageProps) {
               matches={matches}
               slug={profile.slug}
               isOwner={isOwner}
+              owner={{ name: profile.username, avatar: profile.avatar }}
             />
           </div>
         </div>

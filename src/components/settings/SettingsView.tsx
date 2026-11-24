@@ -272,7 +272,12 @@ export default function SettingsView({ email }: { email: string }) {
                       setNewEmail(event.target.value);
                       setEmailError(null);
                     }}
-                    autoComplete="email"
+                    // "off": the browser would otherwise put a saved login's
+                    // address here, which reads as if the account had changed.
+                    autoComplete="off"
+                    name="new-account-email"
+                    data-1p-ignore
+                    data-lpignore="true"
                     aria-label="Email address"
                     className={emailError ? `${controlClass} border-danger focus:ring-danger` : controlClass}
                   />

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import StarRating from "./StarRating";
 import ReportForm from "./ReportForm";
 import UserAvatar from "@/components/UserAvatar";
+import RatingFriendButton from "./RatingFriendButton";
 import {
   reviewTags,
   type ReportTarget,
@@ -51,6 +52,9 @@ interface RatingModalProps {
  * person — same "1 / 3" queue as the Figma review design. Closes the loop in
  * Activity Diagram 3: end lobby → rate → reputation recalculated.
  */
+const iconButton =
+  "flex size-9 items-center justify-center rounded-lg border border-border-strong transition-colors disabled:cursor-default";
+
 export default function RatingModal({
   teammates,
   lobbyName,
@@ -181,14 +185,33 @@ export default function RatingModal({
             </div>
             <p className="truncate text-sm text-text-muted">{lobbyName}</p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="shrink-0 text-2xl leading-none text-text-muted transition-colors hover:text-white"
-          >
-            ×
-          </button>
+          {/* Add friend (only while there's no friendship either way) and
+              Report, as icons beside the name instead of a line of text. */}
+          <div className="flex shrink-0 items-center gap-1.5">
+            {onSaveReview && !reporting && (
+              <RatingFriendButton targetId={player.id} className={iconButton} />
+            )}
+            {!reporting && (
+              <button
+                type="button"
+                onClick={() => setReporting(true)}
+                aria-label={`Report ${player.name}`}
+                title="Report this player"
+                className={`${iconButton} hover:border-danger`}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization */}
+                <img src="/icons/report-flag.svg" alt="" className="size-4 opacity-80" />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="ml-1 text-2xl leading-none text-text-muted transition-colors hover:text-white"
+            >
+              ×
+            </button>
+          </div>
         </div>
 
         {reporting ? (
@@ -267,14 +290,6 @@ export default function RatingModal({
                 })}
               </div>
             </div>
-
-            <button
-              type="button"
-              onClick={() => setReporting(true)}
-              className="w-fit text-[11px] font-semibold text-text-muted underline-offset-2 transition-colors hover:text-danger hover:underline"
-            >
-              Report this player instead
-            </button>
           </>
         )}
 

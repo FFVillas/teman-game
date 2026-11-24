@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import BackLink from "@/components/BackLink";
@@ -38,17 +38,19 @@ import RealInvitePlayersModal from "./RealInvitePlayersModal";
 import RatingModal from "./RatingModal";
 import EndLobbyDialog from "./EndLobbyDialog";
 import ConfirmDialog from "./ConfirmDialog";
+import { WithdrawDialog } from "@/components/lfg/CancelRequestButton";
 import { INVITES_PER_OPEN_SLOT } from "@/lib/lobbies";
 import LobbyLookingFor from "@/components/lfg/LobbyLookingFor";
 
-/** "Oct 6, 9:12 PM" in UTC+7, the same clock the create form uses. */
+/** "Oct 6, 21:12" in UTC+7, the same 24-hour clock the create form uses. */
 function when(iso: string): string {
   return new Intl.DateTimeFormat("en-US", {
     timeZone: "Asia/Jakarta",
     month: "short",
     day: "numeric",
-    hour: "numeric",
+    hour: "2-digit",
     minute: "2-digit",
+    hourCycle: "h23",
   }).format(new Date(iso));
 }
 
@@ -103,6 +105,24 @@ export default function RealLobbyDetail({
     team.id,
     ratingQueue.map((person) => person.id),
   );
+
+  // The rating pop-up opens by itself the moment the lobby has ended (the page
+  // re-reads itself live, so members see it too), once per lobby and tab:
+  // skipping it doesn't bring it back on every refresh; "Rate teammates" on
+  // the banner still does.
+  const canRateNow = Boolean(team.completed) && ratingQueue.length > 0;
+  useEffect(() => {
+    if (!canRateNow) return;
+    const key = `rating-prompted:${team.id}`;
+    try {
+      if (sessionStorage.getItem(key)) return;
+      sessionStorage.setItem(key, "1");
+    } catch {
+      // Storage blocked: still offer it, it just may come back on refresh.
+    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- opening a dialog in reaction to the lobby ending
+    setRating(true);
+  }, [canRateNow, team.id]);
 
   const state = team.viewerState;
   const isLeader = state === "leader";
@@ -450,13 +470,15 @@ export default function RealLobbyDetail({
         />
       )}
 
-      {/* A member walking out of a lobby that's already playing can't come
-          back (it takes no new players), so that one asks in a pop-up. Before
-          the start, leaving is cheap and the inline bar below is enough. */}
-      {confirming === "leave" && started && state === "member" && (
+      {/* Every confirmation is a pop-up, never a bar under the header. */}
+      {confirming === "leave" && state === "member" && (
         <ConfirmDialog
           title="Leave this lobby?"
-          body="The lobby has already started, so you can't rejoin unless the leader reopens recruiting. You can still rate your teammates once it ends."
+          body={
+            started
+              ? "The lobby has already started, so you can't rejoin unless the leader reopens recruiting. You can still rate your teammates once it ends."
+              : "You'll lose your place on the roster. You can ask to join again while it's recruiting."
+          }
           confirmLabel="Leave lobby"
           cancelLabel="Stay"
           busy={busy}
@@ -465,39 +487,27 @@ export default function RealLobbyDetail({
         />
       )}
 
-      {confirming &&
-        confirming !== "close" &&
-        !(confirming === "leave" && started && state === "member") && (
-        <div className={`${banner} border-danger/40 bg-danger/10`}>
-          <p className="text-xs font-bold text-white">
-            {confirming === "remove"
-              ? `Remove ${removeTarget?.name ?? "this player"} from the lobby?`
-              : state === "member"
-                ? "Leave this lobby?"
-                : "Withdraw your application?"}
-          </p>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              disabled={busy}
-              onClick={confirmed}
-              className="flex h-9 items-center rounded-lg bg-danger px-4 text-xs font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-            >
-              {busy ? "Working…" : "Yes"}
-            </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => {
-                setConfirming(null);
-                setRemoveTarget(null);
-              }}
-              className="flex h-9 items-center rounded-lg border border-border-strong px-4 text-xs font-semibold text-text-muted transition-colors hover:text-white"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
+      {confirming === "leave" && state === "pending" && (
+        <WithdrawDialog
+          lobbyName={team.name}
+          busy={busy}
+          onConfirm={confirmed}
+          onClose={() => setConfirming(null)}
+        />
+      )}
+
+      {confirming === "remove" && (
+        <ConfirmDialog
+          title={`Remove ${removeTarget?.name ?? "this player"}?`}
+          body="They leave the roster and are told they were removed. They can ask to join again."
+          confirmLabel="Remove"
+          busy={busy}
+          onConfirm={confirmed}
+          onClose={() => {
+            setConfirming(null);
+            setRemoveTarget(null);
+          }}
+        />
       )}
 
       {error && (
@@ -521,7 +531,9 @@ export default function RealLobbyDetail({
               setRemoveTarget({ id, name: member?.name ?? "this player" });
               setConfirming("remove");
             }}
-            onInvite={isLeader && !over && invitesLeft > 0 ? () => setInviting(true) : undefined}
+            // Even with every invitation used up: the picker then says so,
+            // rather than an open slot that does nothing when tapped.
+            onInvite={isLeader && !over ? () => setInviting(true) : undefined}
           />
 
           {isLeader ? (

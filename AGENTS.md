@@ -160,8 +160,23 @@ accept. Swap `CURRENT_PLAYER_ID` for the session's user id when auth is real.
   (`lobby-1` and so on) still use the sessionStorage store in
   `src/lib/lobby-session.ts`. **Lobby chats are temporary for players**: once the
   lobby ends the chat is closed and drops off `/messages`.
-- **After a lobby ends**, the notice counts down 8s and returns to the LFG
-  page, with "Stay here" to cancel. Skipping the rating does the same.
+- **After a lobby ends** the rating pop-up opens by itself for everyone who
+  can still rate (once per lobby per tab, `rating-prompted:<id>` in
+  sessionStorage); "Rate teammates" on the banner reopens it. In the pop-up,
+  Report and Add friend are icons beside the name (`RatingFriendButton`, shown
+  only while there is no friendship either way).
+- **Every confirmation is a pop-up** (`ConfirmDialog`), never a bar under the
+  header: end/close, leave, remove a member, and cancelling a join request
+  (`WithdrawDialog`, shared by the lobby page and the LFG card's "Cancel").
+  The leader's open slots open the invite picker even when every invitation
+  is used up; the picker then says so.
+- **Times are a 24-hour clock everywhere** ("20:00"): the create form's
+  selects, lobby start labels, the profile's play hours, match history.
+- **The roster marks the leader with the crown** (`/icons/lfg-crown.svg`), not
+  a text chip; so does a match's roster. Match history lists the history's
+  owner too (their face leads each row's avatar stack, and they are the first
+  row of the roster); its rows keep a "Leader" chip, which there means "you
+  led this one".
 
 ## Auth (real Supabase Auth)
 
@@ -377,6 +392,9 @@ Two limits worth knowing:
   only**; never widen it to lobby kinds, a player could forge one. There is no
   `message` kind (DMs have their own unread count) and no `report_update`.
   Only the old mock flows still file a notification to the acting user.
+  **Deleted rows** (a withdrawn join request) reach the bell through
+  `useRealtimeDeletes`: Supabase can't filter delete events, so it listens to
+  the whole table and drops the id if it is one the player has.
 
   A row shows the game's logo before the title (read from the `/lfg/<slug>`
   link, `gameOfNotification`), unread as a small dot after the time, and names
@@ -565,8 +583,14 @@ rated.
   (`lib/suspension.ts`, reading `my_active_suspension()`) signs them out and
   shows `/account-restricted` (rule + dates only, never the internal note or
   reporter). A session already open when the suspension starts is sent there
-  by `proxy.ts` on the next page load (`profiles.is_suspended`). Known gap: an
-  open tab can still call the API until its token expires (up to an hour).
+  by `proxy.ts` on a full page load (`profiles.is_suspended`) and by
+  `SuspensionWatcher` (root layout) on every page change, on returning to the
+  tab and once a minute, because link navigation is never a full load. **Writes
+  are refused by the database** whatever the app does: PostgREST runs
+  `refuse_suspended()` before each request (`20261124000100_refuse_suspended.sql`,
+  `account_suspended`, HTTP 403; `lib/supabase/client.ts` leaves the page on
+  it). Reads pass. supabase-js calls functions with POST, so **a new read-only
+  function that a suspended player must reach goes on that migration's list**.
 - `lib/admin-store.ts` and the seed in `data/admin-moderation.ts` are left only
   for the mock lobby's invite picker, and go with step 8.
 
@@ -598,7 +622,7 @@ purpose; values are plain names so older saved ones still show.
 
 A lobby's schedule is a **day plus a start and end time**, on the UTC+7 clock:
 the next seven days as chips above the time selects, like the profile's day
-chips. An end before the start means the next day (11 PM to 1 AM). A start that
+chips. An end before the start means the next day (23:00 to 01:00). A start that
 has already passed is refused in the form. The lobby badge shows the **mode's own
 name** ("Competitive", "Premier"), coloured by its kind (ranked, casual,
 tournament).
@@ -772,8 +796,8 @@ confidence marks and open questions before changing any of them.
   admin seed are gone; the `src/data/` files keep only their types and option
   lists. An unknown lobby id or username is a 404. Profile links are the
   username (`profileHrefFor`).
-- **A pending request can be cancelled from the LFG card** ("Cancel", then
-  "Sure?"; `CancelRequestButton`) as well as from the lobby page ("Cancel
+- **A pending request can be cancelled from the LFG card** ("Cancel", which
+  asks in a pop-up; `CancelRequestButton`) as well as from the lobby page ("Cancel
   request"). **The leader's join-request list is ranked** by S_total with the
   applicant's own R (proposal's reciprocal side), never showing the score.
 - **Lobbies are real** (`20261006000000_lobbies.sql` plus `20261007000000_lobby_start.sql` and `20261008000000_lobby_lifecycle.sql` and `20261009000000_lobby_edit.sql`: `game_modes`, `lobbies`,
@@ -839,7 +863,8 @@ it goes, staying on them if the database refuses; without them it only
 collects (the mock lobbies). The database owns every rule (`submit_review`):
 the lobby ended after at least 15 minutes, both people played, one rating per
 teammate, and 1–2 stars need a reason (`data/review-options.ts`). The tags
-offered are the five personality tags, strongest first for that teammate,
+offered are the ten personality tags (`tag`; names mirrored in
+`personalityTagOptions`, so add one in both), strongest first for that teammate,
 none pre-picked. Ratings are anonymous: `reviews` has no read policy, so
 "have I rated them" comes from `player_matches()`
 (`20261118000000_match_history.sql`), which answers only for the caller's own
@@ -1025,6 +1050,13 @@ internally, then one session per pair of UAT participants produces UAT, SUS,
 the UI/UX items and Precision@5 together. Every boundary value in it is taken
 from a real constraint, with the migration named, so don't change a limit in
 the database without changing that table too.
+
+The black-box cases on the **API path** run automatically:
+`testing/api/setup.sql` (SQL Editor) → `node testing/api/run-api-tests.mjs` →
+`testing/api/cleanup.sql`. The script signs in with the accounts in
+`testing/api-accounts.local.json` (git-ignored) and matches each refusal on the
+database's own error code, so **renaming an error code or constraint breaks
+its case**; change the script with it. All its data is `TC-API …` / `tc_api_…`.
 
 ## Design source
 

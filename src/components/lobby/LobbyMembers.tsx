@@ -104,9 +104,13 @@ export default function LobbyMembers({
                   </span>
                 )}
                 {member.isLeader && (
-                  <span className="rounded bg-brand/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-brand">
-                    Leader
-                  </span>
+                  // eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization
+                  <img
+                    src="/icons/lfg-crown.svg"
+                    alt="Leader"
+                    title="Leader"
+                    className="size-4 shrink-0"
+                  />
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-2.5 text-[11px] text-text-muted">

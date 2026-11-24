@@ -31,14 +31,13 @@ export default function AccountRestricted() {
         return null;
       }
     };
-    // Sent here by the server (proxy.ts) with a session that was open when
-    // the suspension began: end that session now and read the notice.
+    // Sent here (proxy.ts, SuspensionWatcher) with a session that was open
+    // when the suspension began: end that session and read the notice. Always,
+    // even when this tab kept a notice from an earlier suspension: skipping it
+    // then left the session open, bouncing the player here on every page.
     void (async () => {
-      let stored = read();
-      if (!stored) {
-        await signOutIfSuspended(createClient()).catch(() => false);
-        stored = read();
-      }
+      await signOutIfSuspended(createClient()).catch(() => false);
+      const stored = read();
       if (!cancelled) setNotice(stored);
     })();
     return () => {

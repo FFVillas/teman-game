@@ -491,6 +491,11 @@ export default function EditProfileForm({
             <Field label="Username">
               <input
                 value={username}
+                // Not a login field: keep saved sign-ins (test01…) out of it.
+                autoComplete="off"
+                name="profile-username"
+                data-1p-ignore
+                data-lpignore="true"
                 onChange={(event) => {
                   setUsername(event.target.value);
                   setErrors((prev) => ({ ...prev, username: undefined }));
@@ -634,6 +639,7 @@ export default function EditProfileForm({
                   </label>
                   <input
                     id={`handle-${account.provider}`}
+                    autoComplete="off"
                     value={handles[account.provider] ?? ""}
                     onChange={(event) =>
                       setHandles((prev) => ({

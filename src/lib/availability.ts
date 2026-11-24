@@ -13,14 +13,13 @@ export function trimSeconds(time: string | null | undefined): string {
   return time ? time.slice(0, 5) : "";
 }
 
+/** 24-hour clock: "20:00", "09:30". */
 export function formatTime(time: string): string {
   const [hours, minutes] = time.split(":").map(Number);
-  const suffix = hours >= 12 ? "PM" : "AM";
-  const hour12 = hours % 12 === 0 ? 12 : hours % 12;
-  return `${hour12}:${String(minutes).padStart(2, "0")} ${suffix}`;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }
 
-/** Every half hour, "00:00" → "12:00 AM" … "23:30" → "11:30 PM". */
+/** Every half hour, "00:00" … "23:30". */
 export const timeOptions = Array.from({ length: 48 }, (_, index) => {
   const value = `${String(Math.floor(index / 2)).padStart(2, "0")}:${index % 2 ? "30" : "00"}`;
   return { value, label: formatTime(value) };
@@ -49,7 +48,7 @@ function formatDays(days: string[]): string {
 }
 
 /**
- * One readable line for the profile, e.g. "Weekdays · 8:00 PM – 12:00 AM WIB".
+ * One readable line for the profile, e.g. "Weekdays · 20:00 – 00:00 UTC+7".
  * Empty string when nothing is set, so the caller can show "Not set".
  */
 export function formatAvailability({

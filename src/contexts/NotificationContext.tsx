@@ -12,7 +12,11 @@ import {
 import { useAuth } from "./AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import type { AppNotification, NotificationKind } from "@/data/notifications";
-import { useRealtimeChanges, useRealtimeInserts } from "@/lib/realtime";
+import {
+  useRealtimeChanges,
+  useRealtimeDeletes,
+  useRealtimeInserts,
+} from "@/lib/realtime";
 import {
   fetchNotifications,
   incomingToast,
@@ -181,6 +185,21 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     onChange: () => {
       if (!playerId) return;
       fetchNotifications(createClient()).then((rows) => setNotifications(rows));
+    },
+  });
+
+  // A join request withdrawn by the applicant (or one nobody can accept any
+  // more) is deleted by the database. Delete events can't carry the
+  // user_id filter above, so they arrive here for the whole table: drop the
+  // row if it's one of ours, and the bell updates without a refresh.
+  useRealtimeDeletes({
+    table: "notifications",
+    enabled: Boolean(playerId),
+    onDelete: ({ id }) => {
+      if (!id) return;
+      setNotifications((prev) =>
+        prev.some((n) => n.id === id) ? prev.filter((n) => n.id !== id) : prev,
+      );
     },
   });
 

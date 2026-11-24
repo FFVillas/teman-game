@@ -204,7 +204,7 @@ export default function LfgTeamCard({
           )}
           <div className="flex shrink-0 items-center gap-1.5">
             {/* Waiting on the leader: the request can be taken back right here. */}
-            {team.viewerState === "pending" && <CancelRequestButton lobbyId={team.id} />}
+            {team.viewerState === "pending" && <CancelRequestButton lobbyId={team.id} lobbyName={team.name} />}
             <button
               type="button"
               onClick={onOpenDetails}
