@@ -36,6 +36,8 @@ export interface LobbyMember {
   micOn?: boolean;
   /** Community rating, 1.0–5.0. Feeds `R` in the compatibility score. Null until rated. */
   reputation: number | null;
+  /** Different players who rated them, shown as "(n)" beside the stars. */
+  raterCount?: number;
   /** Real players: their profile URL segment (their username). */
   profileSlug?: string;
 }
@@ -48,6 +50,8 @@ export interface LobbyApplication {
   rank: LfgRank;
   role?: LfgRole | null;
   reputation: number | null;
+  /** Different players who rated them, shown as "(n)" beside the stars. */
+  raterCount?: number;
   profileSlug?: string;
   message?: string;
   appliedAgo: string;

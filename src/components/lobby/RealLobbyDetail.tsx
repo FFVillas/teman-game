@@ -145,6 +145,7 @@ export default function RealLobbyDetail({
       : null,
     isLeader: person.id === team.leaderId,
     reputation: person.reputation,
+    raterCount: person.raterCount,
     profileSlug: person.username,
   });
   const members = people.map(asMember);
@@ -180,6 +181,7 @@ export default function RealLobbyDetail({
         ? { name: entry.roleName, icon: roleIconFor(team.game, entry.roleName) ?? "" }
         : null,
       reputation: entry.reputation,
+      raterCount: entry.raterCount,
       profileSlug: entry.username,
       message: entry.message ?? undefined,
       appliedAgo: when(entry.createdAt),

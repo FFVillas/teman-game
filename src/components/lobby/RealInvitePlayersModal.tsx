@@ -1,5 +1,6 @@
 "use client";
 
+import RatingBadge from "@/components/RatingBadge";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import PlayerAvatar from "@/components/lfg/PlayerAvatar";
@@ -356,10 +357,7 @@ export default function RealInvitePlayersModal({
                         {candidate.reputation === null ? (
                           <span className="italic text-text-muted/70">No ratings yet</span>
                         ) : (
-                          <span className="text-star">
-                            ★ {candidate.reputation.toFixed(1)}
-                            <span className="text-text-muted"> ({candidate.reviewCount})</span>
-                          </span>
+                          <RatingBadge value={candidate.reputation} raters={candidate.raterCount} />
                         )}
                         {candidate.playstyle && <span>{playstyleLabels[candidate.playstyle]}</span>}
                       </div>
