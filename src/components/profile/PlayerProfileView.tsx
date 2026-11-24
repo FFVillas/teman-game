@@ -1,5 +1,6 @@
 "use client";
 
+import RatingBadge from "@/components/RatingBadge";
 import { useState } from "react";
 import Link from "next/link";
 import type { PlayerProfile } from "@/data/player-profiles";
@@ -34,7 +35,8 @@ const sectionHeading =
 const fieldLabel =
   "text-[10px] font-bold uppercase tracking-wide text-text-muted";
 
-function StarRating({ score }: { score: number }) {
+/** The profile alone keeps a row of five stars, the empty ones dimmed. */
+function StarRow({ score }: { score: number }) {
   const fullStars = Math.floor(score);
   const hasHalfStar = score - fullStars >= 0.5;
 
@@ -47,13 +49,7 @@ function StarRating({ score }: { score: number }) {
           // eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization
           <img
             key={index}
-            src={
-              isFull
-                ? "/icons/player-star-full.svg"
-                : isHalf
-                  ? "/icons/player-star-half.svg"
-                  : "/icons/player-star-full.svg"
-            }
+            src={isHalf ? "/icons/player-star-half.svg" : "/icons/player-star-full.svg"}
             alt=""
             className={`h-3 w-3.5 ${isFull || isHalf ? "" : "opacity-20"}`}
           />
@@ -62,6 +58,7 @@ function StarRating({ score }: { score: number }) {
     </div>
   );
 }
+
 
 /**
  * Real profiles carry `gameSetups` (what the player saved per game). Mock
@@ -124,10 +121,6 @@ export default function PlayerProfileView({
   const hasReviews = profile.reviewCount > 0;
   // Only real profiles know how many different players rated them.
   const isNew = profile.raterCount !== undefined && isNewPlayer(profile.raterCount);
-  const ratingsLabel =
-    profile.raterCount === undefined
-      ? `${profile.reviewCount} ${profile.reviewCount === 1 ? "rating" : "ratings"}`
-      : `${profile.reviewCount} ${profile.reviewCount === 1 ? "rating" : "ratings"} from ${profile.raterCount} ${profile.raterCount === 1 ? "player" : "players"}`;
   const newPlayerBadge = isNew && (
     <span
       title={`Rated by fewer than ${NEW_PLAYER_RATERS} different players`}
@@ -176,10 +169,13 @@ export default function PlayerProfileView({
               </h1>
               {hasReviews ? (
                 <div className="flex flex-wrap items-center gap-2">
-                  <StarRating score={profile.ratingScore} />
-                  <span className="text-[11px] text-text-muted">
-                    {profile.ratingScore.toFixed(1)} · {ratingsLabel}
-                  </span>
+                  <StarRow score={profile.ratingScore} />
+                  <RatingBadge
+                    showStar={false}
+                    value={profile.ratingScore}
+                    raters={profile.raterCount ?? profile.reviewCount}
+                    className="text-sm"
+                  />
                   {newPlayerBadge}
                 </div>
               ) : (

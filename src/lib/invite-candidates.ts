@@ -29,6 +29,8 @@ export interface InviteCandidate {
   /** Average stars, as the profile shows it; null until anyone has rated them. */
   reputation: number | null;
   reviewCount: number;
+  /** Different players who rated them: the number shown beside the stars. */
+  raterCount: number;
   /** R* (Persamaan 3.10), what the score uses; 3 for a player nobody rated. */
   rstar: number;
   /** The tags the player picked, exactly as their profile shows them. */
@@ -66,7 +68,7 @@ export async function fetchInviteCandidates(
     supabase
       .from("profiles")
       .select(
-        "id, username, avatar_path, playstyle, reputation_score, reputation_bayes, review_count, is_suspended, user_tag (tag_id)",
+        "id, username, avatar_path, playstyle, reputation_score, reputation_bayes, review_count, rater_count, is_suspended, user_tag (tag_id)",
       )
       .in("id", ids)
       // Proposal: a suspended player is left out before anything is scored.
@@ -95,6 +97,7 @@ export async function fetchInviteCandidates(
         reputation_score: number | string;
         reputation_bayes: number | string | null;
         review_count: number;
+        rater_count: number;
         user_tag: { tag_id: number }[] | null;
       }>
     ).map((profile) => [profile.id, profile]),
@@ -120,6 +123,7 @@ export async function fetchInviteCandidates(
         playstyle: profile.playstyle,
         reputation: profile.review_count > 0 ? Number(profile.reputation_score) : null,
         reviewCount: profile.review_count,
+        raterCount: profile.rater_count,
         rstar: Number(profile.reputation_bayes ?? 3),
         tags: (profile.user_tag ?? [])
           .map((entry) => nameOfTag.get(entry.tag_id))

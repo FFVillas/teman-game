@@ -628,6 +628,8 @@ export interface LobbyPerson {
   roleName: string | null;
   /** Null until anyone has rated them. */
   reputation: number | null;
+  /** Different players who rated them. */
+  raterCount: number;
 }
 
 export interface LobbyApplicationView extends LobbyPerson {
@@ -755,7 +757,7 @@ export async function fetchLobbyDetail(
   const [{ data: profileRows }, { data: rankRows }, strengths, tagCatalog] = await Promise.all([
     supabase
       .from("profiles")
-      .select("id, username, avatar_path, reputation_score, review_count, playstyle, reputation_bayes")
+      .select("id, username, avatar_path, reputation_score, review_count, rater_count, playstyle, reputation_bayes")
       .in("id", userIds),
     supabase
       .from("user_game_mapping")
@@ -773,6 +775,7 @@ export async function fetchLobbyDetail(
         avatar_path: string | null;
         reputation_score: number | string;
         review_count: number;
+        rater_count: number;
         playstyle: number | null;
         reputation_bayes: number | string | null;
       }>
@@ -798,6 +801,7 @@ export async function fetchLobbyDetail(
       roleName: roleNameOf(roleId),
       reputation:
         profile && profile.review_count > 0 ? Number(profile.reputation_score) : null,
+      raterCount: profile?.rater_count ?? 0,
     };
   };
 

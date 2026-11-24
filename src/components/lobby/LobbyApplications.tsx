@@ -1,5 +1,6 @@
 "use client";
 
+import RatingBadge from "@/components/RatingBadge";
 import Link from "next/link";
 import type { LobbyApplication } from "@/data/lfg-lobby";
 import PlayerAvatar from "@/components/lfg/PlayerAvatar";
@@ -135,9 +136,7 @@ export default function LobbyApplications({
                         No ratings yet
                       </span>
                     ) : (
-                      <span className="flex items-center gap-1 text-star">
-                        ★ {app.reputation.toFixed(1)}
-                      </span>
+                      <RatingBadge value={app.reputation} raters={app.raterCount} />
                     )}
                   </div>
                 </div>
