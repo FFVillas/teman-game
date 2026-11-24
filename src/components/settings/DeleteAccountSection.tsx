@@ -31,6 +31,10 @@ export default function DeleteAccountSection({
   const { toast } = useNotifications();
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState("");
+  // Read-only until touched: browsers don't autofill read-only fields, and
+  // otherwise they drop the saved login (whichever account saved it, e.g.
+  // test01) into "type your username" and the password, unasked.
+  const [armed, setArmed] = useState(false);
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -117,6 +121,11 @@ export default function DeleteAccountSection({
               value={typed}
               onChange={(event) => setTyped(event.target.value)}
               autoComplete="off"
+              name="confirm-delete-username"
+              readOnly={!armed}
+              onFocus={() => setArmed(true)}
+              data-1p-ignore
+              data-lpignore="true"
               className={controlClass}
             />
           </label>
@@ -130,6 +139,8 @@ export default function DeleteAccountSection({
                 setError(null);
               }}
               autoComplete="current-password"
+              readOnly={!armed}
+              onFocus={() => setArmed(true)}
               className={controlClass}
             />
           </label>

@@ -50,6 +50,7 @@ The proposal's ERD has 22 tables: `user`, `access_role`, `user_access_role`,
 | A18 | Push devices | FCM named, no table | `push_tokens` (one row per device, moved on sign-in, removed on logout) | Addition (1 table) | Written | `20261119000000_push_notifications.sql` |
 | A19 | Push cooldown | Not specified | `push_throttle` (when each player was last pushed about each chat) | Addition (1 table) | Written | `20261119000100_chat_push.sql` |
 | A20 | Google / Discord sign-in | Not in the ERD. The proposal's third-party entity is `connected_accounts`, which is *linking* an account to a profile, not signing in with one | Real, through Supabase Auth. No new table: the identity lives in `auth.identities`, which Supabase owns, the way `auth.users` already stands in for the proposal's `user`. A signup through a provider gets a generated username, since nobody typed one | Addition (0 tables) | Live | `20261119000400_oauth_signup.sql`, `app/auth/callback/route.ts`, `docs/oauth-setup.md` |
+| A21 | Personality tags | `tag` holds tags "seperti" Shot Caller, PMA, Chill, Never Surrender, Flex Player (examples, an open list) | Ten: those five plus Talkative, Introverted, Humorous, Serious, Focused. Still 3–5 per player and at most 3 per lobby; the 5-tag limit is now a real limit | Addition (5 rows) | Written | `20261124000000_more_tags.sql` |
 
 **Table count:** 22 in the proposal. The build has 18 of them as tables
 (`lobby_member` is a view; `access_role`, `user_access_role` and
@@ -106,7 +107,7 @@ migrations run.
 
 | # | What | Plan |
 |---|------|------|
-| E1 | Admin console on real data | Built 19 Nov (step 6), waits on migration `20261119000200`. Admin check on the server, real reports, sanctions, lobbies and audit log; suspension enforced at sign-in. Gap: an already-open tab keeps API access until its token expires (≤ 1 h) |
+| E1 | Admin console on real data | Built 19 Nov (step 6), waits on migration `20261119000200`. Admin check on the server, real reports, sanctions, lobbies and audit log; suspension enforced at sign-in. An already-open tab is sent away by `SuspensionWatcher`, and the database refuses its writes (`20261124000100_refuse_suspended.sql`, 24 Nov, written) |
 | E2 | Connected accounts (A3) | Open decision: build or narrow the proposal |
 | E3 | Join-request list ranked by S_total (B5) | Done 19 Nov |
 | E4 | Sensitivity analysis (B12), black-box table with traceability matrix, k6 scripts | Step 7 |

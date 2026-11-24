@@ -12,6 +12,8 @@ interface MatchHistoryListProps {
   isOwner: boolean;
   /** Compact rows for the profile page; roomier ones for the full list. */
   compact?: boolean;
+  /** Whose history this is: their face leads the row's avatar stack. */
+  owner: { name: string; avatar: string };
 }
 
 export default function MatchHistoryList({
@@ -19,6 +21,7 @@ export default function MatchHistoryList({
   slug,
   isOwner,
   compact = false,
+  owner,
 }: MatchHistoryListProps) {
   if (matches.length === 0) {
     return (
@@ -40,18 +43,21 @@ export default function MatchHistoryList({
               href={`/profile/${slug}/matches/${match.id}`}
               className="flex items-center gap-3 rounded-xl border border-border-default bg-bg-page p-3 transition-colors hover:border-border-strong"
             >
-              {!compact && (
-                <div className="relative hidden size-12 shrink-0 overflow-hidden rounded-lg sm:block">
-                  <Image
-                    src={match.cover}
-                    alt=""
-                    fill
-                    sizes="48px"
-                    className="object-cover"
-                    style={{ objectPosition: coverPosition(match.cover) }}
-                  />
-                </div>
-              )}
+              {/* The lobby's cover: the quickest way to tell rows apart. */}
+              <div
+                className={`relative hidden shrink-0 overflow-hidden rounded-lg sm:block ${
+                  compact ? "size-10" : "size-12"
+                }`}
+              >
+                <Image
+                  src={match.cover}
+                  alt=""
+                  fill
+                  sizes="48px"
+                  className="object-cover"
+                  style={{ objectPosition: coverPosition(match.cover) }}
+                />
+              </div>
 
               <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <div className="flex flex-wrap items-center gap-2">
@@ -89,12 +95,17 @@ export default function MatchHistoryList({
                   fixed-width timestamp between them left about 130px for the
                   lobby name, which truncated almost every title. */}
               <div className="hidden shrink-0 items-center sm:flex">
+                <PlayerAvatar
+                  src={owner.avatar}
+                  name={owner.name}
+                  className="size-7 border-2 border-brand"
+                />
                 {match.teammates.slice(0, 3).map((teammate) => (
                   <PlayerAvatar
                     key={teammate.id}
                     src={teammate.avatar}
                     name={teammate.name}
-                    className="-ml-2 size-7 border-2 border-bg-page first:ml-0"
+                    className="-ml-2 size-7 border-2 border-bg-page"
                   />
                 ))}
                 {match.teammates.length > 3 && (

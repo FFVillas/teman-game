@@ -9,10 +9,9 @@ export const MAX_LANGUAGES = 8;
  * so the two can't disagree. A teammate raised this from 3 to 5 on purpose
  * ("change limit personality tags in profile").
  *
- * Worth knowing: there are only 5 tags, so a cap of 5 is no cap at all. The
- * matching score's T term is |A∩B|/|B| against the tags a lobby asks for, so
- * a player who claims every tag always gets T = 1. If that should be
- * prevented, lower this number — it is the only place to change.
+ * The cap matters since there are ten tags (20261124000000_more_tags.sql):
+ * with only five, a player could claim them all and score T = 1 everywhere.
+ * The database enforces the same limit (`check_user_tag_count`).
  */
 export const MAX_PERSONALITY_TAGS = 5;
 /**

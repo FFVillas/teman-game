@@ -11,7 +11,7 @@ import { createClient } from "@/lib/supabase/client";
 import { fetchTagCatalog, fetchTagStrengths, tagsByStrength } from "@/lib/tags";
 
 /**
- * What the rating queue needs to save for real: the five personality tags in
+ * What the rating queue needs to save for real: the personality tags in
  * each teammate's own order (strongest first, nothing picked for you, as the
  * proposal asks), and the two writes, a rating and a report.
  */

@@ -33,7 +33,7 @@ function isKnown(name: string): name is PersonalityTag {
   return known.has(name);
 }
 
-/** The five tags, in the order the forms list them. */
+/** Every tag, in the order the forms list them. */
 export async function fetchTagCatalog(
   supabase: SupabaseClient,
 ): Promise<{ id: number; name: PersonalityTag }[]> {

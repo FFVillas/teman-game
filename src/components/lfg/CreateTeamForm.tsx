@@ -27,16 +27,14 @@ import RankRangeFields from "./RankRangeFields";
 const vibeTagOptions = ["Competitive", "Chill", "Tactical", "Grinding", "Voice Comms"];
 
 /**
- * A day ("2026-10-13", a calendar date in UTC+7) plus a clock time like
- * "08:00 PM" as one moment. The form says times are local UTC+7, so the day
+ * A day ("2026-10-13", a calendar date in UTC+7) plus a 24-hour clock time
+ * like "20:00" as one moment. The form says times are local UTC+7, so the day
  * and the time are read on that clock, whatever the browser's zone is.
  */
 function jakartaMoment(day: string, label: string): Date {
   const [year, month, date] = day.split("-").map(Number);
-  const [clock, period] = label.split(" ");
-  const [hourText, minuteText] = clock.split(":");
-  let hour = Number(hourText) % 12;
-  if (period === "PM") hour += 12;
+  const [hourText, minuteText] = label.split(":");
+  const hour = Number(hourText);
   return new Date(Date.UTC(year, month - 1, date, hour - 7, Number(minuteText)));
 }
 
@@ -56,19 +54,11 @@ function dayLabel(day: string, index: number): string {
   return `${weekday} ${date}`;
 }
 
-const timeOptions = (() => {
-  const times: string[] = [];
-  for (let hour = 0; hour < 24; hour++) {
-    for (const minute of [0, 30]) {
-      const period = hour < 12 ? "AM" : "PM";
-      const displayHour = hour % 12 === 0 ? 12 : hour % 12;
-      times.push(
-        `${String(displayHour).padStart(2, "0")}:${String(minute).padStart(2, "0")} ${period}`
-      );
-    }
-  }
-  return times;
-})();
+// 24-hour clock, every half hour: "00:00" … "23:30".
+const timeOptions = Array.from(
+  { length: 48 },
+  (_, index) => `${String(Math.floor(index / 2)).padStart(2, "0")}:${index % 2 ? "30" : "00"}`,
+);
 
 const inputClass =
   "w-full rounded-lg border border-border-strong bg-bg-page px-4 py-3 text-sm text-white placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-brand";
@@ -85,18 +75,17 @@ function Lockable({ locked, children }: { locked: boolean; children: ReactNode }
   );
 }
 
-/** A stored timestamp as the form's clock label, e.g. "08:00 PM", in UTC+7. */
+/** A stored timestamp as the form's clock label, e.g. "20:00", in UTC+7. */
 function clockLabel(iso: string): string {
-  const parts = new Intl.DateTimeFormat("en-US", {
+  const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Asia/Jakarta",
-    hour: "numeric",
-    minute: "numeric",
-    hour12: true,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
   }).formatToParts(new Date(iso));
-  const hour = parts.find((part) => part.type === "hour")?.value ?? "8";
+  const hour = parts.find((part) => part.type === "hour")?.value ?? "20";
   const minute = Number(parts.find((part) => part.type === "minute")?.value ?? "0");
-  const period = (parts.find((part) => part.type === "dayPeriod")?.value ?? "PM").toUpperCase();
-  return `${hour.padStart(2, "0")}:${minute >= 15 && minute < 45 ? "30" : "00"} ${period}`;
+  return `${hour.padStart(2, "0")}:${minute >= 15 && minute < 45 ? "30" : "00"}`;
 }
 
 /** What the form starts from when it edits an existing lobby. */
@@ -123,12 +112,34 @@ export interface EditLobbyInit {
   wantedTagIds: number[];
 }
 
-function FormField({ label, children }: { label: string; children: ReactNode }) {
+/**
+ * A section heading of the form, with an optional icon before it (the
+ * "Lobby Settings" column: region, group size, languages, playtime, roles).
+ */
+function FieldLabel({ icon, children }: { icon?: string; children: ReactNode }) {
+  return (
+    <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-text-muted">
+      {icon && (
+        // eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization
+        <img src={icon} alt="" className="size-3.5 object-contain opacity-60 brightness-0 invert" />
+      )}
+      {children}
+    </span>
+  );
+}
+
+function FormField({
+  label,
+  icon,
+  children,
+}: {
+  label: string;
+  icon?: string;
+  children: ReactNode;
+}) {
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-xs font-bold uppercase tracking-wider text-text-muted">
-        {label}
-      </span>
+      <FieldLabel icon={icon}>{label}</FieldLabel>
       {children}
     </div>
   );
@@ -303,10 +314,10 @@ export default function CreateTeamForm({
     edit?.startsAt ? jakartaDate(edit.startsAt) : dayChoices[0]
   );
   const [scheduleStart, setScheduleStart] = useState(
-    edit?.startsAt ? clockLabel(edit.startsAt) : "08:00 PM"
+    edit?.startsAt ? clockLabel(edit.startsAt) : "20:00"
   );
   const [scheduleEnd, setScheduleEnd] = useState(
-    edit?.endsAt ? clockLabel(edit.endsAt) : "11:00 PM"
+    edit?.endsAt ? clockLabel(edit.endsAt) : "23:00"
   );
   const [seekingRoles, setSeekingRoles] = useState<string[]>(edit?.roleNames ?? []);
   const [anyRole, setAnyRole] = useState(edit ? edit.roleNames.length === 0 : false);
@@ -344,7 +355,7 @@ export default function CreateTeamForm({
     const now = new Date();
     const startsAt =
       playtimeMode === "schedule" ? jakartaMoment(scheduleDay, scheduleStart) : null;
-    // An end that isn't after the start is the next day (11 PM to 1 AM).
+    // An end that isn't after the start is the next day (23:00 to 01:00).
     let endsAt: Date | null = null;
     if (startsAt && scheduleEnd) {
       endsAt = jakartaMoment(scheduleDay, scheduleEnd);
@@ -654,7 +665,7 @@ export default function CreateTeamForm({
                 </h2>
               </div>
 
-              <FormField label="Region">
+              <FormField label="Region" icon="/icons/lfg-region.svg">
                 <SelectField
                   value={region}
                   onChange={setRegion}
@@ -665,9 +676,7 @@ export default function CreateTeamForm({
               <Lockable locked={lockRest}>
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-text-muted">
-                    Group Size
-                  </span>
+                  <FieldLabel icon="/icons/people-small.svg">Group Size</FieldLabel>
                   <span className="text-xs font-bold text-white">
                     {groupSize}/{maxGroupSize} Spots
                   </span>
@@ -721,7 +730,7 @@ export default function CreateTeamForm({
               </div>
               </Lockable>
 
-              <FormField label="Languages">
+              <FormField label="Languages" icon="/icons/lfg-language.svg">
                 <LanguagesField
                   languages={languages}
                   onChange={setLanguages}
@@ -733,9 +742,7 @@ export default function CreateTeamForm({
 
               <Lockable locked={lockRest}>
               <div className="flex flex-col gap-3">
-                <span className="text-xs font-bold uppercase tracking-wider text-text-muted">
-                  Playtime
-                </span>
+                <FieldLabel icon="/icons/player-clock.svg">Playtime</FieldLabel>
                 <div className="flex gap-1 rounded-lg border border-border-strong bg-bg-page p-1">
                   <button
                     type="button"
@@ -853,9 +860,7 @@ export default function CreateTeamForm({
                 <Lockable locked={lockRest}>
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold uppercase tracking-wider text-text-muted">
-                      Seeking Roles
-                    </span>
+                    <FieldLabel icon="/icons/social-recent-teammates.svg">Seeking Roles</FieldLabel>
                     <AnyToggle
                       label="Any role"
                       on={anyRole}
@@ -878,7 +883,7 @@ export default function CreateTeamForm({
                             icon ? "size-10" : "px-3 py-2 text-xs font-semibold"
                           } ${
                             isSelected && !anyRole
-                              ? "border-white/20 bg-white/10 text-white"
+                              ? "border-brand bg-bg-page text-white"
                               : "border-border-strong bg-bg-page text-text-muted"
                           }`}
                         >

@@ -305,10 +305,27 @@ export default function PlayerProfileView({
                 <div className="col-span-2 flex flex-col gap-1">
                   <span className={fieldLabel}>Playstyle</span>
                   {profile.playstyle ? (
-                    <span className="text-xs text-white">
-                      {profile.playstyle}/5 ·{" "}
-                      {playstyleLabel[profile.playstyle - 1]}
-                    </span>
+                    // A five-segment bar, like a health bar, with the word
+                    // beside it so "3 of 5" still reads as "Balanced".
+                    <div
+                      className="flex items-center gap-2.5"
+                      role="img"
+                      aria-label={`Playstyle ${profile.playstyle} of 5: ${playstyleLabel[profile.playstyle - 1]}`}
+                    >
+                      <div className="flex w-full max-w-[160px] gap-1">
+                        {[1, 2, 3, 4, 5].map((step) => (
+                          <span
+                            key={step}
+                            className={`h-2 flex-1 rounded-sm ${
+                              step <= (profile.playstyle ?? 0) ? "bg-brand" : "bg-white/10"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <span className="whitespace-nowrap text-xs text-white">
+                        {playstyleLabel[profile.playstyle - 1]}
+                      </span>
+                    </div>
                   ) : (
                     <NotSetOrAdd isOwner={isOwner} href={editHref} />
                   )}
@@ -541,6 +558,7 @@ export default function PlayerProfileView({
               matches={recentMatches}
               slug={profile.slug}
               isOwner={isOwner}
+              owner={{ name: profile.username, avatar: profile.avatar }}
               compact
             />
           </div>

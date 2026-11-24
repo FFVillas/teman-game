@@ -17,6 +17,8 @@ interface MatchDetailViewProps {
   match: MatchRecord;
   slug: string;
   username: string;
+  /** The history owner's picture, for their own row on the roster. */
+  ownerAvatar?: string;
   /** Only the owner of the history can rate or report from here. */
   isOwner: boolean;
   /** A real match: ratings and reports are saved. Mock matches only pretend. */
@@ -27,6 +29,7 @@ export default function MatchDetailView({
   match,
   slug,
   username,
+  ownerAvatar = "",
   isOwner,
   live = false,
 }: MatchDetailViewProps) {
@@ -170,6 +173,27 @@ export default function MatchDetailView({
         </div>
 
         <ul className="flex flex-col gap-2">
+          {/* Whose history this is, first, so the roster shows everyone who
+              played and matches the count above. */}
+          <li className="flex items-center gap-3 rounded-xl border border-brand/30 bg-brand/[0.05] p-3">
+            <UserAvatar
+              src={ownerAvatar}
+              name={username}
+              className={`size-10 ${match.viewerWasLeader ? "border-2 border-brand" : ""}`}
+            />
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <span className="truncate text-sm font-bold text-white">{username}</span>
+              {isOwner && (
+                <span className="rounded bg-white/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white/70">
+                  You
+                </span>
+              )}
+              {match.viewerWasLeader && (
+                // eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization
+                <img src="/icons/lfg-crown.svg" alt="Leader" title="Leader" className="size-4" />
+              )}
+            </div>
+          </li>
           {match.teammates.map((teammate) => {
             const isReviewed = reviewed[teammate.id];
 
@@ -199,9 +223,8 @@ export default function MatchDetailView({
                       </span>
                     )}
                     {teammate.wasLeader && (
-                      <span className="rounded bg-brand/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-brand">
-                        Leader
-                      </span>
+                      // eslint-disable-next-line @next/next/no-img-element -- static SVG icon, no benefit from next/image optimization
+                      <img src="/icons/lfg-crown.svg" alt="Leader" title="Leader" className="size-4" />
                     )}
                   </div>
                   <div className="flex flex-wrap items-center gap-2.5 text-[11px] text-text-muted">

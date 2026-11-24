@@ -28,7 +28,7 @@ import { fetchTagCatalog, fetchTagStrengths } from "@/lib/tags";
  * never the scores (players see the ranking, not the numbers behind it).
  */
 
-/** The five tags, read once per request however many callers need them. */
+/** The tag list, read once per request however many callers need them. */
 const tagCatalog = cache(fetchTagCatalog);
 
 /** What the score needs to know about the player looking at the list. */

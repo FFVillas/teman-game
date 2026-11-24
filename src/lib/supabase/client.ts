@@ -10,5 +10,21 @@ export function createClient() {
   return createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    { global: { fetch: fetchOrLeave } },
   );
+}
+
+/**
+ * Plain fetch, plus one thing: when the database refuses a write because the
+ * player is suspended (`refuse_suspended`, 20261124000100), leave for the page
+ * that says so. Any action anywhere in the app ends up here, so no screen has
+ * to know about it.
+ */
+async function fetchOrLeave(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const response = await fetch(input, init);
+  if (response.status === 403 && typeof window !== "undefined") {
+    const text = await response.clone().text().catch(() => "");
+    if (text.includes("account_suspended")) window.location.replace("/account-restricted");
+  }
+  return response;
 }

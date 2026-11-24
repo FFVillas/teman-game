@@ -13,6 +13,12 @@ export const personalityTagOptions = [
   "Chill",
   "Never Surrender",
   "Flex Player",
+  // Added by 20261124000000_more_tags.sql; the names must match `tag.name`.
+  "Talkative",
+  "Introverted",
+  "Humorous",
+  "Serious",
+  "Focused",
 ] as const;
 
 export type PersonalityTag = (typeof personalityTagOptions)[number];

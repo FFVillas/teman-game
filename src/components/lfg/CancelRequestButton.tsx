@@ -5,29 +5,30 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { leaveLobby } from "@/lib/lobbies";
 import { useNotifications } from "@/contexts/NotificationContext";
+import ConfirmDialog from "@/components/lobby/ConfirmDialog";
 
 /**
- * Takes back a join request straight from the LFG card. Two taps (Cancel,
- * then Sure?) so a stray click doesn't withdraw it; the lobby page's
- * "Withdraw application" does the same thing.
+ * Takes back a join request straight from the LFG card. Asks in a pop-up
+ * first, the same one the lobby page's "Cancel request" opens.
  */
-export default function CancelRequestButton({ lobbyId }: { lobbyId: string }) {
+export default function CancelRequestButton({
+  lobbyId,
+  lobbyName,
+}: {
+  lobbyId: string;
+  lobbyName?: string;
+}) {
   const router = useRouter();
   const { toast } = useNotifications();
-  const [step, setStep] = useState<"idle" | "confirm" | "busy">("idle");
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
 
-  async function handleClick() {
-    if (step === "idle") {
-      setStep("confirm");
-      // Back to plain "Cancel" if they don't follow through.
-      setTimeout(() => setStep((current) => (current === "confirm" ? "idle" : current)), 4000);
-      return;
-    }
-    if (step !== "confirm") return;
-    setStep("busy");
+  async function withdraw() {
+    setBusy(true);
     const failure = await leaveLobby(createClient(), lobbyId);
+    setBusy(false);
+    setOpen(false);
     if (failure) {
-      setStep("idle");
       toast({ tone: "danger", title: "Couldn't cancel the request", body: failure });
       return;
     }
@@ -35,18 +36,53 @@ export default function CancelRequestButton({ lobbyId }: { lobbyId: string }) {
   }
 
   return (
-    <button
-      type="button"
-      onClick={handleClick}
-      disabled={step === "busy"}
-      title="Take back your request to join"
-      className={`flex h-6 items-center justify-center rounded-md border px-2 text-xs font-bold transition-colors disabled:opacity-60 ${
-        step === "confirm"
-          ? "border-danger bg-danger/15 text-danger"
-          : "border-white/15 text-text-muted hover:border-danger hover:text-danger"
-      }`}
-    >
-      {step === "confirm" ? "Sure?" : step === "busy" ? "…" : "Cancel"}
-    </button>
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        title="Take back your request to join"
+        className="flex h-6 items-center justify-center rounded-md border border-white/15 px-2 text-xs font-bold text-text-muted transition-colors hover:border-danger hover:text-danger"
+      >
+        Cancel
+      </button>
+      {open && (
+        <WithdrawDialog
+          lobbyName={lobbyName}
+          busy={busy}
+          onConfirm={withdraw}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </>
+  );
+}
+
+/** The one wording for taking back a join request, on the card and the lobby page. */
+export function WithdrawDialog({
+  lobbyName,
+  busy,
+  onConfirm,
+  onClose,
+}: {
+  lobbyName?: string;
+  busy: boolean;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <ConfirmDialog
+      title="Cancel your request?"
+      body={
+        <>
+          The leader of {lobbyName ? <b className="text-white">{lobbyName}</b> : "this lobby"} won&apos;t
+          see it any more. You can ask to join again later while the lobby is recruiting.
+        </>
+      }
+      confirmLabel="Cancel request"
+      cancelLabel="Keep it"
+      busy={busy}
+      onConfirm={onConfirm}
+      onClose={onClose}
+    />
   );
 }

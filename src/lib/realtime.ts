@@ -72,6 +72,29 @@ export function useRealtimeChanges({
   });
 }
 
+/**
+ * Rows deleted from a table, as `{ id }` (the primary key is all Realtime
+ * sends for a delete under RLS). Supabase can't filter delete events (the row
+ * is gone, so neither the filter nor RLS can be checked), so this listens to
+ * the whole table: the caller checks whether the id is one it shows.
+ */
+export function useRealtimeDeletes({
+  table,
+  enabled = true,
+  onDelete,
+}: {
+  table: string;
+  enabled?: boolean;
+  onDelete: (row: { id?: string }) => void;
+}) {
+  useRealtimeTable<{ id?: string }>({
+    event: "DELETE",
+    table,
+    enabled,
+    onEvent: onDelete,
+  });
+}
+
 function useRealtimeTable<T extends Record<string, unknown>>({
   event,
   table,
@@ -79,7 +102,7 @@ function useRealtimeTable<T extends Record<string, unknown>>({
   enabled,
   onEvent,
 }: {
-  event: "INSERT" | "*";
+  event: "INSERT" | "DELETE" | "*";
   table: string;
   filter?: string;
   enabled: boolean;
@@ -108,7 +131,8 @@ function useRealtimeTable<T extends Record<string, unknown>>({
         .on(
           "postgres_changes",
           { event, schema: "public", table, filter },
-          (payload) => onEvent(payload.new as T),
+          (payload) =>
+            onEvent((event === "DELETE" ? payload.old : payload.new) as T),
         )
         .subscribe();
     }

@@ -85,6 +85,9 @@ export default function GameDetailsFields({
                 <span className={label}>{field.label}</span>
                 <input
                   value={value}
+                  autoComplete="off"
+                  data-1p-ignore
+                  data-lpignore="true"
                   onChange={(event) =>
                     onUpdate({ [patchKey[field.key]]: event.target.value })
                   }

@@ -20,6 +20,7 @@ import { fetchTagCatalog, fetchTagStrengths } from "@/lib/tags";
 /** Wording for the stable error codes the database functions raise. */
 const lobbyErrors: Record<string, string> = {
   not_signed_in: "Log in to continue.",
+  account_suspended: "Your account is suspended.",
   game_or_mode_invalid: "That game mode isn't available.",
   name_invalid: "Give your lobby a name of 3 to 40 characters.",
   capacity_invalid: "That group size isn't allowed for this mode.",
@@ -180,14 +181,15 @@ export async function applyToLobby(
 const jakartaDay = (date: Date) =>
   new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(date);
 
-/** "Today 8:00 PM", "Tomorrow 8:00 PM" or "Fri 8:00 PM", in UTC+7 like the form. */
+/** "Today 20:00", "Tomorrow 20:00" or "Fri 20:00", in UTC+7 like the form. */
 export function startLabel(iso: string): string {
   const start = new Date(iso);
   const now = new Date();
-  const time = new Intl.DateTimeFormat("en-US", {
+  const time = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Asia/Jakarta",
-    hour: "numeric",
+    hour: "2-digit",
     minute: "2-digit",
+    hourCycle: "h23",
   }).format(start);
   if (jakartaDay(start) === jakartaDay(now)) return `Today ${time}`;
   if (jakartaDay(start) === jakartaDay(new Date(now.getTime() + 86_400_000))) {

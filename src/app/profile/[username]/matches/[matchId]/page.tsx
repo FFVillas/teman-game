@@ -47,6 +47,7 @@ export default async function MatchDetailPage({
             match={match}
             slug={profile.slug}
             username={profile.username}
+            ownerAvatar={profile.avatar}
             isOwner={Boolean(profile.isOwner)}
             live={Boolean(profile.userId)}
           />
