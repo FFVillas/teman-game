@@ -4,7 +4,7 @@ import type { LowRatingReason } from "@/data/review-options";
 /**
  * Rating a teammate after a completed lobby, through `submit_review`
  * (20261116000200_reviews.sql). The database enforces every rule: the lobby
- * ended after at least 15 minutes, both people played in it, one rating per
+ * ended after at least the minimum (`app_setting.min_lobby_minutes`), both people played in it, one rating per
  * teammate, and a reason for 1–2 stars.
  */
 
@@ -20,7 +20,7 @@ function reviewErrorMessage(error: { code?: string; message?: string }): string 
   const text = error.message ?? "";
   if (error.code === "23505") return "You've already rated this player for this lobby.";
   if (text.includes("cannot_review")) {
-    return "Ratings are only open for lobbies that ran at least 15 minutes, between players who played in them.";
+    return "Ratings are only open for lobbies that ran long enough, between players who played in them.";
   }
   if (text.includes("reviews_low_rating_needs_reason")) {
     return "Pick a reason for a rating of 1 or 2 stars.";

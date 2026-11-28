@@ -5,6 +5,7 @@ import type { MatchRecord, MatchTeammate } from "@/data/match-history";
 import { rankIconFor } from "@/data/rank-icons";
 import { roleIconFor } from "@/data/role-icons";
 import type { LfgMode } from "@/data/lfg-teams";
+import { fetchMinLobbyMinutes } from "@/lib/app-settings";
 import { avatarUrl } from "@/lib/avatar";
 import type { GameInfo } from "@/lib/games";
 import { formatAgo } from "@/lib/relative-time";
@@ -15,9 +16,6 @@ import { formatAgo } from "@/lib/relative-time";
  * `MatchRecord` the history screens draw. For the player's own history each
  * teammate says whether the viewer has rated them yet.
  */
-
-/** The database refuses ratings for a lobby that ran less than this. */
-const MIN_PLAYED_MS = 15 * 60_000;
 
 interface MatchRow {
   lobby_id: string;
@@ -83,7 +81,8 @@ export async function fetchPlayerMatches(
 
   const lobbyIds = [...new Set(rows.map((row) => row.lobby_id))];
   const teammateIds = [...new Set(rows.map((row) => row.teammate_id))];
-  const [{ data: lobbyRows }, { data: peopleRows }] = await Promise.all([
+  // The database refuses ratings for a lobby that ran less than this.
+  const [{ data: lobbyRows }, { data: peopleRows }, minLobbyMinutes] = await Promise.all([
     supabase
       .from("lobby")
       .select(
@@ -94,6 +93,7 @@ export async function fetchPlayerMatches(
       .from("profiles")
       .select("id, username, avatar_path, user_game_mapping(game_id, rank_id)")
       .in("id", teammateIds),
+    fetchMinLobbyMinutes(supabase),
   ]);
 
   const people = new Map(
@@ -142,7 +142,8 @@ export async function fetchPlayerMatches(
           endedAgo: lobby.closed_at ? formatAgo(lobby.closed_at) : "—",
           duration: durationLabel(lobby.started_at, lobby.closed_at),
           viewerWasLeader: lobby.leader_id === userId,
-          rateable: played >= MIN_PLAYED_MS,
+          rateable: played >= minLobbyMinutes * 60_000,
+          minLobbyMinutes,
           teammates: rows
             .filter((row) => row.lobby_id === lobby.id)
             .map((row) => toTeammate(row, game)),

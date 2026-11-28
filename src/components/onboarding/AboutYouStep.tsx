@@ -6,6 +6,7 @@ import {
   Field,
   GenderField,
   LanguagesField,
+  MinorNotice,
   ScheduleFields,
   type Schedule,
 } from "@/components/profile/DossierFields";
@@ -21,7 +22,7 @@ export interface AboutYou {
  * Account-level profile details, asked during signup rather than left for
  * the edit form: an empty profile is the thing teammates can't judge, and a
  * player who fills none of this is invisible to the filters other people
- * search with. The date of birth is required (18+, UU PDP) and this step
+ * search with. The date of birth is required (under 18 needs a guardian, UU PDP) and this step
  * can't be skipped; everything else stays optional, and anything left blank
  * renders as "Not set" rather than a guess.
  *
@@ -58,10 +59,10 @@ export default function AboutYouStep({
             <p className="text-[11px] text-danger">{errors.dateOfBirth}</p>
           ) : (
             <p className="text-[11px] text-text-muted">
-              You must be 18 or older. Only your age is shown to other
-              players, never the date.
+              Only your age is shown to other players, never the date.
             </p>
           )}
+          <MinorNotice parts={value.dobParts} />
         </Field>
 
         <Field label="Gender">

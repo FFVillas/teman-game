@@ -27,7 +27,7 @@ export default function PrivacyPolicyPage() {
               Privacy Policy
             </h1>
             <p className="text-xs text-text-muted">
-              Last updated November 18, 2026
+              Last updated November 28, 2026
             </p>
           </div>
 
@@ -61,8 +61,9 @@ export default function PrivacyPolicyPage() {
                     profile.
                   </Bullet>
                   <Bullet label="Date of birth">
-                    Collected only to confirm you meet our minimum age of 18
-                    and to show your age on your profile. The date itself is
+                    Collected to know whether you are under 18 (and so need a
+                    parent or guardian&apos;s consent) and to show your age on
+                    your profile. The date itself is
                     private: only you can see it. Other players see just the
                     age it works out to.
                   </Bullet>
@@ -161,10 +162,12 @@ export default function PrivacyPolicyPage() {
 
             <Section title="Children's Privacy">
               <p>
-                TemanGame is only for people aged 18 and over. Indonesian law
-                (UU No. 27 Tahun 2022 on personal data protection) requires a
+                Indonesian law (UU No. 27 Tahun 2022 on personal data
+                protection) counts anyone under 18 as a child and requires a
                 parent or guardian&apos;s consent to process a child&apos;s
-                data, so sign-up refuses anyone younger.
+                data. Players under 18 are told this when they enter their date
+                of birth, and by continuing confirm that a parent or guardian
+                has agreed.
               </p>
             </Section>
 

@@ -33,7 +33,7 @@ The proposal's ERD has 22 tables: `user`, `access_role`, `user_access_role`,
 | A1 | User table | `user` | `profiles`, one row per Supabase Auth user (same id) | Substitution (name) | Live | `20260919000000_profiles.sql` |
 | A2 | Access roles | `access_role` + `user_access_role` (user or admin) | One `admins` table; a player is anyone not in it. Staff have no player profile | Substitution | Live | `20260919000100_admin_roles.sql` |
 | A3 | Connected accounts | `connected_accounts` (Discord, Steam); use case "Mengelola Profil" links third-party accounts | Not built, and dropped from scope in the October 2026 revision. Onboarding's "Connect your accounts" step and the profile card only *look* connected and save nothing. **Signing in** with Google or Discord is a different thing and is real — see A20 | Not built | Dropped (revision §9) | `components/onboarding/ConnectStep.tsx` |
-| A4 | Age | An age attribute on `user`, minimum 18 | Date of birth in owner-only `profile_private`, required at onboarding; others see only the derived age (`profile_age()`), which the player can hide (`show_age`); 18+ enforced in the database | Substitution + Addition (1 table) | Live | `20261003000000_profiles_dossier.sql`, `20261115000000_minimum_age_18.sql`, `20261123000100_hide_age.sql` |
+| A4 | Age | An age attribute on `user`, minimum 18 | Date of birth in owner-only `profile_private`, required at onboarding; others see only the derived age (`profile_age()`), which the player can hide (`show_age`). **Under 18 is not refused** (since 28 Nov, at the team's request for the user study): entering such a date shows a notice that UU PDP needs a parent or guardian's consent and that continuing confirms it; nothing is stored about that consent. The database refuses only impossible dates | Substitution + Addition (1 table) | Written | `20261003000000_profiles_dossier.sql`, `20261115000000_minimum_age_18.sql` (superseded), `20261128000100_minor_notice.sql`, `20261123000100_hide_age.sql` |
 | A5 | Profile extras | `gender`, `available_time` | Same, with play time structured (`play_days`, `play_start`, `play_end`, `timezone`) and `languages` (list); picture in Storage (`avatar_path`) | Addition | Live | `20261003000100`, `20261004000000` |
 | A6 | Role per game | `user_game_mapping` holds the main role (`game_role`) | `user_game_roles`: several roles per game, any of them marked favourite | Addition (1 table) | Live | `20261003000200_games.sql`, `20261015000000` |
 | A7 | Game account IDs | In-game name | Plus `account_id` and `zone_id`, since the mobile games identify players by number | Addition (2 columns) | Live | `20261015000000_game_account_details.sql` |
@@ -50,15 +50,16 @@ The proposal's ERD has 22 tables: `user`, `access_role`, `user_access_role`,
 | A18 | Push devices | FCM named, no table | `push_tokens` (one row per device, moved on sign-in, removed on logout) | Addition (1 table) | Written | `20261119000000_push_notifications.sql` |
 | A19 | Push cooldown | Not specified | `push_throttle` (when each player was last pushed about each chat) | Addition (1 table) | Written | `20261119000100_chat_push.sql` |
 | A20 | Google / Discord sign-in | Not in the ERD. The proposal's third-party entity is `connected_accounts`, which is *linking* an account to a profile, not signing in with one | Real, through Supabase Auth. No new table: the identity lives in `auth.identities`, which Supabase owns, the way `auth.users` already stands in for the proposal's `user`. A signup through a provider gets a generated username, since nobody typed one | Addition (0 tables) | Live | `20261119000400_oauth_signup.sql`, `app/auth/callback/route.ts`, `docs/oauth-setup.md` |
-| A21 | Personality tags | `tag` holds tags "seperti" Shot Caller, PMA, Chill, Never Surrender, Flex Player (examples, an open list) | Ten: those five plus Talkative, Introverted, Humorous, Serious, Focused. Still 3–5 per player and at most 3 per lobby; the 5-tag limit is now a real limit | Addition (5 rows) | Written | `20261124000000_more_tags.sql` |
+| A21 | Personality tags | `tag` holds tags "seperti" Shot Caller, PMA, Chill, Never Surrender, Flex Player (examples, an open list) | Ten: those five plus Talkative, Introverted, Humorous, Serious, Focused. Still 3–5 per player and at most 3 per lobby; the 5-tag limit is now a real limit | Addition (5 rows) | Live | `20261124000000_more_tags.sql` |
+| A22 | App settings | Not modelled | `app_setting` (key, value), readable by everyone, written only from the SQL editor. Holds `min_lobby_minutes` (C6), because the database enforces it and can't read the web app's environment | Addition (1 table) | Written | `20261128000000_min_lobby_minutes.sql`, `lib/app-settings.ts` |
 
 **Table count:** 22 in the proposal. The build has 18 of them as tables
 (`lobby_member` is a view; `access_role`, `user_access_role` and
-`connected_accounts` don't exist) plus 12 of its own: `admins`,
+`connected_accounts` don't exist) plus 13 of its own: `admins`,
 `profile_private`, `user_game_roles`, `game_modes`, `lobby_invites`,
 `notifications`, `blocks`, `news`, `sanction_reports`, `admin_actions`,
-`push_tokens`, `push_throttle`. That is 30 tables once the two push
-migrations run.
+`push_tokens`, `push_throttle`, `app_setting`. That is 31 tables once
+`20261128000000` runs.
 
 ## B. Recommendation and reputation (3.3.1.2, Persamaan 3.1 to 3.15)
 
@@ -86,7 +87,7 @@ migrations run.
 | C3 | One lobby at a time | Not specified | One live or in-progress lobby per player, several scheduled ones. Starting or joining a live lobby withdraws the player's other pending requests | Addition | Live / Written | `20261118000300_withdraw_other_requests.sql` (Written) |
 | C4 | Lobby edits and removal | Not specified | The leader edits a lobby (size, range, roles, schedule locked once started) and can remove a member | Addition | Live | `20261009000000_lobby_edit.sql` |
 | C5 | Writes | Not specified | Lobby, application, invite and review writes only through database functions; clients can't insert directly | Substitution | Live | |
-| C6 | Rating rules | Completed lobby, ≥ 15 minutes in progress, one rating per member, 1–2 stars need a reason, anonymous | As written | Same | Live | `submit_review` |
+| C6 | Rating rules | Completed lobby, ≥ 15 minutes in progress, one rating per member, 1–2 stars need a reason, anonymous | As written, but the 15 minutes is a setting (`app_setting.min_lobby_minutes`, A22): 15 in production, 5 during the user study so a pair finishes a round in one session. Report the value used in BAB 4 | Same (configurable) | Written | `submit_review`, `20261128000000_min_lobby_minutes.sql` |
 | C7 | Rating pop-up | Shown to every member when the lobby completes | A "Rate teammates" banner on the lobby page and the match page; skippable, picked up later | Substitution | Live | `RealLobbyDetail.tsx` |
 | C8 | Lobby chat kept | Not specified | Kept after the lobby ends (closed to players, readable by admins as evidence); `system` lines from triggers; 30 messages a minute | Addition | Live | `20261011000000_lobby_messages.sql` |
 | C9 | Direct messages | Between players who are **already friends** | Any signed-in player can message any other; the database does not check friendship or blocks | Narrowing | Live | `20261007000000_direct_messages.sql` |

@@ -2,7 +2,15 @@
 
 import type { ReactNode } from "react";
 import FormDropdown from "@/components/FormDropdown";
-import { daysInMonth, joinDate, validateDateOfBirth, MINIMUM_AGE, type DateParts } from "@/lib/age";
+import {
+  ADULT_AGE,
+  daysInMonth,
+  isMinor,
+  joinDate,
+  MAXIMUM_AGE,
+  validateDateOfBirth,
+  type DateParts,
+} from "@/lib/age";
 import { formatTime, timeOptions } from "@/lib/availability";
 import {
   languageOptions,
@@ -47,6 +55,31 @@ export function Field({
   );
 }
 
+/**
+ * Shown under the date of birth when it makes the player under 18. Sign-up is
+ * not refused: UU PDP No. 27/2022 counts them as a child, whose data needs a
+ * parent or guardian's consent, so they are told that before continuing.
+ */
+export function MinorNotice({ parts }: { parts: DateParts }) {
+  const iso = joinDate(parts);
+  if (!iso || validateDateOfBirth(iso) || !isMinor(iso)) return null;
+  return (
+    <div
+      role="note"
+      className="flex flex-col gap-1 rounded-xl border border-warning/40 bg-warning/10 px-4 py-3"
+    >
+      <p className="text-xs font-bold text-warning">
+        You&apos;re under {ADULT_AGE}: ask a parent or guardian first
+      </p>
+      <p className="text-xs leading-relaxed text-text-subtle">
+        Indonesian law (UU PDP No. 27/2022) needs a parent or guardian&apos;s
+        consent before we process a child&apos;s personal data. By continuing,
+        you confirm they have agreed to you using TemanGame.
+      </p>
+    </div>
+  );
+}
+
 /** Half-hour steps. A saved time that isn't on the grid is kept as an option. */
 export function TimeSelect({
   value,
@@ -74,9 +107,9 @@ export function TimeSelect({
 }
 
 /**
- * Day / month / year dropdowns. Years start at the youngest allowed age, so
- * the list can't be scrolled into "too young" — and nobody has to click back
- * through decades in a calendar popup to reach their birth year. Day options
+ * Day / month / year dropdowns, newest year first, so nobody has to click back
+ * through decades in a calendar popup to reach their birth year. Every age is
+ * accepted; under 18 gets `MinorNotice`. Day options
  * follow the chosen month, so "31 February" can't be picked.
  */
 export function DateOfBirthField({
@@ -90,8 +123,8 @@ export function DateOfBirthField({
 }) {
   const thisYear = new Date().getFullYear();
   const years = Array.from(
-    { length: 100 - MINIMUM_AGE },
-    (_, index) => thisYear - MINIMUM_AGE - index
+    { length: MAXIMUM_AGE + 1 },
+    (_, index) => thisYear - index
   );
 
   const maxDay =

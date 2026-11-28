@@ -139,7 +139,8 @@ export default function MatchDetailView({
 
       {isOwner && !ratingsOpen && (
         <p className="rounded-xl border border-border-default bg-bg-card-alt px-4 py-3 text-xs text-text-muted">
-          Ratings are closed for this lobby: it ran less than 15 minutes.
+          Ratings are closed for this lobby: it ran less than{" "}
+          {match.minLobbyMinutes ?? 15} minutes.
         </p>
       )}
 

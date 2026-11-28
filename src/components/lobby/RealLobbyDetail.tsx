@@ -87,6 +87,7 @@ export default function RealLobbyDetail({
     myInvite,
     ratingQueue,
     ratingsClosed,
+    minLobbyMinutes,
   } = data;
   const router = useRouter();
   const { toast } = useNotifications();
@@ -365,7 +366,7 @@ export default function RealLobbyDetail({
               : ratingQueue.length > 0
                 ? `This lobby has ended. Rate the ${ratingQueue.length === 1 ? "player" : `${ratingQueue.length} players`} you played with.`
                 : ratingsClosed
-                  ? "This lobby has ended. Ratings are closed: it ran less than 15 minutes."
+                  ? `This lobby has ended. Ratings are closed: it ran less than ${minLobbyMinutes} minutes.`
                   : "This lobby has ended."}
           </p>
           <div className="flex items-center gap-2">
@@ -464,6 +465,7 @@ export default function RealLobbyDetail({
         <EndLobbyDialog
           started={started}
           startedAt={team.startedAt}
+          minLobbyMinutes={minLobbyMinutes}
           busy={busy}
           onConfirm={confirmed}
           onClose={() => setConfirming(null)}
