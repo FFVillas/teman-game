@@ -43,10 +43,13 @@ export interface MatchRecord {
   viewerWasLeader: boolean;
   teammates: MatchTeammate[];
   /**
-   * Whether ratings are open for this match: false when it ran under 15
-   * minutes (the database refuses those). Mock matches leave it out.
+   * Whether ratings are open for this match: false when it ran under the
+   * minimum (`app_setting.min_lobby_minutes`; the database refuses those).
+   * Mock matches leave it out.
    */
   rateable?: boolean;
+  /** That minimum, in minutes, for the "ratings are closed" line. */
+  minLobbyMinutes?: number;
 }
 
 export function pendingReviews(match: MatchRecord): MatchTeammate[] {

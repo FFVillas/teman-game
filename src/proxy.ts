@@ -79,7 +79,8 @@ export async function proxy(request: NextRequest) {
       profile != null &&
       (profile.playstyle == null ||
         (profile.user_tag?.length ?? 0) < MIN_PERSONALITY_TAGS ||
-        // No date of birth: the 18+ rule can't have been checked. Only on a
+        // No date of birth: whether they need a guardian's consent (under 18,
+        // UU PDP) was never shown. Only on a
         // definite "no row / empty", never on a failed read.
         (!privateError && !privateRow?.date_of_birth));
 
@@ -104,8 +105,8 @@ export async function proxy(request: NextRequest) {
 /**
  * Three things onboarding makes compulsory: playstyle and personality tags,
  * which the recommendation formula reads (Pa in Persamaan 3.2, the tag set in
- * Persamaan 3.14), and the date of birth, without which the 18+ rule
- * (20261115000000_minimum_age_18.sql, UU PDP) was never checked. A player
+ * Persamaan 3.14), and the date of birth, without which a player under 18
+ * never saw the guardian-consent notice (UU PDP; 20261128000100_minor_notice.sql). A player
  * could still close the tab halfway and start browsing — or arrive through
  * Google/Discord, which skip the form — so this sends them back.
  *

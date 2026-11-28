@@ -4,7 +4,6 @@ import {
   type PersonalityTag,
   type PlayerProfile,
 } from "@/data/player-profiles";
-import { MINIMUM_AGE } from "@/lib/age";
 import { formatAvailability, trimSeconds } from "@/lib/availability";
 import { avatarUrl } from "@/lib/avatar";
 import type { PlayerGameSetup } from "@/lib/games";
@@ -184,10 +183,10 @@ export async function saveDateOfBirth(
   return tooYoung(insertError) ?? failed;
 }
 
-/** The minimum-age database trigger raises check_violation with a readable message. */
+/** The date-of-birth trigger raises check_violation for an impossible date. */
 function tooYoung(error: { code?: string; message?: string }): string | null {
-  return error.code === "23514" || error.message?.includes("years old")
-    ? `You must be at least ${MINIMUM_AGE} years old.`
+  return error.code === "23514" || error.message?.includes("date of birth")
+    ? "Enter a valid date of birth."
     : null;
 }
 

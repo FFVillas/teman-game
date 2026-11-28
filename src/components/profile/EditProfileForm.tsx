@@ -48,6 +48,7 @@ import {
   DateOfBirthField,
   Field,
   GenderField,
+  MinorNotice,
   LanguagesField,
   ScheduleFields,
   controlClass,
@@ -222,7 +223,7 @@ export default function EditProfileForm({
     const usernameError = validateUsername(username);
     if (usernameError) nextErrors.username = usernameError;
     const dateOfBirth = joinDate(dobParts);
-    // Required since onboarding asks for it (18+); clearing it here would only
+    // Required since onboarding asks for it; clearing it here would only
     // send the player back to /onboarding on the next page.
     if (!nextErrors.dateOfBirth && !dateOfBirth) {
       nextErrors.dateOfBirth = "Your date of birth is required.";
@@ -528,6 +529,7 @@ export default function EditProfileForm({
                   The date is never shown, only the age it works out to.
                 </p>
               )}
+              <MinorNotice parts={dobParts} />
               <label className="mt-1 flex cursor-pointer items-center gap-2 text-xs text-text-subtle">
                 <input
                   type="checkbox"

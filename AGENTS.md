@@ -85,7 +85,8 @@ supabase/dev-seed/       demo players and lobbies to look at the app with (seed.
                          compare (tc_xxx / @tc.temangame.test), kept apart from seed.sql
                          because Precision@5 participants see seed.sql's lobbies;
                          NOT migrations, run by hand, safe to re-run, all fake data is
-                         demo_xxx / @demo.temangame.test and removed by cleanup.sql
+                         demo_xxx / @demo.temangame.test and removed by cleanup.sql;
+                         study-reset.sql removes one UAT pair between sessions (see "Scripts")
 src/lib/                 small shared helpers (auth redirect)
 src/app/admin/           admin console (overview, reports, players, lobbies, audit-log) — see docs/admin-console.md
 src/components/admin/    admin UI (AdminGate, AdminShell, AdminUi primitives, modals, one view per page)
@@ -634,8 +635,11 @@ Steps: **about you → playstyle** (the compulsory ones, first) → games → ra
 languages and play hours; it shares its inputs and validation with the edit
 form through `components/profile/DossierFields.tsx`, so the two can't drift.
 
-**Three things are compulsory: date of birth ("About you", 18+ under UU PDP)
-and the playstyle step; every other step is optional.** "Skip and finish"
+**Three things are compulsory: date of birth ("About you") and the playstyle
+step; every other step is optional.** Under 18 is **not refused**
+(`20261128000100_minor_notice.sql`): the date shows `MinorNotice`, saying UU PDP
+needs a parent or guardian's consent and that continuing confirms it. The
+database refuses only impossible dates. "Skip and finish"
 appears only on the optional steps after them: it saves what is required and
 finishes, recording nothing for the step on screen (skipping games drops the
 picked games, skipping rank keeps the games without details). The edit form
@@ -833,7 +837,7 @@ confidence marks and open questions before changing any of them.
   `20261123000000_one_lobby_apply.sql`, `already_in_live_lobby`; the join
   dialog says so up front with a link to their lobby). Scheduled lobbies stay
   open to them. **Ending or closing a lobby asks in a pop-up**
-  (`EndLobbyDialog`), which warns when it has run under 15 minutes that no one
+  (`EndLobbyDialog`), which warns when it has run under the minimum that no one
   will be able to rate (`LfgTeam.startedAt`, same rule as `submit_review`). The lobby page re-reads itself when the lobby, its applications, invites
   or system chat lines change (`LiveRefresh`, below). Once a lobby has ended,
   the people who played rate each other from its page. The navbar lobby button
@@ -861,7 +865,10 @@ that gets picked back up. Reviews and reports are separate tables.
 (from `useRating`, `lib/use-rating.ts`) and the queue saves each teammate as
 it goes, staying on them if the database refuses; without them it only
 collects (the mock lobbies). The database owns every rule (`submit_review`):
-the lobby ended after at least 15 minutes, both people played, one rating per
+the lobby ran at least **`app_setting.min_lobby_minutes`** (15 in production, 5
+during the user study; `20261128000000_min_lobby_minutes.sql`, read by the app
+through `fetchMinLobbyMinutes`, so never write the number in code), both
+people played, one rating per
 teammate, and 1–2 stars need a reason (`data/review-options.ts`). The tags
 offered are the ten personality tags (`tag`; names mirrored in
 `personalityTagOptions`, so add one in both), strongest first for that teammate,
@@ -1041,7 +1048,12 @@ Tests sit next to the code they cover (`src/lib/*.test.ts`); shared fixtures are
 in `src/test/`. Test cases follow the proposal's boundary values (rating 0, 1,
 5, 6; playstyle 1–5; `|B| = 0`) so BAB 4 can report them directly.
 `supabase/dev-seed/seed.sql` holds the test lobbies for Precision@5: five open
-ones per game, varied on playstyle, wanted tags, rank range and reputation.
+ones per game, varied on playstyle, wanted tags (all ten tags), rank range and
+reputation, plus `demo_toxic` (poor reputation, all six games, in no lobby), the
+account every UAT pair reports. Nothing suspends a player automatically.
+`supabase/dev-seed/study-reset.sql` runs before each session (puts the test
+lobbies back to open) and after it with the pair's usernames (removes them and
+their reports). The run order is in `testing/uat/README.md`.
 
 **The evaluation the proposal promises is planned in
 [`docs/test-plan.md`](docs/test-plan.md)** — black-box (boundary values,

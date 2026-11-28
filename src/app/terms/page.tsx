@@ -26,7 +26,7 @@ export default function TermsOfServicePage() {
               Terms and Services
             </h1>
             <p className="text-xs text-text-muted">
-              Last updated November 18, 2026
+              Last updated November 28, 2026
             </p>
           </div>
 
@@ -42,8 +42,9 @@ export default function TermsOfServicePage() {
             <Section title="Your Account">
               <SubSection number={1} title="Eligibility">
                 <p>
-                  You must be at least 18 years old to use TemanGame. By
-                  signing up, you confirm that you meet this requirement.
+                  If you are under 18, you need a parent or guardian&apos;s
+                  consent to use TemanGame. By signing up, you confirm that
+                  you are 18 or older or have that consent.
                 </p>
               </SubSection>
 

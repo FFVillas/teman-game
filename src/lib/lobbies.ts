@@ -1,5 +1,6 @@
 import { cache } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { fetchMinLobbyMinutes } from "@/lib/app-settings";
 import type { LfgMode, LfgTeam } from "@/data/lfg-teams";
 import { coverSrc } from "@/data/lfg-covers";
 import { rankIconFor } from "@/data/rank-icons";
@@ -672,8 +673,10 @@ export interface LobbyDetailData {
   myInvite: MyInvite | null;
   /** Teammates the viewer can still rate; only once the lobby has ended. */
   ratingQueue: LobbyPerson[];
-  /** The viewer played here, but ratings are closed: it ran under 15 minutes. */
+  /** The viewer played here, but ratings are closed: it ran under the minimum. */
   ratingsClosed: boolean;
+  /** Minutes a lobby must run before ratings open (`app_setting`). */
+  minLobbyMinutes: number;
 }
 
 /**
@@ -692,7 +695,7 @@ export async function fetchLobbyDetail(
 
   // The link is private: the database answers only for people in the lobby.
   const inLobby = team.viewerState === "leader" || team.viewerState === "member";
-  const [voice, applicationResult, inviteResult, matchResult] = await Promise.all([
+  const [voice, applicationResult, inviteResult, matchResult, minLobbyMinutes] = await Promise.all([
     viewerId && inLobby
       ? supabase.rpc("lobby_voice_link", { p_lobby_id: lobbyId })
       : Promise.resolve({ data: null }),
@@ -713,6 +716,7 @@ export async function fetchLobbyDetail(
     team.completed && viewerId
       ? supabase.rpc("player_matches", { p_user: viewerId })
       : Promise.resolve({ data: null }),
+    fetchMinLobbyMinutes(supabase),
   ]);
   const voiceUrl = (voice.data as string | null) ?? null;
   const applications = (applicationResult.data ?? []) as Array<{
@@ -869,6 +873,7 @@ export async function fetchLobbyDetail(
     ratingQueue: rateableIds.map((id) => person(id, null)),
     ratingsClosed:
       rateableIds.length === 0 && teammates.some((row) => row.rated === false),
+    minLobbyMinutes,
   };
 }
 

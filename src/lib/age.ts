@@ -1,11 +1,20 @@
 /**
- * 18, not 13, since the October 2026 proposal revision: Indonesia's personal
- * data law (UU PDP No. 27/2022) requires a parent or guardian's consent to
- * process a child's data, and TemanGame has no way to collect that. The
- * database enforces the same number — see
- * `20261115000000_minimum_age_18.sql`.
+ * Under 18 counts as a child in Indonesia's personal data law (UU PDP No.
+ * 27/2022), whose data needs a parent or guardian's consent. Younger players
+ * are NOT refused (they were from 20261115000000 until
+ * 20261128000100_minor_notice.sql): they see a notice that they need that
+ * consent (`MinorNotice` in components/profile/DossierFields.tsx).
  */
-export const MINIMUM_AGE = 18;
+export const ADULT_AGE = 18;
+
+/** Oldest age the form offers; anything above it is taken as a typo. */
+export const MAXIMUM_AGE = 120;
+
+/** True when the date is real and the player is under `ADULT_AGE` today. */
+export function isMinor(iso: string, today = new Date()): boolean {
+  const age = ageFromDate(iso, today);
+  return age !== null && age < ADULT_AGE;
+}
 
 /**
  * Whole years between an ISO date ("YYYY-MM-DD") and today, or null when the
@@ -65,8 +74,6 @@ export function daysInMonth(year: number, month: number): number {
 export function validateDateOfBirth(iso: string): string | null {
   if (!iso) return null;
   const age = ageFromDate(iso);
-  if (age === null) return "Enter a valid date.";
-  if (age < MINIMUM_AGE) return `You must be at least ${MINIMUM_AGE} years old.`;
-  if (age > 120) return "Enter a valid date.";
+  if (age === null || age < 0 || age > MAXIMUM_AGE) return "Enter a valid date.";
   return null;
 }

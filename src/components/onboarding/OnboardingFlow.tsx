@@ -18,7 +18,7 @@ import { gameProfileProblem } from "@/lib/game-profile";
 import { saveDateOfBirth } from "@/lib/profiles";
 import { saveUserTags } from "@/lib/tags";
 import type { PersonalityTag } from "@/data/player-profiles";
-import { emptyDateParts, joinDate, MINIMUM_AGE } from "@/lib/age";
+import { emptyDateParts, joinDate } from "@/lib/age";
 import { validateDossier } from "@/components/profile/DossierFields";
 import GamesStep from "./GamesStep";
 import AboutYouStep, { type AboutYou } from "./AboutYouStep";
@@ -70,7 +70,7 @@ export default function OnboardingFlow({ catalog }: { catalog: GameInfo[] }) {
   const [connected, setConnected] = useState<Set<ConnectedProvider>>(new Set());
   const [stepIndex, setStepIndex] = useState(0);
 
-  // The three compulsory answers come first — date of birth ("about", 18+),
+  // The three compulsory answers come first — date of birth ("about"),
   // then playstyle and tags — so everything after them can be skipped
   // without leaving the account half set up. "rank" only makes sense once at
   // least one game is picked, so it isn't shown as an empty step otherwise.
@@ -261,10 +261,10 @@ export default function OnboardingFlow({ catalog }: { catalog: GameInfo[] }) {
         dobParts: about.dobParts,
         schedule: about.schedule,
       });
-      // Required here (not on the edit form, where it's already set): the
-      // 18+ rule can only be checked against a date (UU PDP; proposal 1.3).
+      // Required here (not on the edit form, where it's already set): whether
+      // a player needs a guardian's consent (UU PDP) depends on the date.
       if (!found.dateOfBirth && !joinDate(about.dobParts)) {
-        found.dateOfBirth = `Enter your date of birth. TemanGame is for players ${MINIMUM_AGE} and over.`;
+        found.dateOfBirth = "Enter your date of birth.";
       }
       if (found.dateOfBirth || found.schedule) {
         setAboutErrors(found);
@@ -308,7 +308,7 @@ export default function OnboardingFlow({ catalog }: { catalog: GameInfo[] }) {
       </div>
 
       {/* Only on the optional steps after them. "About you" holds the date
-          of birth (18+), "Playstyle" holds Pa and the tags the formula needs. */}
+          of birth, "Playstyle" holds Pa and the tags the formula needs. */}
       {step !== "playstyle" && step !== "about" && (
         <button
           type="button"
